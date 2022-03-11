@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>Spatial Audio Room</title>
+        <link rel="stylesheet" href="./vendor/bootstrap.min.css">
+        <link rel="stylesheet" href="./index.css">
+    </head>
+    <body>
+        <div class="container-fluid banner">
+            <p class="banner-text">Spatial Audio Room</p>
+        </div>
+        <div class="container">
+            <form id="join-form">
+                <div class="row join-info-group">
+                    <div class="col-sm" hidden>
+                        <p class="join-info-text">AppID</p>
+                        <input id="appid" type="text" value="366ef844621b07594078146f4433647a" required>
+                    </div>
+                    <div class="col-sm">
+                        <p class="join-info-text">Channel</p>
+                        <input id="channel" type="text" value="hifi-demo" required>
+                        <input id="password" type="text" placeholder="password" required>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button id="join" type="submit" class="btn btn-primary btn-sm">Join</button>
+                    <button id="leave" type="button" class="btn btn-primary btn-sm" disabled>Leave</button>
+                    <button id="sound" type="button" class="btn btn-primary btn-sm" style="float:right;" hidden>Sound</button>
+                </div>
+            </form>
+            <div class="canvas-group" style="width:100%; text-align: center;">
+                <canvas id="canvas"></canvas>
+                <img src="listener.svg" class="icon" alt="listener" id="listenerIcon" hidden>
+                <img src="source.svg" class="icon" alt="source" id="sourceIcon" hidden>
+            </div>
+            <div id="success-alert" class="alert alert-success" role="alert">
+                <span>You have successfully joined the room </span>
+            </div>
+        </div>
+        <script src="./vendor/jquery-3.4.1.min.js"></script>
+        <script src="./vendor/bootstrap.bundle.min.js"></script>
+        <script src="./vendor/resonance-audio.min.js"></script>
+        <script src="./AgoraRTC_N-4.8.1.js"></script>
+        <script src="./canvas-control.js"></script>
+        <script src="./index.js"></script>
+    </body>
+</html>
