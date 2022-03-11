@@ -411,7 +411,7 @@ async function playSoundEffect() {
 
     // load on first play
     if (!audioBuffer) {
-        let response = await fetch('sound.wav');
+        let response = await fetch('https://raw.githubusercontent.com/kencooke/spatial-audio-room/master/sound.wav');
         let buffer = await response.arrayBuffer();
         audioBuffer = await audioContext.decodeAudioData(buffer);
     }
