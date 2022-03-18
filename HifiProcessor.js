@@ -122,3 +122,35 @@ registerProcessor('wasm-limiter', class extends AudioWorkletProcessor {
         return true;
     }
 })
+
+registerProcessor('wasm-noise-gate', class extends AudioWorkletProcessor {
+
+    static get parameterDescriptors() {
+        return [
+            { name: 'threshold', defaultValue: -40, minValue: -100, maxValue: 0, automationRate: 'k-rate' },
+        ];
+    }
+
+    constructor() {
+        super();
+
+        this._noiseGate = new Module.NoiseGate(sampleRate);
+
+        this._inoutBuffer = new WASMAudioBuffer(Module, NUM_FRAMES, 1, 1);
+    }
+
+    process(inputs, outputs, parameters) {
+
+        // copy in
+        this._inoutBuffer.getF32Array().set(inputs[0][0]);
+
+        // process (in-place)
+        this._noiseGate.setThreshold(parameters.threshold[0]);
+        this._noiseGate.process(this._inoutBuffer.getPointer(), this._inoutBuffer.getPointer(), NUM_FRAMES);
+
+        // copy out
+        outputs[0][0].set(this._inoutBuffer.getF32Array());
+
+        return true;
+    }
+})

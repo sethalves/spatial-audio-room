@@ -41,14 +41,12 @@ function decrypt_appid(data, key) {
 // the demo can auto join channel with params in url
 $(()=>{
     let urlParams = new URL(location.href).searchParams;
-    options.appid = urlParams.get("appid");
     options.channel = urlParams.get("channel");
-    options.token = urlParams.get("token");
-    if (options.appid && options.channel) {
-        $("#appid").val(options.appid);
-        $("#token").val(options.token);
+    options.password = urlParams.get("password");
+    if (options.channel && options.password) {
         $("#channel").val(options.channel);
-        $("#join-form").submit();
+        $("#password").val(options.password);
+        //$("#join-form").submit();
     }
 }
 )
@@ -86,11 +84,20 @@ let audioContext = undefined;
 
 let resonanceGain = undefined;
 const RESONANCE_GAIN = 1.0;
+let resonanceAudioScene = undefined;
 
 const USE_HIFI = true;
+let hifiNoiseGate = undefined;  // mic stream connects here
 let hifiListener = undefined;   // hrtf sources connect here
 let hifiLimiter = undefined;    // additional sounds connect here
-let resonanceAudioScene = undefined;
+
+threshold.oninput = () => {
+    if (typeof hifiNoiseGate !== 'undefined') {
+        hifiNoiseGate.parameters.get('threshold').value = threshold.value;
+        console.log('set noisegate threshold to', threshold.value, 'dB');
+    }
+    document.getElementById("threshold-value").value = threshold.value;
+}
 
 function setPosition(source) {
     let dx = source._x - hifiListener._x;
@@ -214,16 +221,24 @@ async function join() {
     client.on("user-published", handleUserPublished);
     client.on("user-unpublished", handleUserUnpublished);
 
-    // join a channel and create local tracks, we can use Promise.all to run them concurrently
-    [options.uid,localTracks.audioTrack /*,localTracks.videoTrack*/
-    ] = await Promise.all([// join the channel
-    client.join(options.appid, options.channel, options.token || null), // create local tracks, using microphone and camera
-    AgoraRTC.createMicrophoneAudioTrack(audioConfig) /*, AgoraRTC.createCameraVideoTrack()*/
-    ]);
+    // join a channel and create local tracks
+    options.uid = await client.join(options.appid, options.channel, options.token || null);
+    localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack(audioConfig);
 
-    // play local video track
-    //localTracks.videoTrack.play("local-player");
-    //$("#local-player-name").text(`localVideo(${options.uid})`);
+    //
+    // route mic stream through Web Audio noise gate
+    //
+    let audioMediaStreamTrack = localTracks.audioTrack.getMediaStreamTrack();
+    let audioMediaStream = new MediaStream([audioMediaStreamTrack]);
+    
+    let audioSourceNode = audioContext.createMediaStreamSource(audioMediaStream);
+    let audioDestinationNode = audioContext.createMediaStreamDestination()
+    hifiNoiseGate = new AudioWorkletNode(audioContext, 'wasm-noise-gate');
+
+    audioSourceNode.connect(hifiNoiseGate).connect(audioDestinationNode);
+
+    let audioDestinationTrack = audioDestinationNode.stream.getAudioTracks()[0];
+    await localTracks.audioTrack._updateOriginMediaStreamTrack(audioDestinationTrack, !1);
 
     // publish local tracks to channel
     await client.publish(Object.values(localTracks));
