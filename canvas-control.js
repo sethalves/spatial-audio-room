@@ -57,12 +57,12 @@ function CanvasControl(canvas, elements, callbackFunc) {
 
   window.addEventListener('resize', function(event) {
     that.resize();
-    that.draw();
+    //that.draw();
   }, false);
 
   this.invokeCallback();
   this.resize();
-  this.draw();
+  //this.draw();
 }
 
 CanvasControl.prototype.invokeCallback = function() {
@@ -100,6 +100,7 @@ CanvasControl.prototype.draw = function() {
         icon, x, y, radiusInPixels * 2, radiusInPixels * 2);
     }
   }
+  requestAnimationFrame((t) => this.draw());
 };
 
 CanvasControl.prototype.getCursorPosition = function(event) {
@@ -153,7 +154,7 @@ CanvasControl.prototype._cursorUpdateFunc = function(cursorPosition) {
       (cursorPosition.y + this._selected.yOffset) / this._canvas.height));
     this.invokeCallback();
   }
-  this.draw();
+  //this.draw();
 };
 
 CanvasControl.prototype._cursorDownFunc = function(event) {

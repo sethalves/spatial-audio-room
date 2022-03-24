@@ -1,5 +1,12 @@
 'use strict';
 
+// HACK! patch RTCPeerConnection to add {encodedInsertableStreams=true}
+let _RTCPeerConnection = RTCPeerConnection;
+RTCPeerConnection = function(config) {
+    config.encodedInsertableStreams = true;
+    return new _RTCPeerConnection(config);
+}
+
 // create Agora client
 let client = AgoraRTC.createClient({
     mode: "rtc",
@@ -69,7 +76,7 @@ $("#join-form").submit(async function(e) {
 
 $("#leave").click(function(e) {
     leave();
-    $("#success-alert").css("display", "none");    
+    $("#success-alert").css("display", "none");
 })
 
 $("#sound").click(function(e) {
@@ -172,30 +179,10 @@ const positionTable = [
  * @private
  */
 function updatePositions(elements) {
-
-    for (let i = 0; i < elements.length; i++) {
-
-        // transform canvas to audio coordinates
-        let x = (elements[i].x - 0.5) * roomDimensions.width;
-        let z = -(elements[i].y - 0.5) * roomDimensions.depth;
-
-        if (USE_HIFI) {
-            if (i == 0) {
-                hifiListener._x = x;
-                hifiListener._y = z;
-            } else {
-                elements[i].source._x = x;
-                elements[i].source._y = z;
-                setPosition(elements[i].source);
-            }
-        } else {
-            if (i == 0) {
-                resonanceAudioScene.setListenerPosition(x, 0, z);
-            } else {
-                elements[i].source.setPosition(x, 0, z);
-            }
-        }
-    }
+    // only update the listener (index=0)
+    // transform canvas to audio coordinates
+    hifiListener._x = (elements[0].x - 0.5) * roomDimensions.width;
+    hifiListener._y = -(elements[0].y - 0.5) * roomDimensions.depth;
 }
 
 async function join() {
@@ -204,18 +191,20 @@ async function join() {
 
     let canvas = document.getElementById('canvas');
 
-    const [x, z] = positionTable[0];
+    let x = 2.0 * Math.random() - 1.0;
+    let y = 2.0 * Math.random() - 1.0;
     elements.push({
         icon: 'listenerIcon',
         x: 0.5 + (x / roomDimensions.width),
-        y: 0.5 - (z / roomDimensions.depth),
+        y: 0.5 - (y / roomDimensions.depth),
         radius: 0.02,
         alpha: 0.5,
         clickable: true,
     });
-    console.log('listener', { x, z });
+    console.log('listener', { x, y });
 
     canvasControl = new CanvasControl(canvas,elements,updatePositions);
+    canvasControl.draw();
 
     // add event listener to play remote tracks when remote user publishs.
     client.on("user-published", handleUserPublished);
@@ -230,7 +219,7 @@ async function join() {
     //
     let audioMediaStreamTrack = localTracks.audioTrack.getMediaStreamTrack();
     let audioMediaStream = new MediaStream([audioMediaStreamTrack]);
-    
+
     let audioSourceNode = audioContext.createMediaStreamSource(audioMediaStream);
     let audioDestinationNode = audioContext.createMediaStreamDestination()
     hifiNoiseGate = new AudioWorkletNode(audioContext, 'wasm-noise-gate');
@@ -243,6 +232,92 @@ async function join() {
     // publish local tracks to channel
     await client.publish(Object.values(localTracks));
     console.log("publish success");
+
+    //
+    // HACK! insertable streams
+    //
+    let sender = client._highStream.pc.pc.getSenders()[0];
+    senderTransform(sender);
+}
+
+function senderTransform(sender) {
+    const senderStreams = sender.createEncodedStreams();
+    const readableStream = senderStreams.readable;
+    const writableStream = senderStreams.writable;
+    const transformStream = new TransformStream({
+        start() { console.log('installed sender transform'); },
+        transform(encodedFrame, controller) {
+            if (sender.track.kind === "audio") {
+
+                let src = new DataView(encodedFrame.data);
+                let len = encodedFrame.data.byteLength;
+
+                // create dst buffer with 4 extra bytes
+                let dst = new DataView(new ArrayBuffer(len + 4));
+
+                // copy src data
+                for (let i = 0; i < len; ++i) {
+                    dst.setInt8(i, src.getInt8(i));
+                }
+
+                // insert metadata at the end
+                let qx = Math.round(hifiListener._x * 256.0); // x in Q7.8
+                let qy = Math.round(hifiListener._y * 256.0); // y in Q7.8
+
+                dst.setInt16(len + 0, qx);
+                dst.setInt16(len + 2, qy);
+
+                encodedFrame.data = dst.buffer;
+            }
+            controller.enqueue(encodedFrame);
+        },
+    });
+    readableStream.pipeThrough(transformStream).pipeTo(writableStream);
+}
+
+function receiverTransform(receiver, uid) {
+    const receiverStreams = receiver.createEncodedStreams();
+    const readableStream = receiverStreams.readable;
+    const writableStream = receiverStreams.writable;
+    const transformStream = new TransformStream({
+        uid,
+        start() { console.log('installed receiver transform for uid:', uid); },
+        transform(encodedFrame, controller) {
+            if (receiver.track.kind === "audio") {
+
+                let src = new DataView(encodedFrame.data);
+                let len = encodedFrame.data.byteLength - 4;
+
+                // create dst buffer with 4 fewer bytes
+                let dst = new DataView(new ArrayBuffer(len));
+
+                // copy src data
+                for (let i = 0; i < len; ++i) {
+                    dst.setInt8(i, src.getInt8(i));
+                }
+
+                // extract metadata at the end
+                let x = src.getInt16(len + 0) * (1/256.0);
+                let y = src.getInt16(len + 2) * (1/256.0);
+
+                // find source for this uid
+                let item = elements.find(item => item.uid === uid);
+
+                // update source position
+                item.source._x = x;
+                item.source._y = y;
+                setPosition(item.source);
+
+                // update screen position
+                item.x = 0.5 + (x / roomDimensions.width);
+                item.y = 0.5 - (y / roomDimensions.depth);
+
+                encodedFrame.data = dst.buffer;
+            }
+            controller.enqueue(encodedFrame);
+        },
+    });
+    readableStream.pipeThrough(transformStream).pipeTo(writableStream);
 }
 
 async function leave() {
@@ -268,8 +343,8 @@ async function leave() {
     $("#leave").attr("disabled", true);
 
     elements.length = 0;
-    canvasControl.draw();
-    
+    //canvasControl.draw();
+
     stopSpatialAudio();
 
     console.log("client leaves channel success");
@@ -285,7 +360,7 @@ function handleUserUnpublished(user) {
     const id = user.uid;
     delete remoteUsers[id];
     $(`#player-wrapper-${id}`).remove();
-    unsubscribe(user);    
+    unsubscribe(user);
 }
 
 async function subscribe(user, mediaType) {
@@ -308,17 +383,24 @@ async function subscribe(user, mediaType) {
 
     if (mediaType === 'audio') {
 
-        //    
+        //
         //    user.audioTrack.setAudioFrameCallback((buffer) => {
         //      console.log(
-        //          "sampleRate = ", buffer.sampleRate, 
-        //          "channels = ", buffer.numberOfChannels, 
+        //          "sampleRate = ", buffer.sampleRate,
+        //          "channels = ", buffer.numberOfChannels,
         //          "peak[0] =", (32768.0 * Math.max.apply(null, buffer.getChannelData(0).map(Math.abs))).toFixed()
         //      );
         //    }, 16384);
         //
-        
+
         //user.audioTrack.play();
+
+        //
+        // HACK! insertable streams
+        //
+        let remoteStream = client._remoteStream.get(uid);
+        let receiver = remoteStream.pc.pc.getReceivers()[0];
+        receiverTransform(receiver, uid);
 
         let audioMediaStreamTrack = user.audioTrack.getMediaStreamTrack();
         let audioMediaStream = new MediaStream([audioMediaStreamTrack]);
@@ -328,9 +410,9 @@ async function subscribe(user, mediaType) {
         const [x, z] = positionTable[elements.length % positionTable.length];
         if (USE_HIFI) {
             source = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
-            source._x = x;
-            source._y = z;
-            setPosition(source);
+            //source._x = x;
+            //source._y = z;
+            //setPosition(source);
             source.connect(hifiListener);
         } else {
             source = resonanceAudioScene.createSource();
@@ -340,17 +422,17 @@ async function subscribe(user, mediaType) {
 
         elements.push({
             icon: 'sourceIcon',
-            x: 0.5 + (x / roomDimensions.width),
-            y: 0.5 - (z / roomDimensions.depth),
+            //x: 0.5 + (x / roomDimensions.width),
+            //y: 0.5 - (z / roomDimensions.depth),
             radius: 0.02,
             alpha: 0.5,
-            clickable: true,
+            clickable: false,
 
             source: source,
             uid: uid,
         });
-        canvasControl.draw();
-        console.log('source', { uid, x, z });
+        //canvasControl.draw();
+        //console.log('source', { uid, x, z });
     }
 }
 
@@ -360,7 +442,7 @@ async function unsubscribe(user) {
     // find and remove this uid
     let i = elements.findIndex(item => item.uid === uid);
     elements.splice(i, 1);
-    canvasControl.draw();    
+    //canvasControl.draw();
 
     console.log("unsubscribe uid:", uid);
 }
@@ -383,14 +465,14 @@ async function startSpatialAudio() {
         await audioContext.audioWorklet.addModule('HifiProcessor.js');
 
         hifiListener = new AudioWorkletNode(audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
-        hifiListener._x = 0;
-        hifiListener._y = 0;
+        //hifiListener._x = 0;
+        //hifiListener._y = 0;
 
         resonanceGain = audioContext.createGain();
         resonanceGain.gain.value = RESONANCE_GAIN;
 
         hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter');
-    
+
         hifiListener.connect(resonanceGain).connect(hifiLimiter).connect(audioContext.destination);
 
     } else {
@@ -405,7 +487,7 @@ async function startSpatialAudio() {
         resonanceGain = audioContext.createGain();
         resonanceGain.gain.value = RESONANCE_GAIN;
         resonanceGain.connect(resonanceLimiter);
-        
+
         resonanceAudioScene = new ResonanceAudio(audioContext, { ambisonicOrder: 3 });
         resonanceAudioScene.setRoomProperties(roomDimensions, roomMaterials);
         resonanceAudioScene.setListenerPosition(0, 0, 0);
@@ -434,5 +516,5 @@ async function playSoundEffect() {
      let sourceNode = new AudioBufferSourceNode(audioContext);
     sourceNode.buffer = audioBuffer;
     sourceNode.connect(hifiLimiter);
-    sourceNode.start();    
+    sourceNode.start();
 }
