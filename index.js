@@ -89,11 +89,6 @@ let elements = [];
 let audioElement = undefined;
 let audioContext = undefined;
 
-let resonanceGain = undefined;
-const RESONANCE_GAIN = 1.0;
-let resonanceAudioScene = undefined;
-
-const USE_HIFI = true;
 let hifiNoiseGate = undefined;  // mic stream connects here
 let hifiListener = undefined;   // hrtf sources connect here
 let hifiLimiter = undefined;    // additional sounds connect here
@@ -124,54 +119,6 @@ const roomDimensions = {
     height: 2.5,
     depth: 8,
 };
-
-const roomMaterials = {
-//    left: 'brick-painted', right: 'brick-painted', front: 'brick-painted', back: 'brick-painted',
-//    down: 'transparent', up: 'transparent',
-
-//    left: 'curtain-heavy', right: 'curtain-heavy', front: 'curtain-heavy', back: 'curtain-heavy',
-//    down: 'transparent', up: 'transparent',
-
-    left: 'transparent', right: 'transparent', front: 'transparent', back: 'transparent',
-    down: 'transparent', up: 'transparent',
-};
-
-const positionTable = [
-    [     0.0000,      0.0000 ],   // listener
-
-    [2 *  0.0000, 2 *  1.0000 ],   // source #1
-    [2 *  1.0000, 2 *  0.0000 ],   // source #2
-    [2 * -1.0000, 2 *  0.0000 ],   // ...
-    [2 *  0.0000, 2 * -1.0000 ],
-    [2 *  0.7071, 2 *  0.7071 ],
-    [2 * -0.7071, 2 *  0.7071 ],
-    [2 *  0.7071, 2 * -0.7071 ],
-    [2 * -0.7071, 2 * -0.7071 ],
-    [2 *  0.3827, 2 *  0.9239 ],
-    [2 * -0.3827, 2 *  0.9239 ],
-    [2 *  0.9239, 2 *  0.3827 ],
-    [2 * -0.9239, 2 *  0.3827 ],
-    [2 *  0.9239, 2 * -0.3827 ],
-    [2 * -0.9239, 2 * -0.3827 ],
-    [2 *  0.3827, 2 * -0.9239 ],
-    [2 * -0.3827, 2 * -0.9239 ],
-    [2 *  0.1951, 2 *  0.9808 ],
-    [2 * -0.1951, 2 *  0.9808 ],
-    [2 *  0.5556, 2 *  0.8315 ],
-    [2 * -0.5556, 2 *  0.8315 ],
-    [2 *  0.8315, 2 *  0.5556 ],
-    [2 * -0.8315, 2 *  0.5556 ],
-    [2 *  0.9808, 2 *  0.1951 ],
-    [2 * -0.9808, 2 *  0.1951 ],
-    [2 *  0.9808, 2 * -0.1951 ],
-    [2 * -0.9808, 2 * -0.1951 ],
-    [2 *  0.8315, 2 * -0.5556 ],
-    [2 * -0.8315, 2 * -0.5556 ],
-    [2 *  0.5556, 2 * -0.8315 ],
-    [2 * -0.5556, 2 * -0.8315 ],
-    [2 *  0.1951, 2 * -0.9808 ],
-    [2 * -0.1951, 2 * -0.9808 ],
-];
 
 /**
  * Update the audio sound objects' positions.
@@ -383,16 +330,6 @@ async function subscribe(user, mediaType) {
 
     if (mediaType === 'audio') {
 
-        //
-        //    user.audioTrack.setAudioFrameCallback((buffer) => {
-        //      console.log(
-        //          "sampleRate = ", buffer.sampleRate,
-        //          "channels = ", buffer.numberOfChannels,
-        //          "peak[0] =", (32768.0 * Math.max.apply(null, buffer.getChannelData(0).map(Math.abs))).toFixed()
-        //      );
-        //    }, 16384);
-        //
-
         //user.audioTrack.play();
 
         //
@@ -405,25 +342,12 @@ async function subscribe(user, mediaType) {
         let audioMediaStreamTrack = user.audioTrack.getMediaStreamTrack();
         let audioMediaStream = new MediaStream([audioMediaStreamTrack]);
         let audioSourceNode = audioContext.createMediaStreamSource(audioMediaStream);
-        let source = undefined;
 
-        const [x, z] = positionTable[elements.length % positionTable.length];
-        if (USE_HIFI) {
-            source = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
-            //source._x = x;
-            //source._y = z;
-            //setPosition(source);
-            source.connect(hifiListener);
-        } else {
-            source = resonanceAudioScene.createSource();
-            source.setPosition(x, 0, z);
-        }
-        audioSourceNode.connect(source);
+        let source = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
+        audioSourceNode.connect(source).connect(hifiListener);;
 
         elements.push({
             icon: 'sourceIcon',
-            //x: 0.5 + (x / roomDimensions.width),
-            //y: 0.5 - (z / roomDimensions.depth),
             radius: 0.02,
             alpha: 0.5,
             clickable: false,
@@ -460,39 +384,11 @@ async function startSpatialAudio() {
 
     console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
 
-    if (USE_HIFI) {
+    await audioContext.audioWorklet.addModule('HifiProcessor.js');
 
-        await audioContext.audioWorklet.addModule('HifiProcessor.js');
-
-        hifiListener = new AudioWorkletNode(audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
-        //hifiListener._x = 0;
-        //hifiListener._y = 0;
-
-        resonanceGain = audioContext.createGain();
-        resonanceGain.gain.value = RESONANCE_GAIN;
-
-        hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter');
-
-        hifiListener.connect(resonanceGain).connect(hifiLimiter).connect(audioContext.destination);
-
-    } else {
-        let resonanceLimiter = audioContext.createDynamicsCompressor();
-        resonanceLimiter.threshold.value = -0.5;
-        resonanceLimiter.knee.value = 0.0;
-        resonanceLimiter.ratio.value = 20.0;
-        resonanceLimiter.attack.value = 0.005;
-        resonanceLimiter.release.value = 0.100;
-        resonanceLimiter.connect(audioContext.destination);
-
-        resonanceGain = audioContext.createGain();
-        resonanceGain.gain.value = RESONANCE_GAIN;
-        resonanceGain.connect(resonanceLimiter);
-
-        resonanceAudioScene = new ResonanceAudio(audioContext, { ambisonicOrder: 3 });
-        resonanceAudioScene.setRoomProperties(roomDimensions, roomMaterials);
-        resonanceAudioScene.setListenerPosition(0, 0, 0);
-        resonanceAudioScene.output.connect(resonanceGain);
-    }
+    hifiListener = new AudioWorkletNode(audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
+    hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter');
+    hifiListener.connect(hifiLimiter).connect(audioContext.destination);
 
     $("#sound").attr("hidden", false);
     audioElement.play();
