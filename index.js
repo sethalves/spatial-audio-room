@@ -78,9 +78,27 @@ $("#leave").click(function(e) {
     $("#success-alert").css("display", "none");
 })
 
+let isMuted = false;
+$("#mute").click(function(e) {
+    // toggle the state
+    isMuted = !isMuted;
+    $("#mute").css("background-color", isMuted ? "red" : "");
+
+    // if muted, set gate threshold to 0dB, else follow slider
+    setThreshold(isMuted ? 0.0 : threshold.value);
+})
+
 $("#sound").click(function(e) {
     playSoundEffect();
 })
+
+// threshold slider
+threshold.oninput = () => {
+    if (!isMuted) {
+        setThreshold(threshold.value);
+    }
+    document.getElementById("threshold-value").value = threshold.value;
+}
 
 let canvasControl;
 let elements = [];
@@ -92,12 +110,11 @@ let hifiNoiseGate = undefined;  // mic stream connects here
 let hifiListener = undefined;   // hrtf sources connect here
 let hifiLimiter = undefined;    // additional sounds connect here
 
-threshold.oninput = () => {
-    if (typeof hifiNoiseGate !== 'undefined') {
-        hifiNoiseGate.parameters.get('threshold').value = threshold.value;
-        console.log('set noisegate threshold to', threshold.value, 'dB');
+function setThreshold(value) {
+    if (hifiNoiseGate !== undefined) {
+        hifiNoiseGate.parameters.get('threshold').value = value;
+        console.log('set noisegate threshold to', value, 'dB');
     }
-    document.getElementById("threshold-value").value = threshold.value;
 }
 
 function setPosition(source) {
@@ -389,11 +406,13 @@ async function startSpatialAudio() {
     hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter');
     hifiListener.connect(hifiLimiter).connect(audioContext.destination);
 
+    $("#mute").attr("hidden", false);
     $("#sound").attr("hidden", false);
     audioElement.play();
 }
 
 function stopSpatialAudio() {
+    $("#mute").attr("hidden", true);
     $("#sound").attr("hidden", true);
     audioContext.close();
 }
