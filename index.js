@@ -1,10 +1,9 @@
 'use strict';
 
-// HACK! patch RTCPeerConnection to add {encodedInsertableStreams=true}
+// patch RTCPeerConnection to enable insertable streams
 let _RTCPeerConnection = RTCPeerConnection;
-RTCPeerConnection = function(config) {
-    config.encodedInsertableStreams = true;
-    return new _RTCPeerConnection(config);
+RTCPeerConnection = function() {
+    return new _RTCPeerConnection({ encodedInsertableStreams: true });
 }
 
 // create Agora client
@@ -181,9 +180,9 @@ async function join() {
     console.log("publish success");
 
     //
-    // HACK! insertable streams
+    // insertable streams
     //
-    let sender = client._highStream.pc.pc.getSenders()[0];
+    let sender = client._p2pChannel.connection.peerConnection.getSenders()[0];
     senderTransform(sender);
 }
 
@@ -332,19 +331,19 @@ async function subscribe(user, mediaType) {
 
         //user.audioTrack.play();
 
-        //
-        // HACK! insertable streams
-        //
-        let remoteStream = client._remoteStream.get(uid);
-        let receiver = remoteStream.pc.pc.getReceivers()[0];
-        receiverTransform(receiver, uid);
-
         let audioMediaStreamTrack = user.audioTrack.getMediaStreamTrack();
         let audioMediaStream = new MediaStream([audioMediaStreamTrack]);
         let audioSourceNode = audioContext.createMediaStreamSource(audioMediaStream);
 
         let source = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
-        audioSourceNode.connect(source).connect(hifiListener);;
+        audioSourceNode.connect(source).connect(hifiListener);
+
+        //
+        // insertable streams
+        //
+        let receivers = client._p2pChannel.connection.peerConnection.getReceivers();
+        let receiver = receivers.find(r => r.track.id === audioMediaStreamTrack.id);
+        receiverTransform(receiver, uid);
 
         elements.push({
             icon: 'sourceIcon',
