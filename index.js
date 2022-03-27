@@ -107,7 +107,7 @@ let audioElement = undefined;
 let audioContext = undefined;
 
 let hifiNoiseGate = undefined;  // mic stream connects here
-let hifiListener = undefined;   // hrtf sources connect here
+let hifiListener = undefined;   // hifiSource connects here
 let hifiLimiter = undefined;    // additional sounds connect here
 
 function setThreshold(value) {
@@ -117,16 +117,16 @@ function setThreshold(value) {
     }
 }
 
-function setPosition(source) {
-    let dx = source._x - hifiListener._x;
-    let dy = source._y - hifiListener._y;
+function setPosition(hifiSource) {
+    let dx = hifiSource._x - hifiListener._x;
+    let dy = hifiSource._y - hifiListener._y;
 
     //let azimuth = angle_wrap(atan2f(dx, dy) - avatarOrientationRadians);
     let azimuth = Math.atan2(dx, dy);
     let distance = Math.sqrt(dx * dx + dy * dy);
 
-    source.parameters.get('azimuth').value = azimuth;
-    source.parameters.get('distance').value = distance;
+    hifiSource.parameters.get('azimuth').value = azimuth;
+    hifiSource.parameters.get('distance').value = distance;
     //console.log({azimuth, distance});
 }
 
@@ -180,17 +180,17 @@ async function join() {
     //
     // route mic stream through Web Audio noise gate
     //
-    let audioMediaStreamTrack = localTracks.audioTrack.getMediaStreamTrack();
-    let audioMediaStream = new MediaStream([audioMediaStreamTrack]);
+    let mediaStreamTrack = localTracks.audioTrack.getMediaStreamTrack();
+    let mediaStream = new MediaStream([mediaStreamTrack]);
 
-    let audioSourceNode = audioContext.createMediaStreamSource(audioMediaStream);
-    let audioDestinationNode = audioContext.createMediaStreamDestination()
+    let sourceNode = audioContext.createMediaStreamSource(mediaStream);
+    let destinationNode = audioContext.createMediaStreamDestination()
     hifiNoiseGate = new AudioWorkletNode(audioContext, 'wasm-noise-gate');
 
-    audioSourceNode.connect(hifiNoiseGate).connect(audioDestinationNode);
+    sourceNode.connect(hifiNoiseGate).connect(destinationNode);
 
-    let audioDestinationTrack = audioDestinationNode.stream.getAudioTracks()[0];
-    await localTracks.audioTrack._updateOriginMediaStreamTrack(audioDestinationTrack, !1);
+    let destinationTrack = destinationNode.stream.getAudioTracks()[0];
+    await localTracks.audioTrack._updateOriginMediaStreamTrack(destinationTrack, false);
 
     // publish local tracks to channel
     await client.publish(Object.values(localTracks));
@@ -263,13 +263,13 @@ function receiverTransform(receiver, uid) {
                 let x = src.getInt16(len + 0) * (1/256.0);
                 let y = src.getInt16(len + 2) * (1/256.0);
 
-                // find source for this uid
+                // find hifiSource for this uid
                 let item = elements.find(item => item.uid === uid);
 
-                // update source position
-                item.source._x = x;
-                item.source._y = y;
-                setPosition(item.source);
+                // update hifiSource position
+                item.hifiSource._x = x;
+                item.hifiSource._y = y;
+                setPosition(item.hifiSource);
 
                 // update screen position
                 item.x = 0.5 + (x / roomDimensions.width);
@@ -306,7 +306,6 @@ async function leave() {
     $("#leave").attr("disabled", true);
 
     elements.length = 0;
-    //canvasControl.draw();
 
     stopSpatialAudio();
 
@@ -348,18 +347,18 @@ async function subscribe(user, mediaType) {
 
         //user.audioTrack.play();
 
-        let audioMediaStreamTrack = user.audioTrack.getMediaStreamTrack();
-        let audioMediaStream = new MediaStream([audioMediaStreamTrack]);
-        let audioSourceNode = audioContext.createMediaStreamSource(audioMediaStream);
+        let mediaStreamTrack = user.audioTrack.getMediaStreamTrack();
+        let mediaStream = new MediaStream([mediaStreamTrack]);
+        let sourceNode = audioContext.createMediaStreamSource(mediaStream);
 
-        let source = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
-        audioSourceNode.connect(source).connect(hifiListener);
+        let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
+        sourceNode.connect(hifiSource).connect(hifiListener);
 
         //
         // insertable streams
         //
         let receivers = client._p2pChannel.connection.peerConnection.getReceivers();
-        let receiver = receivers.find(r => r.track.id === audioMediaStreamTrack.id);
+        let receiver = receivers.find(r => r.track.id === mediaStreamTrack.id);
         receiverTransform(receiver, uid);
 
         elements.push({
@@ -368,10 +367,9 @@ async function subscribe(user, mediaType) {
             alpha: 0.5,
             clickable: false,
 
-            source: source,
-            uid: uid,
+            hifiSource,
+            uid,
         });
-        //canvasControl.draw();
         //console.log('source', { uid, x, z });
     }
 }
@@ -382,7 +380,6 @@ async function unsubscribe(user) {
     // find and remove this uid
     let i = elements.findIndex(item => item.uid === uid);
     elements.splice(i, 1);
-    //canvasControl.draw();
 
     console.log("unsubscribe uid:", uid);
 }
