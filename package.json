@@ -1,0 +1,44 @@
+{
+  "name": "hifi-spatial-audio",
+  "version": "3.0.0-0",
+  "description": "",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "private": false,
+  "scripts": {
+    "build:node": "npm run clean && tsc --declaration true && npm pack",
+    "build": "echo \"No target defined. Did you mean 'npm run build:web' or 'npm run build:node' ?\" && exit 1",
+    "build:web": "npm run clean && webpack --env buildEnv=dev",
+    "build:web:dev": "npm run clean && webpack --env buildEnv=dev",
+    "build:web:prod": "npm run clean && webpack --env buildEnv=prod",
+    "clean": "echo clean",
+    "docs": "typedoc",
+    "docs:buildAndUpload": "npm run clean && typedoc && node ./utilities/uploadDocsToS3AndInvalidate.js",
+    "publishNewRelease": "npm run clean && npm run docs:buildAndUpload && npm run build:node && npm publish && npm run build:web:prod"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/highfidelity/hifi-spatial-audio-js.git"
+  },
+  "author": "High Fidelity, Inc.",
+  "license": "MIT",
+  "homepage": "https://highfidelity.com/",
+  "devDependencies": {
+      "clean-webpack-plugin": "^3.0.0",
+      "webpack": "^5.17.0",
+      "ts-loader": "^8.0.14"
+  },
+  "dependencies": {
+  },
+  "keywords": [
+    "audio",
+    "spatial audio",
+    "3d"
+  ],
+  "maintainers": [
+    "High Fidelity (hifi@highfidelity.com)"
+  ]
+}
