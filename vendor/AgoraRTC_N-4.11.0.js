@@ -1,5 +1,5 @@
 /**
- * AgoraWebSDK_N-v4.10.2-0-gefb7ad2e Copyright AgoraInc.
+ * AgoraWebSDK_N-v4.11.0-0-g961abf54 Copyright AgoraInc.
  */
 
  !function(e, t) {
@@ -9985,7 +9985,7 @@
         pD += t.length,
         setTimeout(()=>kD(!0), 3e3)
     }
-    const PD = "v4.10.2-0-gefb7ad2e(3/23/2022, 9:44:10 PM)"
+    const PD = "v4.11.0-0-g961abf54(3/31/2022, 5:02:17 PM)"
       , BD = function(e) {
         if (e.match(/[0-9]+\.[0-9]+\.[0-9]+$/))
             return e;
@@ -10002,7 +10002,7 @@
             return "".concat(e, ".").concat(100 * (Number(t) + 1))
         }
         return "4.0.0.999"
-    }("4.10.2")
+    }("4.11.0")
       , MD = function() {
         try {
             return !0 === JSON.parse("true")
@@ -10182,11 +10182,11 @@
         ENUMERATE_DEVICES_INTERVAL: !1,
         ENUMERATE_DEVICES_INTERVAL_TIME: 1e4,
         USE_NEW_TOKEN: !1,
-        JOIN_WITH_FALLBACK_SIGNAL_PROXY: !1,
-        JOIN_WITH_FALLBACK_MEDIA_PROXY: !1,
+        JOIN_WITH_FALLBACK_SIGNAL_PROXY: !0,
+        JOIN_WITH_FALLBACK_MEDIA_PROXY: !0,
         JOIN_WITH_FALLBACK_MEDIA_PROXY_FORCE: !1,
         JOIN_WITH_FALLBACK_PROXY_PENDING_DURATION: 2e3,
-        USE_TURN_SERVER_OF_GATEWAY: !0,
+        USE_TURN_SERVER_OF_GATEWAY: !1,
         H264_PROFILE_LEVEL_ID: "",
         USE_NEW_LOG: !1,
         LOG_VERSION: 3,
@@ -10200,6 +10200,8 @@
         ADJUST_3A_FROM_PLUGINS: !0,
         RAISE_H264_BASELINE_PRIORITY: !0,
         FILTER_SEND_H264_BASELINE: !1,
+        ENABLE_PUBLISHED_USER_LIST: !0,
+        MAX_SUBSCRIPTION: 50,
         ACCOUNT_REGISTER_RETRY_TIMEOUT: 1,
         ACCOUNT_REGISTER_RETRY_RATIO: 2,
         ACCOUNT_REGISTER_RETRY_TIMEOUT_MAX: 6e4,
@@ -10890,7 +10892,7 @@
         e.P2P_LOST = "p2p_lost",
         e.JOIN_FALLBACK_TO_PROXY = "join-fallback-to-proxy",
         e.MEDIA_CONNECTION_TYPE_CHANGE = "media-connection-type-change",
-        e.USER_LIST = "user-list"
+        e.PUBLISHED_USER_LIST = "published-user-list"
     }(Tk || (Tk = {})),
     function(e) {
         e.NETWORK_ERROR = "NETWORK_ERROR",
@@ -10990,7 +10992,7 @@
         e.DISABLE_LOCAL_VIDEO = "disable_local_video",
         e.ENABLE_LOCAL_AUDIO = "enable_local_audio",
         e.DISABLE_LOCAL_AUDIO = "disable_local_audio",
-        e.ON_USERS_LIST = "on_users_list"
+        e.ON_PUBLISHED_USER_LIST = "on_published_user_list"
     }(Lk || (Lk = {})),
     function(e) {
         e.CONNECTION_STATE_CHANGE = "CONNECTION_STATE_CHANGE",
@@ -21108,7 +21110,10 @@
             return this._initMutex.lock().then(e=>new ny((e,r)=>{
                 t(e, r)
             }
-            ).finally(()=>{
+            ).then(()=>{
+                e()
+            }
+            ).catch(()=>{
                 e()
             }
             ))
@@ -21705,7 +21710,10 @@
             this._disconnectedReason = e || Rk.LEAVE,
             this.connectionState = bk.CLOSED,
             cD.debug("[".concat(this.clientId, "] ") + "will close websocket in signal"),
-            this.websocket.close()
+            this.websocket.close(),
+            e === Rk.FALLBACK && (this.websocket.removeAllListeners(),
+            this.websocket = new $W("gateway-".concat(this.clientId),this.spec.retryConfig,!0,!0),
+            this.handleWebsocketEvents())
         }
         async join() {
             if (!this.joinResponse) {
@@ -21764,12 +21772,14 @@
                 e.audio && this.emit(Lk.ON_ADD_AUDIO_STREAM, {
                     uid: e.uid,
                     uint_id: e.uint_id,
-                    audio: !0
+                    audio: !0,
+                    ssrcId: e.audio_ssrc
                 }),
                 e.video && this.emit(Lk.ON_ADD_VIDEO_STREAM, {
                     uid: e.uid,
                     uint_id: e.uint_id,
-                    video: !0
+                    video: !0,
+                    ssrcId: e.video_ssrc
                 })
             }
             ),
@@ -22351,7 +22361,13 @@
                     rejoin: !0
                 },
                 optionalInfo: this.joinInfo.optionalInfo,
-                appScenario: r
+                appScenario: r,
+                attributes: {
+                    userAttributes: {
+                        enablePublishedUserList: WD("ENABLE_PUBLISHED_USER_LIST"),
+                        maxSubscription: WD("MAX_SUBSCRIPTION")
+                    }
+                }
             }, e);
             return this.joinInfo.stringUid && (i.string_uid = this.joinInfo.stringUid),
             this.joinInfo.aesmode && this.joinInfo.aespassword && (i.aes_mode = this.joinInfo.aesmode,
@@ -24609,7 +24625,7 @@
                 throw new eD($N.UNEXPECTED_ERROR);
             const s = FJ({
                 command: e,
-                sdkVersion: "4.10.2" === BD ? "0.0.1" : BD,
+                sdkVersion: "4.11.0" === BD ? "0.0.1" : BD,
                 seq: o,
                 requestId: o,
                 allocate: r,
@@ -24675,7 +24691,7 @@
             this.websocket.reconnect("tryNext")
         }
         close() {
-            const e = "4.10.2" === BD ? "0.0.1" : BD;
+            const e = "4.11.0" === BD ? "0.0.1" : BD;
             this.reqId += 1,
             "connected" === this.websocket.state ? (this.websocket.sendMessage({
                 command: "request",
@@ -25513,7 +25529,7 @@
                 allocate: !0,
                 clientRequest: {}
             };
-            "4.10.2" === o.sdkVersion && (o.sdkVersion = "0.0.1");
+            "4.11.0" === o.sdkVersion && (o.sdkVersion = "0.0.1");
             let s = null
               , a = null;
             switch (e) {
@@ -39195,7 +39211,10 @@
                 }
             }
             ),
-            kO(this, "handleReplaceTrack", async(e,t,r)=>{
+            kO(this, "handleReplaceTrack", async(e,t,r,i)=>{
+                let n;
+                cD.debug("P2PChannel handleReplaceTrack for [track-id-".concat(e.getTrackId(), "]")),
+                "boolean" == typeof i && i || (n = await this.mutex.lock("From P2PChannel.handleReplaceTrack"));
                 try {
                     const r = Array.from(this.localTrackMap.entries()).find(t=>{
                         let[,{track: r}] = t;
@@ -39219,7 +39238,7 @@
                             t.track._mediaStreamTrack = r,
                             t.track._originMediaStreamTrack = r,
                             await new ny((e,r)=>{
-                                this.handleReplaceTrack(t.track, e, r)
+                                this.handleReplaceTrack(t.track, e, r, !0)
                             }
                             )
                         }
@@ -39227,6 +39246,9 @@
                     t()
                 } catch (e) {
                     r(e)
+                } finally {
+                    var o;
+                    null === (o = n) || void 0 === o || o()
                 }
             }
             ),
@@ -39294,7 +39316,8 @@
                     const n = performance.now();
                     r.store.publish(t.getTrackId(), i === RP.LocalAudioTrack ? "audio" : "video", n)
                 }
-                );
+                ),
+                r.bindLocalTrackEvents(t);
                 const i = yield dZ(e.send(t.map(e=>{
                     let {track: t} = e;
                     return t
@@ -39313,6 +39336,7 @@
                         -1 === r.pendingLocalTracks.indexOf(t) && r.pendingLocalTracks.push(t)
                     }
                     ),
+                    r.unbindLocalTrackEvents(t),
                     e
                 }
                 const a = r.mapPubResToRemoteConfig(o, s);
@@ -39332,7 +39356,6 @@
                     r.statsCollector.addLocalStats(t)
                 }
                 ),
-                r.bindLocalTrackEvents(t),
                 r.assignLocalTracks(t, c),
                 r.statsUploader.startUploadUplinkStats(),
                 t.forEach(e=>{
@@ -39434,7 +39457,14 @@
             }
             )),
             this.withdrawLocalTracks(t),
-            this.unbindLocalTrackEvents(t),
+            this.unbindLocalTrackEvents(t.map(e=>{
+                let[t,{track: r}] = e;
+                return {
+                    type: t,
+                    track: r
+                }
+            }
+            )),
             t.forEach(e=>{
                 let[t] = e;
                 this.statsCollector.removeLocalStats(t)
@@ -39493,6 +39523,9 @@
             this.emit(wP.MediaReconnectEnd, e.uid))
         }
         async massSubscribe(e) {
+            return this.massSubscribeNoLock(e)
+        }
+        async massSubscribeNoLock(e) {
             if (!this.connection)
                 throw new eD($N.INVALID_OPERATION,"Cannot subscribeAll remote users when peerConnection disconnected.");
             OD("debug", this, "subscribeAll", e.map(e=>{
@@ -39604,6 +39637,9 @@
             n
         }
         async massUnsubscribe(e) {
+            return this.massUnsubscribeNoLock(e)
+        }
+        async massUnsubscribeNoLock(e) {
             let t = [];
             for (const {user: r, mediaType: i} of e) {
                 const e = this.pendingRemoteTracks.filter(e=>{
@@ -39694,6 +39730,9 @@
             await this.connection.muteRemote(i)
         }
         async unmuteRemote(e, t) {
+            return this.unmuteRemoteNoLock(e, t)
+        }
+        async unmuteRemoteNoLock(e, t) {
             if (!this.connection)
                 return;
             OD("debug", this, "unmuteRemote", {
@@ -40118,22 +40157,29 @@
             t || e.addListener(uP.NEED_REPLACE_TRACK, this.handleReplaceTrack))
         }
         unbindLocalTrackEvents(e) {
-            e || (e = Array.from(this.localTrackMap.entries())),
-            e.forEach(e=>{
+            e || (e = Array.from(this.localTrackMap.entries()).map(e=>{
                 let[t,{track: r}] = e;
-                switch (t) {
+                return {
+                    track: r,
+                    type: t
+                }
+            }
+            )),
+            e.forEach(e=>{
+                let {track: t, type: r} = e;
+                switch (r) {
                 case RP.LocalVideoTrack:
-                    r.off(uP.GET_STATS, this.handleGetLocalVideoStats),
-                    r.off(uP.NEED_DISABLE_TRACK, this.handleMuteLocalTrack),
-                    r.off(uP.NEED_ENABLE_TRACK, this.handleUnmuteLocalTrack),
-                    r.off(uP.NEED_UPDATE_VIDEO_ENCODER, this.handleUpdateVideoEncoder),
-                    r.off(uP.SET_OPTIMIZATION_MODE, this.handleSetOptimizationMode),
-                    r.off(uP.NEED_REPLACE_TRACK, this.handleReplaceTrack),
-                    r.off(uP.NEED_MUTE_TRACK, this.handleMuteLocalTrack),
-                    r.off(uP.NEED_UNMUTE_TRACK, this.handleUnmuteLocalTrack);
+                    t.off(uP.GET_STATS, this.handleGetLocalVideoStats),
+                    t.off(uP.NEED_DISABLE_TRACK, this.handleMuteLocalTrack),
+                    t.off(uP.NEED_ENABLE_TRACK, this.handleUnmuteLocalTrack),
+                    t.off(uP.NEED_UPDATE_VIDEO_ENCODER, this.handleUpdateVideoEncoder),
+                    t.off(uP.SET_OPTIMIZATION_MODE, this.handleSetOptimizationMode),
+                    t.off(uP.NEED_REPLACE_TRACK, this.handleReplaceTrack),
+                    t.off(uP.NEED_MUTE_TRACK, this.handleMuteLocalTrack),
+                    t.off(uP.NEED_UNMUTE_TRACK, this.handleUnmuteLocalTrack);
                     break;
                 case RP.LocalAudioTrack:
-                    this.unbindLocalAudioTrackEvents(r);
+                    this.unbindLocalAudioTrackEvents(t);
                     break;
                 case RP.LocalVideoLowTrack:
                 }
@@ -40650,6 +40696,9 @@
             }));
             return o._hints.push(AP.LOW_STREAM),
             o
+        }
+        async globalLock() {
+            return this.mutex.lock("From P2PChannel.globalLock")
         }
     }
     ).prototype, "startP2PConnection", [Y$], Object.getOwnPropertyDescriptor(F$.prototype, "startP2PConnection"), F$.prototype),
@@ -42139,9 +42188,10 @@
                     mediaType: r
                 }
             }
-            );
+            )
+              , s = await this._p2pChannel.globalLock();
             try {
-                var s;
+                var a;
                 for (let r = e.length - 1; r >= 0; r--) {
                     const n = e[r]
                       , {user: s, mediaType: a} = n;
@@ -42184,8 +42234,8 @@
                     const r = e[t]
                       , {user: n, mediaType: o} = r
                       , s = dP.Video | dP.LwoVideo;
-                    if (await this._p2pChannel.hasRemoteMediaWithLock(n, o)) {
-                        await this._p2pChannel.unmuteRemote(n, o);
+                    if (this._p2pChannel.hasRemoteMedia(n, o)) {
+                        await this._p2pChannel.unmuteRemoteNoLock(n, o);
                         const r = i.get(n);
                         i.set(n, "video" === o ? r ^ s : r ^ dP.Audio),
                         e.splice(t, 1)
@@ -42195,7 +42245,7 @@
                     userId: e.user.uid,
                     type: e.mediaType
                 })), r);
-                const a = vh(s = Array.from(i.entries())).call(s, (e,t)=>{
+                const c = vh(a = Array.from(i.entries())).call(a, (e,t)=>{
                     let[r,i] = t;
                     if (0 === i)
                         return e;
@@ -42210,7 +42260,7 @@
                 }
                 , []);
                 try {
-                    e.length > 0 && await this._p2pChannel.massSubscribe(e.map(e=>{
+                    e.length > 0 && await this._p2pChannel.massSubscribeNoLock(e.map(e=>{
                         let {user: t, mediaType: r} = e;
                         return {
                             user: t,
@@ -42221,8 +42271,8 @@
                     }
                     ));
                     const i = new Map;
-                    if (a.length > 0) {
-                        const e = await this._gateway.subscribeAll(a, !0);
+                    if (c.length > 0) {
+                        const e = await this._gateway.subscribeAll(c, !0);
                         ((null == e ? void 0 : e.users) || []).forEach(e=>{
                             let {stream_id: t, video_error_code: r, audio_error_code: n, error_code: o} = e;
                             (r || n || o) && i.set(t, {
@@ -42243,7 +42293,7 @@
                             }
                         }
                         );
-                        await this._p2pChannel.massUnsubscribe(e)
+                        await this._p2pChannel.massUnsubscribeNoLock(e)
                     }
                     for (const e of o) {
                         const t = i.get(e.user.uid);
@@ -42284,11 +42334,12 @@
                     DD("info", this, "massSubscribe", e, "success"),
                     o
                 } catch (r) {
-                    throw await this._p2pChannel.massUnsubscribe(e),
+                    throw await this._p2pChannel.massUnsubscribeNoLock(e),
                     t.onError(r),
                     r
                 }
             } finally {
+                s(),
                 n()
             }
         }
@@ -43577,7 +43628,7 @@
                 this._uid
             }
             ),
-            this._gateway.signal.on(Lk.ON_USERS_LIST, e=>{
+            this._gateway.signal.on(Lk.ON_PUBLISHED_USER_LIST, e=>{
                 if (null == e || !e.users)
                     return;
                 const t = []
@@ -43586,7 +43637,7 @@
                     let e = this._users.find(e=>e.uid === i.stream_id);
                     e ? e._trust_in_room_ = !0 : (e = new rz(i.stream_id,i.stream_id),
                     this._users.push(e),
-                    0 === this.getListeners(Tk.USER_LIST).length && (cD.debug("[".concat(this._clientId, "] user online"), i.stream_id),
+                    0 === this.getListeners(Tk.PUBLISHED_USER_LIST).length && (cD.debug("[".concat(this._clientId, "] user online"), i.stream_id),
                     wD("info", this, "user-joined", {
                         uid: i.stream_id
                     }),
@@ -43600,10 +43651,10 @@
                     e._videoSSRC = i.video_ssrc),
                     n && (e._audio_added_ = !0,
                     e._audioSSRC = i.audio_ssrc),
-                    n && !s && 0 === this.getListeners(Tk.USER_LIST).length && (cD.info("[".concat(this._clientId, "] remote user ").concat(e.uid, " published audio")),
+                    n && !s && 0 === this.getListeners(Tk.PUBLISHED_USER_LIST).length && (cD.info("[".concat(this._clientId, "] remote user ").concat(e.uid, " published audio")),
                     RD("info", this, "remote user ".concat(e.uid, " published audio")),
                     this.emit(Tk.USER_PUBLISHED, e, "audio")),
-                    o && !a && 0 === this.getListeners(Tk.USER_LIST).length && (cD.info("[".concat(this._clientId, "] remote user ").concat(e.uid, " published video")),
+                    o && !a && 0 === this.getListeners(Tk.PUBLISHED_USER_LIST).length && (cD.info("[".concat(this._clientId, "] remote user ").concat(e.uid, " published video")),
                     RD("info", this, "remote user ".concat(e.uid, " published video")),
                     this.emit(Tk.USER_PUBLISHED, e, "video")),
                     (n && !s || o && !a) && t.push(e),
@@ -43621,8 +43672,8 @@
                     cD.error("[".concat(this._clientId, "] mass resubscribe error"), e.toString())
                 }
                 )),
-                this.getListeners(Tk.USER_LIST).length > 0 ? (cD.info("[".concat(this._clientId, "] client emit user-list event, users: ").concat(t.map(e=>e.uid).join(", "))),
-                this.emit(Tk.USER_LIST, t)) : cD.info("[".concat(this._clientId, "] client not emit user-list event case there is no user-list listener, users: ").concat(t.map(e=>e.uid).join(", ")))
+                this.getListeners(Tk.PUBLISHED_USER_LIST).length > 0 ? (cD.info("[".concat(this._clientId, "] client emit user-list event, users: ").concat(t.map(e=>e.uid).join(", "))),
+                this.emit(Tk.PUBLISHED_USER_LIST, t)) : cD.info("[".concat(this._clientId, "] client not emit user-list event case there is no user-list listener, users: ").concat(t.map(e=>e.uid).join(", ")))
             }
             )
         }

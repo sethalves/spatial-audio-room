@@ -2,8 +2,9 @@
 
 // patch RTCPeerConnection to enable insertable streams
 let _RTCPeerConnection = RTCPeerConnection;
-RTCPeerConnection = function() {
-    return new _RTCPeerConnection({ encodedInsertableStreams: true });
+RTCPeerConnection = function(...config) {
+    if (config.length) config[0].encodedInsertableStreams = true;
+    return new _RTCPeerConnection(...config);
 }
 
 // create Agora client
@@ -31,6 +32,7 @@ let audioConfig = {
     AEC: false,
     AGC: false,
     ANS: false,
+    bypassWebAudio: true,
     encoderConfig: {
         sampleRate: 48000,
         bitrate: 64,
@@ -190,6 +192,7 @@ async function join() {
         radius: 0.02,
         alpha: 0.5,
         clickable: true,
+
     });
     console.log('listener', { x, y });
 
@@ -226,8 +229,8 @@ async function join() {
     //
     // insertable streams
     //
-    let sender = client._p2pChannel.connection.peerConnection.getSenders()[0];
-    senderTransform(sender);
+    let senders = client._p2pChannel.connection.peerConnection.getSenders();
+    senders.forEach(sender => senderTransform(sender));
 }
 
 function senderTransform(sender) {
@@ -451,7 +454,7 @@ async function playSoundEffect() {
         audioBuffer = await audioContext.decodeAudioData(buffer);
     }
 
-     let sourceNode = new AudioBufferSourceNode(audioContext);
+    let sourceNode = new AudioBufferSourceNode(audioContext);
     sourceNode.buffer = audioBuffer;
     sourceNode.connect(hifiLimiter);
     sourceNode.start();
