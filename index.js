@@ -181,6 +181,17 @@ async function join() {
 
     await startSpatialAudio();
 
+    // add event listener to play remote tracks when remote user publishs.
+    client.on("user-published", handleUserPublished);
+    client.on("user-unpublished", handleUserUnpublished);
+
+    // join a channel and create local tracks
+    options.uid = await client.join(options.appid, options.channel, options.token || null);
+    localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack(audioConfig);
+
+    //
+    // canvas GUI
+    //
     let canvas = document.getElementById('canvas');
 
     let x = 2.0 * Math.random() - 1.0;
@@ -193,19 +204,12 @@ async function join() {
         alpha: 0.5,
         clickable: true,
 
+        hifiSource: null,
+        uid: options.uid,
     });
-    console.log('listener', { x, y });
 
     canvasControl = new CanvasControl(canvas,elements,updatePositions);
     canvasControl.draw();
-
-    // add event listener to play remote tracks when remote user publishs.
-    client.on("user-published", handleUserPublished);
-    client.on("user-unpublished", handleUserUnpublished);
-
-    // join a channel and create local tracks
-    options.uid = await client.join(options.appid, options.channel, options.token || null);
-    localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack(audioConfig);
 
     //
     // route mic stream through Web Audio noise gate
@@ -222,15 +226,29 @@ async function join() {
     let destinationTrack = destinationNode.stream.getAudioTracks()[0];
     await localTracks.audioTrack._updateOriginMediaStreamTrack(destinationTrack, false);
 
-    // publish local tracks to channel
-    await client.publish(Object.values(localTracks));
-    console.log("publish success");
-
     //
     // insertable streams
     //
     let senders = client._p2pChannel.connection.peerConnection.getSenders();
     senders.forEach(sender => senderTransform(sender));
+
+    //
+    // HACK! set user radius based on volume level
+    // TODO: reimplement in a performant way...
+    //
+    AgoraRTC.setParameter("AUDIO_VOLUME_INDICATION_INTERVAL", 20);
+    client.enableAudioVolumeIndicator();
+    client.on("volume-indicator", volumes => {
+        volumes.forEach((volume, index) => {
+            let e = elements.find(e => e.uid === volume.uid);
+            if (e !== undefined)
+                e.radius = 0.02 + 0.04 * volume.level/100;
+        });
+    })
+
+    // publish local tracks to channel
+    await client.publish(Object.values(localTracks));
+    console.log("publish success");
 }
 
 function senderTransform(sender) {
