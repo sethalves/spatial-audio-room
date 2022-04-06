@@ -156,7 +156,6 @@ function setPosition(hifiSource) {
 
     hifiSource.parameters.get('azimuth').value = azimuth;
     hifiSource.parameters.get('distance').value = distance;
-    //console.log({azimuth, distance});
 }
 
 const roomDimensions = {
@@ -189,17 +188,19 @@ async function join() {
     options.uid = await client.join(options.appid, options.channel, options.token || null);
     localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack(audioConfig);
 
+    // initial position
+    hifiListener._x = 2.0 * Math.random() - 1.0;
+    hifiListener._y = 2.0 * Math.random() - 1.0;
+
     //
     // canvas GUI
     //
     let canvas = document.getElementById('canvas');
 
-    let x = 2.0 * Math.random() - 1.0;
-    let y = 2.0 * Math.random() - 1.0;
     elements.push({
         icon: 'listenerIcon',
-        x: 0.5 + (x / roomDimensions.width),
-        y: 0.5 - (y / roomDimensions.depth),
+        x: 0.5 + (hifiListener._x / roomDimensions.width),
+        y: 0.5 - (hifiListener._y / roomDimensions.depth),
         radius: 0.02,
         alpha: 0.5,
         clickable: true,
@@ -208,7 +209,7 @@ async function join() {
         uid: options.uid,
     });
 
-    canvasControl = new CanvasControl(canvas,elements,updatePositions);
+    canvasControl = new CanvasControl(canvas, elements, updatePositions);
     canvasControl.draw();
 
     //
@@ -312,16 +313,18 @@ function receiverTransform(receiver, uid) {
                 let y = src.getInt16(len + 2) * (1/256.0);
 
                 // find hifiSource for this uid
-                let item = elements.find(item => item.uid === uid);
+                let e = elements.find(e => e.uid === uid);
+                if (e !== undefined) {
 
-                // update hifiSource position
-                item.hifiSource._x = x;
-                item.hifiSource._y = y;
-                setPosition(item.hifiSource);
+                    // update hifiSource position
+                    e.hifiSource._x = x;
+                    e.hifiSource._y = y;
+                    setPosition(e.hifiSource);
 
-                // update screen position
-                item.x = 0.5 + (x / roomDimensions.width);
-                item.y = 0.5 - (y / roomDimensions.depth);
+                    // update screen position
+                    e.x = 0.5 + (x / roomDimensions.width);
+                    e.y = 0.5 - (y / roomDimensions.depth);
+                }
 
                 encodedFrame.data = dst.buffer;
             }
@@ -418,7 +421,6 @@ async function subscribe(user, mediaType) {
             hifiSource,
             uid,
         });
-        //console.log('source', { uid, x, z });
     }
 }
 
@@ -426,7 +428,7 @@ async function unsubscribe(user) {
     const uid = user.uid;
 
     // find and remove this uid
-    let i = elements.findIndex(item => item.uid === uid);
+    let i = elements.findIndex(e => e.uid === uid);
     elements.splice(i, 1);
 
     console.log("unsubscribe uid:", uid);
