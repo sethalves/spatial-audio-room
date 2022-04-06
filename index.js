@@ -226,6 +226,10 @@ async function join() {
     let destinationTrack = destinationNode.stream.getAudioTracks()[0];
     await localTracks.audioTrack._updateOriginMediaStreamTrack(destinationTrack, false);
 
+    // publish local tracks to channel
+    await client.publish(Object.values(localTracks));
+    console.log("publish success");
+
     //
     // insertable streams
     //
@@ -245,10 +249,6 @@ async function join() {
                 e.radius = 0.02 + 0.04 * volume.level/100;
         });
     })
-
-    // publish local tracks to channel
-    await client.publish(Object.values(localTracks));
-    console.log("publish success");
 }
 
 function senderTransform(sender) {
