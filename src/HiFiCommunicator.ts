@@ -133,7 +133,37 @@ export interface HiFiConnectionAttemptResult {
 }
 
 
+// async function startSpatialAudio() {
+
+//     audioElement = new Audio();
+
+//     try {
+//         audioContext = new AudioContext({ sampleRate: 48000 });
+//     } catch (e) {
+//         console.log('Web Audio is not supported by this browser.');
+//         return;
+//     }
+
+//     console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
+
+//     await audioContext.audioWorklet.addModule('HifiProcessor.js');
+
+//     hifiListener = new AudioWorkletNode(audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
+//     hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter');
+//     hifiListener.connect(hifiLimiter).connect(audioContext.destination);
+
+//     // initial position
+//     hifiListener._x = 2.0 * Math.random() - 1.0;
+//     hifiListener._y = 2.0 * Math.random() - 1.0;
+
+//     audioElement.play();
+// }
+
+
 export class HiFiCommunicator {
+
+    audioElement: HTMLAudioElement;
+    audioContext: AudioContext;
 
     onUsersDisconnected: Function;
     onConnectionStateChanged: Function;
@@ -142,6 +172,7 @@ export class HiFiCommunicator {
     public getConnectionState(): HiFiConnectionStates {
         return this._currentHiFiConnectionState;
     }
+
 
     constructor({
         initialHiFiAudioAPIData = new HiFiAudioAPIData(),
@@ -162,6 +193,23 @@ export class HiFiCommunicator {
         onMuteChanged?: OnMuteChangedCallback,
         connectionRetryAndTimeoutConfig?: ConnectionRetryAndTimeoutConfig
     } = {}) {
+
+        this.audioElement = new Audio();
+
+        try {
+            this.audioContext = new AudioContext({ sampleRate: 48000 });
+        } catch (e) {
+            console.log('Web Audio is not supported by this browser.');
+            return;
+        }
+
+
+        // let x: Promise<void> = this.audioContext.audioWorklet.addModule('HifiProcessor.js');
+        this.audioContext.audioWorklet.addModule('HifiProcessor.js').then(() => {
+            console.log("QQQQ ok");
+        });
+
+        // await this.audioContext.audioWorklet.addModule('HifiProcessor.js');
     }
 
 
