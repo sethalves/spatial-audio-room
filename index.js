@@ -188,10 +188,6 @@ async function join() {
     options.uid = await client.join(options.appid, options.channel, options.token || null);
     localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack(audioConfig);
 
-    // initial position
-    hifiListener._x = 2.0 * Math.random() - 1.0;
-    hifiListener._y = 2.0 * Math.random() - 1.0;
-
     //
     // canvas GUI
     //
@@ -452,6 +448,10 @@ async function startSpatialAudio() {
     hifiListener = new AudioWorkletNode(audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
     hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter');
     hifiListener.connect(hifiLimiter).connect(audioContext.destination);
+
+    // initial position
+    hifiListener._x = 2.0 * Math.random() - 1.0;
+    hifiListener._y = 2.0 * Math.random() - 1.0;
 
     $("#mute").attr("hidden", false);
     $("#sound").attr("hidden", false);
