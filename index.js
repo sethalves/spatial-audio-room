@@ -164,16 +164,14 @@ const roomDimensions = {
     depth: 8,
 };
 
-/**
- * Update the audio sound objects' positions.
- * @param {Object} elements
- * @private
- */
 function updatePositions(elements) {
-    // only update the listener (index=0)
-    // transform canvas to audio coordinates
-    hifiListener._x = (elements[0].x - 0.5) * roomDimensions.width;
-    hifiListener._y = -(elements[0].y - 0.5) * roomDimensions.depth;
+    // only update the listener
+    let e = elements.find(e => e.hifiSource === null);
+    if (e !== undefined) {
+        // transform canvas to audio coordinates
+        hifiListener._x = (e.x - 0.5) * roomDimensions.width;
+        hifiListener._y = -(e.y - 0.5) * roomDimensions.depth;
+    }
 }
 
 async function join() {
