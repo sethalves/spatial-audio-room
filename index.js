@@ -28,18 +28,6 @@ let options = {
     token: null
 };
 
-let audioConfig = {
-    AEC: false,
-    AGC: false,
-    ANS: false,
-    bypassWebAudio: true,
-    encoderConfig: {
-        sampleRate: 48000,
-        bitrate: 64,
-        stereo: false,
-    },
-};
-
 function decrypt_appid(data, key) {
     let k = BigInt(key.split('').reduce((a, b) => a = Math.imul(a, 33) + b.charCodeAt(0) | 0, 0));
     let t = BigInt('0x' + data) ^ (k * 38038099725390353860267635547n);
@@ -80,14 +68,29 @@ $("#leave").click(function(e) {
     $("#success-alert").css("display", "none");
 })
 
-let isMuted = false;
+let isAecEnabled = false;
+$("#aec").click(async function(e) {
+    // toggle the state
+    isAecEnabled = !isAecEnabled;
+    $("#aec").css("background-color", isAecEnabled ? "red" : "");
+
+    // if already connected, leave and rejoin
+    if (localTracks.audioTrack) {
+        await leave();
+        $("#join").attr("disabled", true);
+        await join();
+        $("#leave").attr("disabled", false);
+    }
+})
+
+let isMuteEnabled = false;
 $("#mute").click(function(e) {
     // toggle the state
-    isMuted = !isMuted;
-    $("#mute").css("background-color", isMuted ? "red" : "");
+    isMuteEnabled = !isMuteEnabled;
+    $("#mute").css("background-color", isMuteEnabled ? "red" : "");
 
     // if muted, set gate threshold to 0dB, else follow slider
-    setThreshold(isMuted ? 0.0 : threshold.value);
+    setThreshold(isMuteEnabled ? 0.0 : threshold.value);
 })
 
 $("#sound").click(function(e) {
@@ -96,7 +99,7 @@ $("#sound").click(function(e) {
 
 // threshold slider
 threshold.oninput = () => {
-    if (!isMuted) {
+    if (!isMuteEnabled) {
         setThreshold(threshold.value);
     }
     document.getElementById("threshold-value").value = threshold.value;
@@ -111,6 +114,10 @@ let audioContext = undefined;
 let hifiNoiseGate = undefined;  // mic stream connects here
 let hifiListener = undefined;   // hifiSource connects here
 let hifiLimiter = undefined;    // additional sounds connect here
+let hifiPosition = {
+    x: 2.0 * Math.random() - 1.0,
+    y: 2.0 * Math.random() - 1.0,
+};
 
 function setThreshold(value) {
     if (hifiNoiseGate !== undefined) {
@@ -145,8 +152,8 @@ function fastAtan2(y, x) {
 }
 
 function setPosition(hifiSource) {
-    let dx = hifiSource._x - hifiListener._x;
-    let dy = hifiSource._y - hifiListener._y;
+    let dx = hifiSource._x - hifiPosition.x;
+    let dy = hifiSource._y - hifiPosition.y;
 
     //let azimuth = angle_wrap(atan2f(dx, dy) - avatarOrientationRadians);
 
@@ -169,8 +176,8 @@ function updatePositions(elements) {
     let e = elements.find(e => e.hifiSource === null);
     if (e !== undefined) {
         // transform canvas to audio coordinates
-        hifiListener._x = (e.x - 0.5) * roomDimensions.width;
-        hifiListener._y = -(e.y - 0.5) * roomDimensions.depth;
+        hifiPosition.x = (e.x - 0.5) * roomDimensions.width;
+        hifiPosition.y = -(e.y - 0.5) * roomDimensions.depth;
     }
 }
 
@@ -182,9 +189,8 @@ async function join() {
     client.on("user-published", handleUserPublished);
     client.on("user-unpublished", handleUserUnpublished);
 
-    // join a channel and create local tracks
+    // join a channel
     options.uid = await client.join(options.appid, options.channel, options.token || null);
-    localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack(audioConfig);
 
     //
     // canvas GUI
@@ -193,8 +199,8 @@ async function join() {
 
     elements.push({
         icon: 'listenerIcon',
-        x: 0.5 + (hifiListener._x / roomDimensions.width),
-        y: 0.5 - (hifiListener._y / roomDimensions.depth),
+        x: 0.5 + (hifiPosition.x / roomDimensions.width),
+        y: 0.5 - (hifiPosition.y / roomDimensions.depth),
         radius: 0.02,
         alpha: 0.5,
         clickable: true,
@@ -205,6 +211,20 @@ async function join() {
 
     canvasControl = new CanvasControl(canvas, elements, updatePositions);
     canvasControl.draw();
+
+    // create local tracks
+    let audioConfig = {
+        AEC: isAecEnabled,
+        AGC: false,
+        ANS: false,
+        bypassWebAudio: true,
+        encoderConfig: {
+            sampleRate: 48000,
+            bitrate: 64,
+            stereo: false,
+        },
+    };
+    localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack(audioConfig);
 
     //
     // route mic stream through Web Audio noise gate
@@ -267,8 +287,8 @@ function senderTransform(sender) {
                 }
 
                 // insert metadata at the end
-                let qx = Math.round(hifiListener._x * 256.0); // x in Q7.8
-                let qy = Math.round(hifiListener._y * 256.0); // y in Q7.8
+                let qx = Math.round(hifiPosition.x * 256.0); // x in Q7.8
+                let qy = Math.round(hifiPosition.y * 256.0); // y in Q7.8
 
                 dst.setInt16(len + 0, qx);
                 dst.setInt16(len + 2, qy);
@@ -428,6 +448,52 @@ async function unsubscribe(user) {
     console.log("unsubscribe uid:", uid);
 }
 
+//
+// Chrome (as of M100) cannot perform echo cancellation of the Web Audio output.
+// As a workaround, a loopback configuration of local peer connections is inserted at the end of the pipeline.
+// This should be removed when Chrome implements browser-wide echo cancellation.
+// https://bugs.chromium.org/p/chromium/issues/detail?id=687574#c60
+//
+let loopback = undefined;
+async function startEchoCancellation(element, context) {
+
+    loopback = [new _RTCPeerConnection, new _RTCPeerConnection];
+
+    // connect Web Audio to destination
+    let destination = context.createMediaStreamDestination();
+    hifiLimiter.connect(destination);
+
+    // connect through loopback peer connections
+    loopback[0].addTrack(destination.stream.getAudioTracks()[0]);
+    loopback[1].ontrack = e => element.srcObject = new MediaStream([e.track]);
+
+    async function iceGatheringComplete(pc) {
+        return pc.iceGatheringState === 'complete' ? pc.localDescription :
+            new Promise(resolve => {
+                pc.onicegatheringstatechange = e => { pc.iceGatheringState === 'complete' && resolve(pc.localDescription); };
+            });
+    }
+
+    // start loopback peer connections
+    let offer = await loopback[0].createOffer();
+    offer.sdp = offer.sdp.replace('useinbandfec=1', 'useinbandfec=1; stereo=1; sprop-stereo=1; maxaveragebitrate=256000');
+    await loopback[0].setLocalDescription(offer);
+    await loopback[1].setRemoteDescription(await iceGatheringComplete(loopback[0]));
+
+    let answer = await loopback[1].createAnswer();
+    answer.sdp = answer.sdp.replace('useinbandfec=1', 'useinbandfec=1; stereo=1; sprop-stereo=1; maxaveragebitrate=256000');
+    await loopback[1].setLocalDescription(answer);
+    await loopback[0].setRemoteDescription(await iceGatheringComplete(loopback[1]));
+
+    console.log('Started AEC using loopback peer connections.')
+}
+
+function stopEchoCancellation() {
+    loopback && loopback.forEach(pc => pc.close());
+    loopback = null;
+    console.log('Stopped AEC.')
+}
+
 async function startSpatialAudio() {
 
     audioElement = new Audio();
@@ -445,11 +511,13 @@ async function startSpatialAudio() {
 
     hifiListener = new AudioWorkletNode(audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
     hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter');
-    hifiListener.connect(hifiLimiter).connect(audioContext.destination);
+    hifiListener.connect(hifiLimiter);
 
-    // initial position
-    hifiListener._x = 2.0 * Math.random() - 1.0;
-    hifiListener._y = 2.0 * Math.random() - 1.0;
+    if (isAecEnabled) {
+        startEchoCancellation(audioElement, audioContext);
+    } else {
+        hifiLimiter.connect(audioContext.destination);
+    }
 
     $("#mute").attr("hidden", false);
     $("#sound").attr("hidden", false);
@@ -459,6 +527,7 @@ async function startSpatialAudio() {
 function stopSpatialAudio() {
     $("#mute").attr("hidden", true);
     $("#sound").attr("hidden", true);
+    stopEchoCancellation();
     audioContext.close();
 }
 
