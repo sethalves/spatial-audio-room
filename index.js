@@ -72,7 +72,7 @@ let isAecEnabled = false;
 $("#aec").click(async function(e) {
     // toggle the state
     isAecEnabled = !isAecEnabled;
-    $("#aec").css("background-color", isAecEnabled ? "red" : "");
+    $("#aec").css("background-color", isAecEnabled ? "purple" : "");
 
     // if already connected, leave and rejoin
     if (localTracks.audioTrack) {
@@ -87,7 +87,7 @@ let isMuteEnabled = false;
 $("#mute").click(function(e) {
     // toggle the state
     isMuteEnabled = !isMuteEnabled;
-    $("#mute").css("background-color", isMuteEnabled ? "red" : "");
+    $("#mute").css("background-color", isMuteEnabled ? "purple" : "");
 
     // if muted, set gate threshold to 0dB, else follow slider
     setThreshold(isMuteEnabled ? 0.0 : threshold.value);
@@ -233,8 +233,10 @@ async function join() {
     let mediaStream = new MediaStream([mediaStreamTrack]);
 
     let sourceNode = audioContext.createMediaStreamSource(mediaStream);
-    let destinationNode = audioContext.createMediaStreamDestination()
+    let destinationNode = audioContext.createMediaStreamDestination();
+
     hifiNoiseGate = new AudioWorkletNode(audioContext, 'wasm-noise-gate');
+    setThreshold(isMuteEnabled ? 0.0 : threshold.value);
 
     sourceNode.connect(hifiNoiseGate).connect(destinationNode);
 
@@ -519,13 +521,11 @@ async function startSpatialAudio() {
         hifiLimiter.connect(audioContext.destination);
     }
 
-    $("#mute").attr("hidden", false);
     $("#sound").attr("hidden", false);
     audioElement.play();
 }
 
 function stopSpatialAudio() {
-    $("#mute").attr("hidden", true);
     $("#sound").attr("hidden", true);
     stopEchoCancellation();
     audioContext.close();

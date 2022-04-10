@@ -73,10 +73,10 @@ CanvasControl.prototype.invokeCallback = function() {
 
 CanvasControl.prototype.resize = function() {
   let canvasWidth = this._canvas.parentNode.clientWidth;
-  let maxCanvasSize = 800;
-  if (canvasWidth > maxCanvasSize) {
-    canvasWidth = maxCanvasSize;
-  }
+  // let maxCanvasSize = 800;
+  // if (canvasWidth > maxCanvasSize) {
+  //   canvasWidth = maxCanvasSize;
+  // }
   this._canvas.width = canvasWidth;
   this._canvas.height = canvasWidth;
 };
