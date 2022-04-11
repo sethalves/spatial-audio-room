@@ -33,6 +33,7 @@
       "ts-loader": "^8.0.14"
   },
   "dependencies": {
+      "agora-rtc-sdk-ng": "^4.11.0"
   },
   "keywords": [
     "audio",

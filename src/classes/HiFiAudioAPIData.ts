@@ -1,5 +1,5 @@
 
-import { Vector3 as Point3D, Quaternion } from "./HiFiMath";
+import { Vector3 as Point3D, Quaternion } from "../utilities/HiFiMath";
 export { Point3D, Quaternion };
 export type OtherUserGainMap = { [key: string]: number };
 
