@@ -96,8 +96,13 @@ CanvasControl.prototype.draw = function() {
       let x = this._elements[i].x * this._canvas.width - radiusInPixels;
       let y = this._elements[i].y * this._canvas.height - radiusInPixels;
       this._context.globalAlpha = this._elements[i].alpha;
-      this._context.drawImage(
-        icon, x, y, radiusInPixels * 2, radiusInPixels * 2);
+      this._context.drawImage(icon, x, y, radiusInPixels * 2, radiusInPixels * 2);
+
+      let uid = this._elements[i].uid;
+      if (usernames[uid] !== undefined) {
+        this._context.font = '24px Arial';
+        this._context.fillText(usernames[uid], this._elements[i].x * this._canvas.width - 24, y);
+      }
     }
   }
   requestAnimationFrame((t) => this.draw());

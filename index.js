@@ -25,7 +25,8 @@ let options = {
     appid: null,
     channel: null,
     uid: null,
-    token: null
+    token: null,
+    username: null
 };
 
 function decrypt_appid(data, key) {
@@ -39,13 +40,26 @@ $(()=>{
     let urlParams = new URL(location.href).searchParams;
     options.channel = urlParams.get("channel");
     options.password = urlParams.get("password");
+    options.username = urlParams.get("username");
     if (options.channel && options.password) {
         $("#channel").val(options.channel);
         $("#password").val(options.password);
+        $("#username").val(options.username);
         //$("#join-form").submit();
     }
 }
 )
+
+$("#username").change(function (e) {
+    options.username = $("#username").val();
+
+    // if already connected, update my name
+    if (localTracks.audioTrack) {
+        usernames[options.uid] = options.username;
+        client.sendStreamMessage((new TextEncoder).encode(usernames[options.uid]));
+        console.log('%cusername changed, sent stream-message of:', 'color:cyan', usernames[options.uid]);
+    }
+})
 
 $("#join-form").submit(async function(e) {
     e.preventDefault();
@@ -54,6 +68,7 @@ $("#join-form").submit(async function(e) {
         options.appid = decrypt_appid($("#appid").val(), $("#password").val());
         options.token = $("#token").val();
         options.channel = $("#channel").val();
+        options.username = $("#username").val();
         await join();
         $("#success-alert").css("display", "block");
     } catch (error) {
@@ -107,6 +122,7 @@ threshold.oninput = () => {
 
 let canvasControl;
 let elements = [];
+let usernames = {};
 
 let audioElement = undefined;
 let audioContext = undefined;
@@ -209,6 +225,8 @@ async function join() {
         uid: options.uid,
     });
 
+    usernames[options.uid] = options.username;
+
     canvasControl = new CanvasControl(canvas, elements, updatePositions);
     canvasControl.draw();
 
@@ -266,6 +284,12 @@ async function join() {
                 e.radius = 0.02 + 0.04 * volume.level/100;
         });
     })
+
+    // on broadcast from remote user, set corresponding username
+    client.on("stream-message", (uid, data) => {
+        usernames[uid] = (new TextDecoder).decode(data);
+        console.log('%creceived stream-message from:', 'color:cyan', usernames[uid]);
+    });
 }
 
 function senderTransform(sender) {
@@ -438,6 +462,10 @@ async function subscribe(user, mediaType) {
             uid,
         });
     }
+
+    // broadcast my name
+    client.sendStreamMessage((new TextEncoder).encode(usernames[options.uid]));
+    console.log('%csent stream-message of:', 'color:cyan', usernames[options.uid]);
 }
 
 async function unsubscribe(user) {
