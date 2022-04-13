@@ -2,24 +2,24 @@
 #
 #
 
-# WEBSERVER=54.184.239.243
+WEBSERVER=54.184.239.243
 
+all: ts-library
 
-all:
+ts-library:
 	npm run build:node
 
-# npm run build:web
-
-# upload: all
-# 	scp dist/HighFidelityAudio-latest.js ubuntu@${WEBSERVER}:/var/www/html/
-# 	scp HifiProcessor.js ubuntu@${WEBSERVER}:/var/www/html/
-
+web:
+	npm run build:web
+	rsync --delete -avP dist/ ubuntu@${WEBSERVER}:/var/www/html/basic-example/
+	(cd examples/basic && npm run client && rsync -avP dist/ ubuntu@${WEBSERVER}:/var/www/html/basic-example/)
 
 deps:
 	npm install
 
 clean:
+	rm -rf examples/basic/dist
 	rm -rf dist/ hifi-spatial-audio-3.0.0-0.tgz
 
-very-clean:
+very-clean: clean
 	rm -rf node_modules package-lock.json

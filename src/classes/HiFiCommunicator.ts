@@ -5,37 +5,9 @@ import AgoraRTC, {
     IMicrophoneAudioTrack,
     IAgoraRTCRemoteUser
 } from "agora-rtc-sdk-ng";
-import { HiFiAudioAPIData, ReceivedHiFiAudioAPIData, Point3D, Quaternion, OtherUserGainMap } from "./HiFiAudioAPIData";
-import { HiFiHandedness, WorldFrameConfiguration } from "./HiFiAxisConfiguration";
 import { patchRTCPeerConnection } from './patch-rtc-peer-connection';
 
 patchRTCPeerConnection();
-
-export enum HiFiConnectionStates {
-    Disconnected = "Disconnected",
-    Connecting = "Connecting",
-    Connected = "Connected",
-    InputConnected = "InputConnected",
-    Reconnecting = "Reconnecting",
-    Disconnecting = "Disconnecting",
-    Failed = "Failed",
-    Unavailable = "Unavailable"
-};
-
-export enum HiFiUserDataStreamingScopes {
-    None = "none",
-    Peers = "peers",
-    All = "all"
-};
-
-export interface ConnectionRetryAndTimeoutConfig {
-    autoRetryInitialConnection?: boolean;
-    maxSecondsToSpendRetryingInitialConnection?: number;
-    autoRetryOnDisconnect?: boolean;
-    maxSecondsToSpendRetryingOnDisconnect?: number;
-    pauseBetweenRetriesMS?: number;
-    timeoutPerConnectionAttemptMS?: number;
-};
 
 
 export interface HiFiConnectionAttemptResult {
@@ -47,6 +19,11 @@ export interface HiFiConnectionAttemptResult {
 
 
 interface AudioWorkletNodeMeta extends AudioWorkletNode {
+    _x? : number,
+    _y? : number
+}
+
+interface IAgoraRTCRemoteUserMeta extends IAgoraRTCRemoteUser {
     _x? : number,
     _y? : number
 }
@@ -69,17 +46,6 @@ interface RTCConfiguration {
 }
 
 
-interface HiFiElement {
-    icon: string,
-    x: number,
-    y: number,
-    radius: number,
-    alpha: number,
-    clickable: boolean,
-    hifiSource: AudioWorkletNodeMeta,
-    uid: UID
-}
-
 // Agora this.client with _p2pChannel exposed
 interface IAgoraRTCClientOpen extends IAgoraRTCClient {
     _p2pChannel? : any | undefined
@@ -89,7 +55,6 @@ interface IAgoraRTCClientOpen extends IAgoraRTCClient {
 interface AgoraClientOptions {
     appid?: string | undefined,
     channel?: string | undefined,
-    uid?: UID,
     token?: string | undefined
 }
 
@@ -111,97 +76,6 @@ interface LocalTracks {
 
 
 declare var HIFI_API_VERSION: string;
-
-export enum MuteReason {
-    CLIENT = "this.client",
-    ADMIN = "admin",
-    INTERNAL = "internal"
-}
-
-export class MuteChangedEvent {
-    success: boolean;
-    targetInputAudioMutedValue: boolean;
-    currentInputAudioMutedValue: boolean;
-    adminPreventsInputAudioUnmuting: boolean;
-    muteReason: MuteReason;
-
-    constructor({
-        success,
-        targetInputAudioMutedValue,
-        currentInputAudioMutedValue,
-        adminPreventsInputAudioUnmuting,
-        muteReason
-    }: {
-        success: boolean,
-        targetInputAudioMutedValue: boolean,
-        currentInputAudioMutedValue: boolean,
-        adminPreventsInputAudioUnmuting: boolean,
-        muteReason: MuteReason
-    }) {
-        this.success = success;
-        this.targetInputAudioMutedValue = targetInputAudioMutedValue;
-        this.currentInputAudioMutedValue = currentInputAudioMutedValue;
-        this.adminPreventsInputAudioUnmuting = adminPreventsInputAudioUnmuting;
-        this.muteReason = muteReason;
-    }
-}
-
-export type OnMuteChangedCallback = (muteChangedEvent: MuteChangedEvent) => void;
-
-
-interface AudionetSetOtherUserGainsForThisConnectionResponse {
-    success: boolean,
-    reason?: string
-}
-
-export interface SetOtherUserGainsForThisConnectionResponse {
-    success: boolean,
-    error?: string,
-    audionetSetOtherUserGainsForThisConnectionResponse?: AudionetSetOtherUserGainsForThisConnectionResponse
-}
-
-
-interface AudionetSetOtherUserGainsForThisConnectionResponse {
-    success: boolean,
-    reason?: string
-}
-
-
-export interface SetOtherUserGainsForThisConnectionResponse {
-    success: boolean,
-    error?: string,
-    audionetSetOtherUserGainsForThisConnectionResponse?: AudionetSetOtherUserGainsForThisConnectionResponse
-}
-
-export type SetOtherUserGainForThisConnectionResponse = SetOtherUserGainsForThisConnectionResponse;
-
-
-export enum AvailableUserDataSubscriptionComponents {
-    Position = "Position",
-    Orientation = "Orientation (Quaternion)",
-    VolumeDecibels = "Volume (Decibels)",
-    IsStereo = "IsStereo"
-}
-
-
-export class UserDataSubscription {
-    providedUserID: string;
-    components: Array<AvailableUserDataSubscriptionComponents>;
-    callback: Function;
-    constructor({
-        providedUserID = null,
-        components,
-        callback
-    }: {
-        providedUserID?: string,
-        components: Array<AvailableUserDataSubscriptionComponents>,
-        callback: Function
-    }) {
-        this.providedUserID = providedUserID;
-        this.components = components;
-        this.callback = callback;
-    }
-}
 
 
 // Fast approximation of Math.atan2(y, x)
@@ -239,7 +113,6 @@ export class HiFiCommunicator {
     };
 
 
-    elements : Array<HiFiElement> = [];
     audioElement : HTMLAudioElement;
     audioContext : AudioContext;
 
@@ -247,10 +120,11 @@ export class HiFiCommunicator {
     hifiListener : AudioWorkletNodeMeta = undefined;   // hifiSource connects here
     hifiLimiter : AudioWorkletNode = undefined;    // additional sounds connect here
 
+    uid: UID; // this client's ID (the listener's ID)
+
     options : AgoraClientOptions = {
         appid: null,
         channel: null,
-        uid: null,
         token: null
     };
 
@@ -264,7 +138,7 @@ export class HiFiCommunicator {
         audioTrack: null
     };
 
-    remoteUsers: { [uid: string] : IAgoraRTCRemoteUser; } = {};
+    remoteUsers: { [uid: string] : IAgoraRTCRemoteUserMeta; } = {};
 
     audioConfig = {
         AEC: false,
@@ -278,208 +152,39 @@ export class HiFiCommunicator {
         },
     };
 
-    onUsersDisconnected: Function;
-    onConnectionStateChanged: Function;
-    userDataCallback: Function;
-
-    private _currentHiFiConnectionState: HiFiConnectionStates = HiFiConnectionStates.Disconnected;
-    public getConnectionState(): HiFiConnectionStates {
-        return this._currentHiFiConnectionState;
-    }
+    onRemoteUserJoined: Function;
+    onRemoteUserLeft: Function;
+    onRemoteUserMoved: Function;
 
 
     constructor({
-        initialHiFiAudioAPIData = new HiFiAudioAPIData(),
-        onConnectionStateChanged,
-        onUsersDisconnected,
-        transmitRateLimitTimeoutMS = 50,
-        userDataStreamingScope = HiFiUserDataStreamingScopes.All,
-        worldFrameConfig,
-        onMuteChanged,
-        connectionRetryAndTimeoutConfig
+        onRemoteUserJoined,
+        onRemoteUserLeft,
+        onRemoteUserMoved
     }: {
-        initialHiFiAudioAPIData?: HiFiAudioAPIData,
-        onConnectionStateChanged?: Function,
-        onUsersDisconnected?: Function,
-        transmitRateLimitTimeoutMS?: number,
-        userDataStreamingScope?: HiFiUserDataStreamingScopes,
-        worldFrameConfig?: WorldFrameConfiguration,
-        onMuteChanged?: OnMuteChangedCallback,
-        connectionRetryAndTimeoutConfig?: ConnectionRetryAndTimeoutConfig
+        onRemoteUserJoined?: Function,
+        onRemoteUserLeft?: Function,
+        onRemoteUserMoved?: Function
     } = {}) {
-        if (onUsersDisconnected) {
-            this.onUsersDisconnected = this.onUsersDisconnected;
-        }
-        if (onConnectionStateChanged) {
-            this.onConnectionStateChanged = this.onConnectionStateChanged;
-        }
+        if (onRemoteUserJoined) this.onRemoteUserJoined = onRemoteUserJoined;
+        if (onRemoteUserLeft) this.onRemoteUserLeft = onRemoteUserLeft;
+        if (onRemoteUserMoved) this.onRemoteUserMoved = onRemoteUserMoved;
     }
 
+    async connect(appid: string, channelName: string): Promise<string> {
 
-    // private _manageConnection(newState: HiFiConnectionStates, message?: HiFiConnectionAttemptResult): void {
-    //     switch (newState) {
-    //         case HiFiConnectionStates.Connecting:
-    //         case HiFiConnectionStates.Reconnecting:
-    //             return;
-    //         case HiFiConnectionStates.Connected:
-    //             // this._updateStateAndCallUserStateChangeHandler(newState, message);
-    //             return;
-    //         case HiFiConnectionStates.Disconnecting:
-    //             // this._updateStateAndCallUserStateChangeHandler(newState, message);
-    //             return;
-    //         case HiFiConnectionStates.Failed:
-    //             // this._failureNotificationPending = message;
-    //             return;
-    //         case HiFiConnectionStates.Disconnected:
-    //             return;
-    //     }
-    // }
-
-
-    private decrypt_appid(data : string, key : string) {
-        let k = BigInt(key.split('').reduce((a, b) => a = Math.imul(a, 33) + b.charCodeAt(0) | 0, 0));
-        let t = BigInt('0x' + data) ^ (k * 38038099725390353860267635547n);
-        return t.toString(16);
-    }
-
-
-    async connectToHiFiAudioAPIServer(hifiAuthJWT: string,
-                                      signalingHostURL?: string,
-                                      signalingPort?: number): Promise<HiFiConnectionAttemptResult> {
-
-        this.options.appid = this.decrypt_appid("f9b2b6c1c83e07ff5ca7e54625d32dd8", "ambisonic");
+        this.options.appid = appid;
         this.options.token = null;
-        this.options.channel = "hifi-demo"
+        this.options.channel = channelName;
 
         await this.join();
-
-        return new Promise((resolve, reject) => {
-            if (this.onConnectionStateChanged) {
-                this.onConnectionStateChanged(HiFiConnectionStates.Connected, "ok");
-            }
-
-            resolve({
-                success: true,
-                error: "ok",
-                audionetInitResponse: {
-                    visit_id_hash: this.options.uid
-                }
-            });
-
-            // this.tellAppAboutUserData();
-        });
+        return Promise.resolve("" + this.uid);
     }
 
 
-    async disconnectFromHiFiAudioAPIServer(): Promise<string> {
-        return new Promise<string>((resolve) => {
-        });
-    }
-
-
-    async setOtherUserGainForThisConnection(visitIdHash: string, gain: number):
-    Promise<SetOtherUserGainForThisConnectionResponse> {
-        return new Promise<SetOtherUserGainForThisConnectionResponse>((resolve) => {
-        });
-    }
-
-
-    async setOtherUserGainsForThisConnection(otherUserGainMap: OtherUserGainMap):
-    Promise<SetOtherUserGainsForThisConnectionResponse> {
-        return new Promise<SetOtherUserGainsForThisConnectionResponse>((resolve) => {
-        });
-    }
-
-
-    getOutputAudioMediaStream(): MediaStream {
-        return new MediaStream();
-    }
-
-
-    async setInputAudioMediaStream(newInputAudioMediaStream: MediaStream, isStereo: boolean = false): Promise<boolean> {
-        // return new Promise<boolean>((resolve) => {});
-        return Promise.resolve(true);
-    }
-
-
-    async setInputAudioMuted(isMuted: boolean): Promise<boolean> {
-        // return new Promise<boolean>((resolve) => {});
-        return Promise.resolve(true);
-    }
-
-
-    getCommunicatorInfo(): any {
-    }
-
-
-    updateUserDataAndTransmit(newUserData: any): string {
-
-        console.log("QQQQ HiFiCommunicator.updateUserDataAndTransmit");
-
-
-        // only update the listener
-        let e = this.elements.find(e => e.hifiSource === null);
-        if (e !== undefined) {
-            e.x = newUserData.position.x;
-            e.y = newUserData.position.z;
-            // transform canvas to audio coordinates
-            this.hifiListener._x = (e.x - 0.5) * this.roomDimensions.width;
-            this.hifiListener._y = -(e.y - 0.5) * this.roomDimensions.depth;
-        }
-        return "";
-    }
-
-    addUserDataSubscription(newSubscription: UserDataSubscription): void {
-        if (newSubscription.callback) {
-            console.log("QQQQ setting HiFiCommunicator.userDataCallback");
-        } else {
-            console.log("QQQQ HiFiCommunicator.userDataCallback got null callback");
-        }
-        this.userDataCallback = newSubscription.callback;
-
-        // if (this.options.uid) {
-        //     console.log("QQQQ calling HiFiCommunicator.userDataCallback right away: " + this.options.uid);
-        //     this.tellAppAboutUserData();
-        // } else {
-        //     console.log("QQQQ not calling HiFiCommunicator.userDataCallback right away");
-        // }
-    }
-
-
-    tellAppAboutUserData(): void {
-        if (this.userDataCallback) {
-            let currentSubscriptionCallbackData: Array<ReceivedHiFiAudioAPIData> = [];
-            if (this.elements.length == 0) {
-                console.log("QQQQ tellAppAboutUserData elements is empty");
-            }
-
-            for (let i = 0; i < this.elements.length; i++) {
-
-                console.log("QQQQ tellAppAboutUserData i = " + i + ", uid = " + this.elements[ i ].uid);
-
-                currentSubscriptionCallbackData.push(new ReceivedHiFiAudioAPIData({
-                    providedUserID: "" + this.elements[ i ].uid,
-                    hashedVisitID: "" + this.elements[ i ].uid,
-                    position: new Point3D({ x: this.elements[ i ].x, y: 0, z: this.elements[ i ].y }),
-                    orientation: new Quaternion(),
-                    isStereo: false,
-
-                    // volumeThreshold: 1.0,
-                    // hiFiGain: 1.0,
-                    // userAttenuation: 1.0,
-                    // userRolloff: 1.0,
-                    // volume: 0.0,
-                    // hexColor: 0xffff0000,
-                    // displayName: "unknown",
-                    // profileImageURL: ""
-                }));
-            }
-            this.userDataCallback(currentSubscriptionCallbackData);
-        } else {
-            console.log("QQQQ tellAppAboutUserData no callback function");
-        }
-    }
-
+    // async setInputAudioMuted(isMuted: boolean): Promise<boolean> {
+    //     return Promise.resolve(true);
+    // }
 
 
     setThreshold(value : number) {
@@ -489,8 +194,7 @@ export class HiFiCommunicator {
         }
     }
 
-
-    setPosition(hifiSource : AudioWorkletNodeMeta) {
+    private setPosition(hifiSource : AudioWorkletNodeMeta) {
         let dx = hifiSource._x - this.hifiListener._x;
         let dy = hifiSource._y - this.hifiListener._y;
 
@@ -502,12 +206,14 @@ export class HiFiCommunicator {
 
         hifiSource.parameters.get('azimuth').value = azimuth;
         hifiSource.parameters.get('distance').value = distance;
-
-        // this.tellAppAboutUserData();
     }
 
+    setListenerPosition(x : number, y : number) {
+        this.hifiListener._x = (x - 0.5) * this.roomDimensions.width;
+        this.hifiListener._y = -(y - 0.5) * this.roomDimensions.depth;
+    }
 
-    async join() {
+    private async join() {
         await this.startSpatialAudio();
 
         // add event listener to play remote tracks when remote user publishs.
@@ -515,21 +221,9 @@ export class HiFiCommunicator {
         this.client.on("user-unpublished", this.handleUserUnpublished);
 
         // join a channel and create local tracks
-        this.options.uid = await this.client.join(this.options.appid, this.options.channel, this.options.token || null);
+        this.uid = await this.client.join(this.options.appid, this.options.channel, this.options.token || null);
 
-        console.log("QQQQQQQQQQQ get uid from agora: " + this.options.uid);
-
-        this.elements.push({
-            icon: 'sourceIcon',
-            x: 0,
-            y: 0,
-            radius: 0.02,
-            alpha: 0.5,
-            clickable: true,
-            hifiSource: null,
-            uid: this.options.uid
-        });
-
+        console.log("QQQQQQQQQQQ get uid from agora: " + this.uid);
 
         this.localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack(this.audioConfig);
 
@@ -575,7 +269,7 @@ export class HiFiCommunicator {
         // this.tellAppAboutUserData();
     }
 
-    senderTransform(sender : RTCRtpSenderIS) {
+    private senderTransform(sender : RTCRtpSenderIS) {
         const senderStreams = sender.createEncodedStreams();
         const readableStream = senderStreams.readable;
         const writableStream = senderStreams.writable;
@@ -616,7 +310,7 @@ export class HiFiCommunicator {
     }
 
 
-    receiverTransform(receiver : RTCRtpReceiverIS, uid : UID) {
+    private receiverTransform(receiver : RTCRtpReceiverIS, uid : UID) {
         const receiverStreams = receiver.createEncodedStreams();
         const readableStream = receiverStreams.readable;
         const writableStream = receiverStreams.writable;
@@ -640,17 +334,11 @@ export class HiFiCommunicator {
                     let x = src.getInt16(len + 0) * (1/256.0);
                     let y = src.getInt16(len + 2) * (1/256.0);
 
-                    // find hifiSource for this uid
-                    let e = this.elements.find((e : HiFiElement) => e.uid === uid);
-                    if (e !== undefined) {
-                        // update hifiSource position
-                        e.hifiSource._x = x;
-                        e.hifiSource._y = y;
-                        this.setPosition(e.hifiSource);
-
-                        // update screen position
-                        e.x = 0.5 + (x / this.roomDimensions.width);
-                        e.y = 0.5 - (y / this.roomDimensions.depth);
+                    let remoteUser : IAgoraRTCRemoteUserMeta = this.remoteUsers[uid];
+                    if (remoteUser._x != x || remoteUser._y != y) {
+                        this.onRemoteUserMoved(uid,
+                                               0.5 + (x / this.roomDimensions.width),
+                                               0.5 - (y / this.roomDimensions.depth));
                     }
 
                     encodedFrame.data = dst.buffer;
@@ -672,10 +360,10 @@ export class HiFiCommunicator {
             this.localTracks.audioTrack = undefined;
         }
 
+        this.remoteUsers = {};
+
         // leave the channel
         await this.client.leave();
-
-        this.elements.length = 0;
 
         this.stopSpatialAudio();
 
@@ -683,21 +371,23 @@ export class HiFiCommunicator {
     }
 
 
-    handleUserPublished(user : IAgoraRTCRemoteUser, mediaType : string) {
+    private handleUserPublished(user : IAgoraRTCRemoteUser, mediaType : string) {
         const id : UID = user.uid;
         this.remoteUsers[id] = user;
+        this.remoteUsers[id]._x = 0;
+        this.remoteUsers[id]._y = 0;
         this.subscribe(user, mediaType);
     }
 
 
-    handleUserUnpublished(user : IAgoraRTCRemoteUser) {
+    private handleUserUnpublished(user : IAgoraRTCRemoteUser) {
         const id : UID = user.uid;
         delete this.remoteUsers[id];
         this.unsubscribe(user);
     }
 
 
-    async subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
+    private async subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
         const uid = user.uid;
 
         // subscribe to a remote user
@@ -735,33 +425,21 @@ export class HiFiCommunicator {
             let receiver : RTCRtpReceiverIS = receivers.find(r => r.track.id === mediaStreamTrack.id);
             this.receiverTransform(receiver, uid);
 
-            this.elements.push({
-                icon: 'sourceIcon',
-                x: 0,
-                y: 0,
-                radius: 0.02,
-                alpha: 0.5,
-                clickable: false,
-
-                hifiSource,
-                uid,
-            });
+            this.onRemoteUserJoined(uid);
         }
     }
 
 
-    async unsubscribe(user: IAgoraRTCRemoteUser) {
+    private async unsubscribe(user: IAgoraRTCRemoteUser) {
         const uid = user.uid;
 
-        // find and remove this uid
-        let i = this.elements.findIndex(e => e.uid === uid);
-        this.elements.splice(i, 1);
+        this.onRemoteUserLeft(uid);
 
         console.log("unsubscribe uid:", uid);
     }
 
 
-    async startSpatialAudio() {
+    private async startSpatialAudio() {
 
         this.audioElement = new Audio();
 
@@ -777,8 +455,8 @@ export class HiFiCommunicator {
         await this.audioContext.audioWorklet.addModule('HifiProcessor.js');
 
         this.hifiListener = new AudioWorkletNode(this.audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
-        this.hifiListener._x = 2.0 * Math.random() - 1.0; // initial position
-        this.hifiListener._y = 2.0 * Math.random() - 1.0;
+        // this.hifiListener._x = 2.0 * Math.random() - 1.0; // initial position
+        // this.hifiListener._y = 2.0 * Math.random() - 1.0;
         this.hifiLimiter = new AudioWorkletNode(this.audioContext, 'wasm-limiter');
         this.hifiListener.connect(this.hifiLimiter).connect(this.audioContext.destination);
 
@@ -786,7 +464,7 @@ export class HiFiCommunicator {
     }
 
 
-    stopSpatialAudio() {
+    private stopSpatialAudio() {
         this.audioContext.close();
     }
 }

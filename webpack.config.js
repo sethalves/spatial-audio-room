@@ -1,6 +1,7 @@
 const path = require('path');
 const webpack = require('webpack');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
+const CopyPlugin = require("copy-webpack-plugin");
 
 module.exports = ({ buildEnv }) => {
     let config = {
@@ -12,6 +13,14 @@ module.exports = ({ buildEnv }) => {
                 'HIFI_API_VERSION': JSON.stringify(`v${require('./package.json').version}`)
             }),
             new CleanWebpackPlugin(),
+            new CopyPlugin({
+                patterns: [
+                    { from: "vendor/*", to: "" },
+                    { from: "assets/WASMAudioBuffer.js", to: "" },
+                    { from: "assets/hifi.wasm.js", to: "" },
+                    { from: "assets/HifiProcessor.js", to: "" }
+                ],
+            }),
         ],
         output: {
             filename: `HighFidelity[name]-latest.js`,
