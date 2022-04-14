@@ -1,8 +1,7 @@
 'use strict';
 
-export function patchRTCPeerConnection() {
+export function patchRTCPeerConnection(_RTCPeerConnection) {
     // patch RTCPeerConnection to enable insertable streams
-    let _RTCPeerConnection = RTCPeerConnection;
     RTCPeerConnection = function(...config) {
         if (config.length) config[0].encodedInsertableStreams = true;
         return new _RTCPeerConnection(...config);

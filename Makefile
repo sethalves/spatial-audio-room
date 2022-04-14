@@ -23,3 +23,4 @@ clean:
 
 very-clean: clean
 	rm -rf node_modules package-lock.json
+	rm -rf examples/basic/node_modules examples/basic/package-lock.json

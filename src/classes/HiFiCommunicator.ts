@@ -7,7 +7,9 @@ import AgoraRTC, {
 } from "agora-rtc-sdk-ng";
 import { patchRTCPeerConnection } from './patch-rtc-peer-connection';
 
-patchRTCPeerConnection();
+let _RTCPeerConnection = RTCPeerConnection;
+
+patchRTCPeerConnection(_RTCPeerConnection);
 
 
 export interface HiFiConnectionAttemptResult {
@@ -48,7 +50,8 @@ interface RTCConfiguration {
 
 // Agora this.client with _p2pChannel exposed
 interface IAgoraRTCClientOpen extends IAgoraRTCClient {
-    _p2pChannel? : any | undefined
+    _p2pChannel? : any | undefined,
+    sendStreamMessage? : any | undefined
 }
 
 
@@ -115,6 +118,7 @@ export class HiFiCommunicator {
 
     audioElement : HTMLAudioElement;
     audioContext : AudioContext;
+    loopback : any[];
 
     hifiNoiseGate : AudioWorkletNode = undefined;  // mic stream connects here
     hifiListener : AudioWorkletNodeMeta = undefined;   // hifiSource connects here
@@ -140,35 +144,30 @@ export class HiFiCommunicator {
 
     remoteUsers: { [uid: string] : IAgoraRTCRemoteUserMeta; } = {};
 
-    audioConfig = {
-        AEC: false,
-        AGC: false,
-        ANS: false,
-        bypassWebAudio: true,
-        encoderConfig: {
-            sampleRate: 48000,
-            bitrate: 64,
-            stereo: false,
-        },
-    };
+    aecEnabled: boolean = false;
+    mutedEnabled: boolean = false;
 
     onRemoteUserJoined: Function;
     onRemoteUserLeft: Function;
     onRemoteUserMoved: Function;
+    onBroadcastMessage : Function;
 
 
     constructor({
         onRemoteUserJoined,
         onRemoteUserLeft,
-        onRemoteUserMoved
+        onRemoteUserMoved,
+        onBroadcastMessage
     }: {
         onRemoteUserJoined?: Function,
         onRemoteUserLeft?: Function,
         onRemoteUserMoved?: Function
+        onBroadcastMessage?: Function
     } = {}) {
-        if (onRemoteUserJoined) this.onRemoteUserJoined = onRemoteUserJoined;
-        if (onRemoteUserLeft) this.onRemoteUserLeft = onRemoteUserLeft;
-        if (onRemoteUserMoved) this.onRemoteUserMoved = onRemoteUserMoved;
+        this.onRemoteUserJoined = onRemoteUserJoined;
+        this.onRemoteUserLeft = onRemoteUserLeft;
+        this.onRemoteUserMoved = onRemoteUserMoved;
+        this.onBroadcastMessage = onBroadcastMessage;
     }
 
     async connect(appid: string, channelName: string): Promise<string> {
@@ -185,6 +184,22 @@ export class HiFiCommunicator {
     // async setInputAudioMuted(isMuted: boolean): Promise<boolean> {
     //     return Promise.resolve(true);
     // }
+
+
+    isAecEnabled() : boolean { return this.aecEnabled; }
+    async setAecEnabled(v : boolean) : Promise<string> {
+        if (this.aecEnabled != v) {
+            this.aecEnabled = v;
+            if (this.localTracks.audioTrack) {
+                await this.leave();
+                await this.join();
+            }
+        }
+        return Promise.resolve("" + this.uid);
+    }
+
+    isMutedEnabled() : boolean { return this.mutedEnabled; }
+    setMutedEnabled(v : boolean) { this.mutedEnabled = v; }
 
 
     setThreshold(value : number) {
@@ -213,19 +228,40 @@ export class HiFiCommunicator {
         this.hifiListener._y = -(y - 0.5) * this.roomDimensions.depth;
     }
 
+    sendBroadcastMessage(msg : Uint8Array) {
+        if (this.localTracks.audioTrack) {
+            this.client.sendStreamMessage(msg);
+            return true;
+        }
+        return false;
+    }
+
     private async join() {
+
         await this.startSpatialAudio();
 
         // add event listener to play remote tracks when remote user publishs.
         this.client.on("user-published", this.handleUserPublished);
         this.client.on("user-unpublished", this.handleUserUnpublished);
 
-        // join a channel and create local tracks
+        // join a channel
         this.uid = await this.client.join(this.options.appid, this.options.channel, this.options.token || null);
 
         console.log("QQQQQQQQQQQ get uid from agora: " + this.uid);
 
-        this.localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack(this.audioConfig);
+        // create local tracks
+        let audioConfig = {
+            AEC: this.aecEnabled,
+            AGC: false,
+            ANS: false,
+            bypassWebAudio: true,
+            encoderConfig: {
+                sampleRate: 48000,
+                bitrate: 64,
+                stereo: false,
+            },
+        };
+        this.localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack(audioConfig);
 
         //
         // route mic stream through Web Audio noise gate
@@ -234,7 +270,8 @@ export class HiFiCommunicator {
         let mediaStream = new MediaStream([mediaStreamTrack]);
 
         let sourceNode = this.audioContext.createMediaStreamSource(mediaStream);
-        let destinationNode = this.audioContext.createMediaStreamDestination()
+        let destinationNode = this.audioContext.createMediaStreamDestination();
+
         this.hifiNoiseGate = new AudioWorkletNode(this.audioContext, 'wasm-noise-gate');
 
         sourceNode.connect(this.hifiNoiseGate).connect(destinationNode);
@@ -266,7 +303,12 @@ export class HiFiCommunicator {
         //     });
         // })
 
-        // this.tellAppAboutUserData();
+        // on broadcast from remote user, set corresponding username
+        this.client.on("stream-message", (uid : UID, data : Uint8Array) => {
+            if (this.onBroadcastMessage) {
+                this.onBroadcastMessage("" + uid, data);
+            }
+        });
     }
 
     private senderTransform(sender : RTCRtpSenderIS) {
@@ -439,6 +481,55 @@ export class HiFiCommunicator {
     }
 
 
+    //
+    // Chrome (as of M100) cannot perform echo cancellation of the Web Audio output.
+    // As a workaround, a loopback configuration of local peer connections is inserted at the end of the pipeline.
+    // This should be removed when Chrome implements browser-wide echo cancellation.
+    // https://bugs.chromium.org/p/chromium/issues/detail?id=687574#c60
+    //
+    private async startEchoCancellation(element : HTMLAudioElement, context : AudioContext) {
+
+        this.loopback = [new _RTCPeerConnection, new _RTCPeerConnection];
+
+        // connect Web Audio to destination
+        let destination = context.createMediaStreamDestination();
+        this.hifiLimiter.connect(destination);
+
+        // connect through loopback peer connections
+        this.loopback[0].addTrack(destination.stream.getAudioTracks()[0]);
+        this.loopback[1].ontrack = (e : RTCTrackEvent) => element.srcObject = new MediaStream([e.track]);
+
+        async function iceGatheringComplete(pc : RTCPeerConnection) {
+            return pc.iceGatheringState === 'complete' ? pc.localDescription :
+                new Promise(resolve => {
+                    pc.onicegatheringstatechange = (e : Event) => {
+                        pc.iceGatheringState === 'complete' && resolve(pc.localDescription);
+                    };
+                });
+        }
+
+        // start loopback peer connections
+        let offer = await this.loopback[0].createOffer();
+        offer.sdp = offer.sdp.replace('useinbandfec=1', 'useinbandfec=1; stereo=1; sprop-stereo=1; maxaveragebitrate=256000');
+        await this.loopback[0].setLocalDescription(offer);
+        await this.loopback[1].setRemoteDescription(await iceGatheringComplete(this.loopback[0]));
+
+        let answer = await this.loopback[1].createAnswer();
+        answer.sdp = answer.sdp.replace('useinbandfec=1', 'useinbandfec=1; stereo=1; sprop-stereo=1; maxaveragebitrate=256000');
+        await this.loopback[1].setLocalDescription(answer);
+        await this.loopback[0].setRemoteDescription(await iceGatheringComplete(this.loopback[1]));
+
+        console.log('Started AEC using loopback peer connections.')
+    }
+
+
+    private stopEchoCancellation() {
+        this.loopback && this.loopback.forEach(pc => pc.close());
+        this.loopback = null;
+        console.log('Stopped AEC.')
+    }
+
+
     private async startSpatialAudio() {
 
         this.audioElement = new Audio();
@@ -455,16 +546,21 @@ export class HiFiCommunicator {
         await this.audioContext.audioWorklet.addModule('HifiProcessor.js');
 
         this.hifiListener = new AudioWorkletNode(this.audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
-        // this.hifiListener._x = 2.0 * Math.random() - 1.0; // initial position
-        // this.hifiListener._y = 2.0 * Math.random() - 1.0;
         this.hifiLimiter = new AudioWorkletNode(this.audioContext, 'wasm-limiter');
-        this.hifiListener.connect(this.hifiLimiter).connect(this.audioContext.destination);
+        this.hifiListener.connect(this.hifiLimiter);
+
+        if (this.aecEnabled) {
+            this.startEchoCancellation(this.audioElement, this.audioContext);
+        } else {
+            this.hifiLimiter.connect(this.audioContext.destination);
+        }
 
         this.audioElement.play();
     }
 
 
     private stopSpatialAudio() {
+        this.stopEchoCancellation();
         this.audioContext.close();
     }
 }
