@@ -1,11 +1,16 @@
 
-import AgoraRTC, {
-    IAgoraRTCClient,
-    UID,
-    IMicrophoneAudioTrack,
-    IAgoraRTCRemoteUser
-} from "agora-rtc-sdk-ng";
-import { patchRTCPeerConnection } from './patch-rtc-peer-connection';
+// import AgoraRTC, {
+//     IAgoraRTCClient,
+//     UID,
+//     IMicrophoneAudioTrack,
+//     IAgoraRTCRemoteUser
+// } from "agora-rtc-sdk-ng";
+
+import type { IAgoraRTC, IAgoraRTCClient, UID, IMicrophoneAudioTrack, IAgoraRTCRemoteUser } from 'agora-rtc-sdk-ng';
+declare const AgoraRTC: IAgoraRTC;
+
+// import { patchRTCPeerConnection } from './patch-rtc-peer-connection';
+declare function patchRTCPeerConnection(_RTCPeerConnection : any) : void;
 
 let _RTCPeerConnection = RTCPeerConnection;
 
@@ -24,12 +29,6 @@ interface AudioWorkletNodeMeta extends AudioWorkletNode {
     _x? : number,
     _y? : number
 }
-
-interface IAgoraRTCRemoteUserMeta extends IAgoraRTCRemoteUser {
-    _x? : number,
-    _y? : number
-}
-
 
 interface TransformStreamWithID extends TransformStream {
     uid? : UID | undefined
@@ -124,6 +123,8 @@ export class HiFiCommunicator {
     hifiListener : AudioWorkletNodeMeta = undefined;   // hifiSource connects here
     hifiLimiter : AudioWorkletNode = undefined;    // additional sounds connect here
 
+    sources: Map<string, AudioWorkletNodeMeta> = new Map<string, AudioWorkletNodeMeta>();
+
     uid: UID; // this client's ID (the listener's ID)
 
     options : AgoraClientOptions = {
@@ -142,7 +143,7 @@ export class HiFiCommunicator {
         audioTrack: null
     };
 
-    remoteUsers: { [uid: string] : IAgoraRTCRemoteUserMeta; } = {};
+    remoteUsers: { [uid: string] : IAgoraRTCRemoteUser; } = {};
 
     aecEnabled: boolean = false;
     mutedEnabled: boolean = false;
@@ -204,12 +205,13 @@ export class HiFiCommunicator {
 
     setThreshold(value : number) {
         if (this.hifiNoiseGate !== undefined) {
+            // hifiNoiseGate.parameters is type AudioParamMap
             this.hifiNoiseGate.parameters.get('threshold').value = value;
             console.log('set noisegate threshold to', value, 'dB');
         }
     }
 
-    private setPosition(hifiSource : AudioWorkletNodeMeta) {
+    private setSourcePosition(hifiSource : AudioWorkletNodeMeta) {
         let dx = hifiSource._x - this.hifiListener._x;
         let dy = hifiSource._y - this.hifiListener._y;
 
@@ -376,8 +378,11 @@ export class HiFiCommunicator {
                     let x = src.getInt16(len + 0) * (1/256.0);
                     let y = src.getInt16(len + 2) * (1/256.0);
 
-                    let remoteUser : IAgoraRTCRemoteUserMeta = this.remoteUsers[uid];
-                    if (remoteUser._x != x || remoteUser._y != y) {
+                    let source = this.sources.get("" + uid)
+                    if (source._x != x || source._y != y) {
+                        source._x = x;
+                        source._y = y;
+                        this.setSourcePosition(source);
                         this.onRemoteUserMoved(uid,
                                                0.5 + (x / this.roomDimensions.width),
                                                0.5 - (y / this.roomDimensions.depth));
@@ -416,8 +421,6 @@ export class HiFiCommunicator {
     private handleUserPublished(user : IAgoraRTCRemoteUser, mediaType : string) {
         const id : UID = user.uid;
         this.remoteUsers[id] = user;
-        this.remoteUsers[id]._x = 0;
-        this.remoteUsers[id]._y = 0;
         this.subscribe(user, mediaType);
     }
 
@@ -425,6 +428,7 @@ export class HiFiCommunicator {
     private handleUserUnpublished(user : IAgoraRTCRemoteUser) {
         const id : UID = user.uid;
         delete this.remoteUsers[id];
+        this.sources.delete("" + id);
         this.unsubscribe(user);
     }
 
@@ -459,6 +463,8 @@ export class HiFiCommunicator {
 
             let hifiSource : AudioWorkletNodeMeta = new AudioWorkletNode(this.audioContext, 'wasm-hrtf-input');
             sourceNode.connect(hifiSource).connect(this.hifiListener);
+
+            this.sources.set("" + uid, hifiSource);
 
             //
             // insertable streams
@@ -534,20 +540,29 @@ export class HiFiCommunicator {
 
         this.audioElement = new Audio();
 
+        console.log("QQQQ A");
+
         try {
+            console.log("QQQQQQQQQ creating audio-context");
             this.audioContext = new AudioContext({ sampleRate: 48000 });
         } catch (e) {
             console.log('Web Audio is not supported by this browser.');
             return;
         }
 
+        console.log("QQQQ B");
+
         console.log("Audio callback latency (samples):", this.audioContext.sampleRate * this.audioContext.baseLatency);
 
         await this.audioContext.audioWorklet.addModule('HifiProcessor.js');
 
+        console.log("QQQQ C");
+
         this.hifiListener = new AudioWorkletNode(this.audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
         this.hifiLimiter = new AudioWorkletNode(this.audioContext, 'wasm-limiter');
         this.hifiListener.connect(this.hifiLimiter);
+
+        console.log("QQQQ D");
 
         if (this.aecEnabled) {
             this.startEchoCancellation(this.audioElement, this.audioContext);
@@ -555,7 +570,11 @@ export class HiFiCommunicator {
             this.hifiLimiter.connect(this.audioContext.destination);
         }
 
+        console.log("QQQQ E");
+
         this.audioElement.play();
+
+        console.log("QQQQ F");
     }
 
 

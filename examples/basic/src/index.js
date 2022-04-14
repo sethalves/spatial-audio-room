@@ -1,5 +1,9 @@
 'use strict';
 
+// import { HiFiCommunicator } from 'hifi-spatial-audio';
+
+import { HiFiCommunicator } from "./classes/HiFiCommunicator.js";
+
 let hiFiCommunicator;
 let canvasControl;
 
@@ -165,10 +169,10 @@ function onBroadcastMessage(uid /* : string */, data /* : Uint8Array */) {
 
 async function join(password, token, channel) {
 
-    hiFiCommunicator = new HighFidelityAudio.HiFiCommunicator(onRemoteUserJoined,
-                                                              onRemoteUserLeft,
-                                                              onRemoteUserMoved,
-                                                              onBroadcastMessage);
+    hiFiCommunicator = new /* HighFidelityAudio. */ HiFiCommunicator(onRemoteUserJoined,
+                                                                     onRemoteUserLeft,
+                                                                     onRemoteUserMoved,
+                                                                     onBroadcastMessage);
     let appid = decrypt_appid("f9b2b6c1c83e07ff5ca7e54625d32dd8", password);
     localID = await hiFiCommunicator.connect(appid, channel);
 
@@ -184,8 +188,12 @@ async function join(password, token, channel) {
     let canvas = document.getElementById('canvas');
 
     // initial position
-    let x = 2.0 * Math.random() - 1.0;
-    let y = 2.0 * Math.random() - 1.0;
+//    let x = 2.0 * Math.random() - 1.0;
+//    let y = 2.0 * Math.random() - 1.0;
+
+    let x = Math.random();
+    let y = Math.random();
+
 
     elements.push({
         icon: 'listenerIcon',

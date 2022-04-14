@@ -2,8 +2,8 @@
   "name": "hifi-spatial-audio",
   "version": "3.0.0-0",
   "description": "",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/HighFidelityAudio-latest.js",
+  "types": "./dist/HighFidelityAudio-latest.d.ts",
   "files": [
     "dist"
   ],
