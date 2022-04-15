@@ -4,7 +4,7 @@
 
 import { HiFiCommunicator } from "./classes/HiFiCommunicator.js";
 
-let hiFiCommunicator;
+let hiFiCommunicator = new /* HighFidelityAudio. */ HiFiCommunicator();
 let canvasControl;
 
 let elements = [];
@@ -21,6 +21,7 @@ let usernames = {};
 
 // the demo can auto join channel with params in url
 $(()=>{
+    console.log("XXX initial page load");
     let urlParams = new URL(location.href).searchParams;
     let agoraChannel = urlParams.get("channel");
     let password = urlParams.get("password");
@@ -62,7 +63,7 @@ $("#username").change(function (e) {
     if (hiFiCommunicator && hiFiCommunicator.sendBroadcastMessage((new TextEncoder).encode(usernames[localID]))) {
         console.log('%cusername changed, sent stream-message of:', 'color:cyan', usernames[localID]);
     } else {
-        console.log("Failed to update username -- no audio-track");
+        // console.log("Failed to update username -- no audio-track");
     }
 })
 
@@ -169,16 +170,16 @@ function onBroadcastMessage(uid /* : string */, data /* : Uint8Array */) {
 
 async function join(password, token, channel) {
 
-    hiFiCommunicator = new /* HighFidelityAudio. */ HiFiCommunicator(onRemoteUserJoined,
-                                                                     onRemoteUserLeft,
-                                                                     onRemoteUserMoved,
-                                                                     onBroadcastMessage);
-    let appid = decrypt_appid("f9b2b6c1c83e07ff5ca7e54625d32dd8", password);
+    hiFiCommunicator.setCallbacks(onRemoteUserJoined,
+                                  onRemoteUserLeft,
+                                  onRemoteUserMoved,
+                                  onBroadcastMessage);
+
+    // let appid = decrypt_appid("f9b2b6c1c83e07ff5ca7e54625d32dd8", password); // seth's
+    let appid = decrypt_appid("366ef844621b07594078146f4433647a", password); // ken's
     localID = await hiFiCommunicator.connect(appid, channel);
 
-    console.log("QQQQQ my ID is " + JSON.stringify(localID));
-
-    hiFiCommunicator.setThreshold(hiFiCommunicator.isMutedEnabled() ? 0.0 : threshold.value);
+    // hiFiCommunicator.setThreshold(hiFiCommunicator.isMutedEnabled() ? 0.0 : threshold.value);
 
     $("#sound").attr("hidden", false);
 
@@ -223,6 +224,8 @@ async function join(password, token, channel) {
                                           }
                                       });
     canvasControl.draw();
+
+    await hiFiCommunicator.connectAudio();
 
     //
     // HACK! set user radius based on volume level

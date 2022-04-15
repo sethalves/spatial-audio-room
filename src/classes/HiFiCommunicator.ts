@@ -7,7 +7,10 @@
 // } from "agora-rtc-sdk-ng";
 
 import type { IAgoraRTC, IAgoraRTCClient, UID, IMicrophoneAudioTrack, IAgoraRTCRemoteUser } from 'agora-rtc-sdk-ng';
-declare const AgoraRTC: IAgoraRTC;
+interface IAgoraRTCOpen extends IAgoraRTC {
+    setParameter? : any | undefined
+}
+declare const AgoraRTC: IAgoraRTCOpen;
 
 // import { patchRTCPeerConnection } from './patch-rtc-peer-connection';
 declare function patchRTCPeerConnection(_RTCPeerConnection : any) : void;
@@ -133,10 +136,7 @@ export class HiFiCommunicator {
         token: null
     };
 
-    client : IAgoraRTCClientOpen = AgoraRTC.createClient({
-        mode: "rtc",
-        codec: "vp8"
-    });
+    client : IAgoraRTCClientOpen;
 
     localTracks : LocalTracks = {
         //videoTrack: null,
@@ -154,17 +154,19 @@ export class HiFiCommunicator {
     onBroadcastMessage : Function;
 
 
-    constructor({
-        onRemoteUserJoined,
-        onRemoteUserLeft,
-        onRemoteUserMoved,
-        onBroadcastMessage
-    }: {
-        onRemoteUserJoined?: Function,
-        onRemoteUserLeft?: Function,
-        onRemoteUserMoved?: Function
-        onBroadcastMessage?: Function
-    } = {}) {
+    constructor() {
+        this.client = AgoraRTC.createClient({
+            mode: "rtc",
+            codec: "vp8"
+        });
+
+        this.client.on('exception', (event : any) => console.error('RTC CLIENT ERROR ', event));
+    }
+
+    setCallbacks(onRemoteUserJoined : Function,
+                 onRemoteUserLeft : Function,
+                 onRemoteUserMoved : Function,
+                 onBroadcastMessage : Function) {
         this.onRemoteUserJoined = onRemoteUserJoined;
         this.onRemoteUserLeft = onRemoteUserLeft;
         this.onRemoteUserMoved = onRemoteUserMoved;
@@ -178,7 +180,7 @@ export class HiFiCommunicator {
         this.options.channel = channelName;
 
         await this.join();
-        return Promise.resolve("" + this.uid);
+        return "" + this.uid;
     }
 
 
@@ -196,7 +198,7 @@ export class HiFiCommunicator {
                 await this.join();
             }
         }
-        return Promise.resolve("" + this.uid);
+        return "" + this.uid;
     }
 
     isMutedEnabled() : boolean { return this.mutedEnabled; }
@@ -243,13 +245,20 @@ export class HiFiCommunicator {
         await this.startSpatialAudio();
 
         // add event listener to play remote tracks when remote user publishs.
-        this.client.on("user-published", this.handleUserPublished);
-        this.client.on("user-unpublished", this.handleUserUnpublished);
+        // this.client.on("user-published", this.handleUserPublished);
+        this.client.on("user-published", async (user : IAgoraRTCRemoteUser, mediaType : string) => {
+            await this.handleUserPublished(user, mediaType);
+        });
+        this.client.on("user-unpublished", async (user : IAgoraRTCRemoteUser) => {
+            this.handleUserUnpublished(user);
+        });
 
         // join a channel
         this.uid = await this.client.join(this.options.appid, this.options.channel, this.options.token || null);
+    }
 
-        console.log("QQQQQQQQQQQ get uid from agora: " + this.uid);
+
+    async connectAudio() {
 
         // create local tracks
         let audioConfig = {
@@ -275,6 +284,7 @@ export class HiFiCommunicator {
         let destinationNode = this.audioContext.createMediaStreamDestination();
 
         this.hifiNoiseGate = new AudioWorkletNode(this.audioContext, 'wasm-noise-gate');
+        this.setThreshold(this.mutedEnabled ? 0.0 : /* this.threshold.value */ -40); // XXX
 
         sourceNode.connect(this.hifiNoiseGate).connect(destinationNode);
 
@@ -295,15 +305,15 @@ export class HiFiCommunicator {
         // HACK! set user radius based on volume level
         // TODO: reimplement in a performant way...
         //
-        // AgoraRTC.setParameter("AUDIO_VOLUME_INDICATION_INTERVAL", 20);
-        // this.client.enableAudioVolumeIndicator();
-        // this.client.on("volume-indicator", volumes => {
-        //     volumes.forEach((volume, index) => {
-        //         let e = this.elements.find(e => e.uid === volume.uid);
-        //         if (e !== undefined)
-        //             e.radius = 0.02 + 0.04 * volume.level/100;
-        //     });
-        // })
+        AgoraRTC.setParameter("AUDIO_VOLUME_INDICATION_INTERVAL", 20);
+        this.client.enableAudioVolumeIndicator();
+        this.client.on("volume-indicator", volumes => {
+            volumes.forEach((volume, index) => {
+                // let e = this.elements.find(e => e.uid === volume.uid);
+                // if (e !== undefined)
+                //     e.radius = 0.02 + 0.04 * volume.level/100;
+            });
+        })
 
         // on broadcast from remote user, set corresponding username
         this.client.on("stream-message", (uid : UID, data : Uint8Array) => {
@@ -318,8 +328,8 @@ export class HiFiCommunicator {
         const readableStream = senderStreams.readable;
         const writableStream = senderStreams.writable;
         const transformStream = new TransformStream({
-            start() { console.log('installed sender transform'); },
-            transform(encodedFrame, controller) {
+            start: () => { console.log('installed sender transform'); },
+            transform: (encodedFrame, controller) => {
                 if (sender.track.kind === "audio") {
 
                     let src = new DataView(encodedFrame.data);
@@ -359,8 +369,8 @@ export class HiFiCommunicator {
         const readableStream = receiverStreams.readable;
         const writableStream = receiverStreams.writable;
         const transformStream : TransformStreamWithID = new TransformStream({
-            start() { console.log('installed receiver transform for uid:', uid); },
-            transform(encodedFrame, controller) {
+            start: () => { console.log('installed receiver transform for uid:', uid); },
+            transform: (encodedFrame, controller) => {
                 if (receiver.track.kind === "audio") {
 
                     let src = new DataView(encodedFrame.data);
@@ -418,10 +428,10 @@ export class HiFiCommunicator {
     }
 
 
-    private handleUserPublished(user : IAgoraRTCRemoteUser, mediaType : string) {
+    private async handleUserPublished(user : IAgoraRTCRemoteUser, mediaType : string) {
         const id : UID = user.uid;
         this.remoteUsers[id] = user;
-        this.subscribe(user, mediaType);
+        await this.subscribe(user, mediaType);
     }
 
 
@@ -441,17 +451,6 @@ export class HiFiCommunicator {
             await this.client.subscribe(user, mediaType);
             console.log("subscribe uid:", uid);
         }
-
-        //    if (mediaType === 'video') {
-        //        const player = $(`
-        //      <div id="player-wrapper-${uid}">
-        //        <p class="player-name">remoteUser(${uid})</p>
-        //        <div id="player-${uid}" class="player"></div>
-        //      </div>
-        //    `);
-        //        $("#remote-playerlist").append(player);
-        //        user.videoTrack.play(`player-${uid}`);
-        //    }
 
         if (mediaType === 'audio') {
 
@@ -480,9 +479,7 @@ export class HiFiCommunicator {
 
     private async unsubscribe(user: IAgoraRTCRemoteUser) {
         const uid = user.uid;
-
         this.onRemoteUserLeft(uid);
-
         console.log("unsubscribe uid:", uid);
     }
 
@@ -494,7 +491,6 @@ export class HiFiCommunicator {
     // https://bugs.chromium.org/p/chromium/issues/detail?id=687574#c60
     //
     private async startEchoCancellation(element : HTMLAudioElement, context : AudioContext) {
-
         this.loopback = [new _RTCPeerConnection, new _RTCPeerConnection];
 
         // connect Web Audio to destination
@@ -537,32 +533,22 @@ export class HiFiCommunicator {
 
 
     private async startSpatialAudio() {
-
         this.audioElement = new Audio();
 
-        console.log("QQQQ A");
-
         try {
-            console.log("QQQQQQQQQ creating audio-context");
             this.audioContext = new AudioContext({ sampleRate: 48000 });
         } catch (e) {
             console.log('Web Audio is not supported by this browser.');
             return;
         }
 
-        console.log("QQQQ B");
-
         console.log("Audio callback latency (samples):", this.audioContext.sampleRate * this.audioContext.baseLatency);
 
         await this.audioContext.audioWorklet.addModule('HifiProcessor.js');
 
-        console.log("QQQQ C");
-
         this.hifiListener = new AudioWorkletNode(this.audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
         this.hifiLimiter = new AudioWorkletNode(this.audioContext, 'wasm-limiter');
         this.hifiListener.connect(this.hifiLimiter);
-
-        console.log("QQQQ D");
 
         if (this.aecEnabled) {
             this.startEchoCancellation(this.audioElement, this.audioContext);
@@ -570,11 +556,7 @@ export class HiFiCommunicator {
             this.hifiLimiter.connect(this.audioContext.destination);
         }
 
-        console.log("QQQQ E");
-
         this.audioElement.play();
-
-        console.log("QQQQ F");
     }
 
 

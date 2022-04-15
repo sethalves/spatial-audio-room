@@ -36,6 +36,8 @@ debug-deploy:
 	cp assets/WASMAudioBuffer.js debug-dist/
 	cp assets/hifi.wasm.js debug-dist/
 	cp assets/HifiProcessor.js debug-dist/
+	cp examples/basic/src/orig.js debug-dist/orig.js
+	cp examples/basic/orig.html debug-dist/orig.html
 	rsync --delete -avP debug-dist/ /var/www/html/basic-example/
 
 clean:
