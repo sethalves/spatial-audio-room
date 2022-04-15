@@ -96,7 +96,13 @@ CanvasControl.prototype.draw = function() {
       let x = this._elements[i].x * this._canvas.width - radiusInPixels;
       let y = this._elements[i].y * this._canvas.height - radiusInPixels;
       this._context.globalAlpha = this._elements[i].alpha;
+
+      this._context.save();
+      this._context.translate(this._elements[i].x * this._canvas.width, this._elements[i].y * this._canvas.height);
+      this._context.rotate(this._elements[i].o);
+      this._context.translate(-this._elements[i].x * this._canvas.width, -this._elements[i].y * this._canvas.height);
       this._context.drawImage(icon, x, y, radiusInPixels * 2, radiusInPixels * 2);
+      this._context.restore();
 
       let uid = this._elements[i].uid;
       if (usernames[uid] !== undefined) {
@@ -152,13 +158,24 @@ CanvasControl.prototype.getNearestElement = function(cursorPosition) {
 };
 
 CanvasControl.prototype._cursorUpdateFunc = function(cursorPosition) {
+
   if (this._selected.index > -1) {
+
     this._elements[this._selected.index].x = Math.max(0, Math.min(1,
       (cursorPosition.x + this._selected.xOffset) / this._canvas.width));
     this._elements[this._selected.index].y = Math.max(0, Math.min(1,
       (cursorPosition.y + this._selected.yOffset) / this._canvas.height));
     this.invokeCallback();
+
+  } else {
+    // rotate listener to lookat(cursorPosition)
+    let index = this._elements.findIndex(e => e.hifiSource === null);
+    let dx = cursorPosition.x / this._canvas.width - this._elements[index].x;
+    let dy = cursorPosition.y / this._canvas.height - this._elements[index].y;
+    this._elements[index].o = fastAtan2(dx, -dy);
+    this.invokeCallback();
   }
+
   //this.draw();
 };
 

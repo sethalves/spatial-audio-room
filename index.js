@@ -133,6 +133,7 @@ let hifiLimiter = undefined;    // additional sounds connect here
 let hifiPosition = {
     x: 2.0 * Math.random() - 1.0,
     y: 2.0 * Math.random() - 1.0,
+    o: 0.0
 };
 
 function setThreshold(value) {
@@ -167,15 +168,19 @@ function fastAtan2(y, x) {
     return r;
 }
 
+function angleWrap(angle) {
+    return angle - 2 * Math.PI * Math.floor((angle + Math.PI) / (2 * Math.PI));
+}
+
 function setPosition(hifiSource) {
     let dx = hifiSource._x - hifiPosition.x;
     let dy = hifiSource._y - hifiPosition.y;
 
-    //let azimuth = angle_wrap(atan2f(dx, dy) - avatarOrientationRadians);
-
     let distanceSquared = dx * dx + dy * dy;
     let distance = Math.sqrt(distanceSquared);
-    let azimuth = (distanceSquared < 1e-30) ? 0.0 : fastAtan2(dx, dy);
+    let angle = (distanceSquared < 1e-30) ? 0.0 : fastAtan2(dx, dy);
+
+    let azimuth = angleWrap(angle - hifiPosition.o);
 
     hifiSource.parameters.get('azimuth').value = azimuth;
     hifiSource.parameters.get('distance').value = distance;
@@ -194,6 +199,7 @@ function updatePositions(elements) {
         // transform canvas to audio coordinates
         hifiPosition.x = (e.x - 0.5) * roomDimensions.width;
         hifiPosition.y = -(e.y - 0.5) * roomDimensions.depth;
+        hifiPosition.o = e.o;
     }
 }
 
@@ -217,6 +223,7 @@ async function join() {
         icon: 'listenerIcon',
         x: 0.5 + (hifiPosition.x / roomDimensions.width),
         y: 0.5 - (hifiPosition.y / roomDimensions.depth),
+        o: hifiPosition.o,
         radius: 0.02,
         alpha: 0.5,
         clickable: true,
