@@ -312,7 +312,7 @@ function senderTransform(sender) {
                 let len = encodedFrame.data.byteLength;
 
                 // create dst buffer with 4 extra bytes
-                let dst = new DataView(new ArrayBuffer(len + 4));
+                let dst = new DataView(new ArrayBuffer(len + 5));
 
                 // copy src data
                 for (let i = 0; i < len; ++i) {
@@ -322,9 +322,11 @@ function senderTransform(sender) {
                 // insert metadata at the end
                 let qx = Math.round(hifiPosition.x * 256.0); // x in Q7.8
                 let qy = Math.round(hifiPosition.y * 256.0); // y in Q7.8
+                let qo = Math.round(hifiPosition.o * (128.0 / Math.PI));    // brad in Q7
 
                 dst.setInt16(len + 0, qx);
                 dst.setInt16(len + 2, qy);
+                dst.setInt8(len + 4, qo);
 
                 encodedFrame.data = dst.buffer;
             }
@@ -345,7 +347,7 @@ function receiverTransform(receiver, uid) {
             if (receiver.track.kind === "audio") {
 
                 let src = new DataView(encodedFrame.data);
-                let len = encodedFrame.data.byteLength - 4;
+                let len = encodedFrame.data.byteLength - 5;
 
                 // create dst buffer with 4 fewer bytes
                 let dst = new DataView(new ArrayBuffer(len));
@@ -358,6 +360,7 @@ function receiverTransform(receiver, uid) {
                 // extract metadata at the end
                 let x = src.getInt16(len + 0) * (1/256.0);
                 let y = src.getInt16(len + 2) * (1/256.0);
+                let o = src.getInt8(len + 4) * (Math.PI / 128.0);
 
                 // find hifiSource for this uid
                 let e = elements.find(e => e.uid === uid);
@@ -366,11 +369,13 @@ function receiverTransform(receiver, uid) {
                     // update hifiSource position
                     e.hifiSource._x = x;
                     e.hifiSource._y = y;
+                    e.hifiSource._o = o;
                     setPosition(e.hifiSource);
 
                     // update screen position
                     e.x = 0.5 + (x / roomDimensions.width);
                     e.y = 0.5 - (y / roomDimensions.depth);
+                    e.o = o;
                 }
 
                 encodedFrame.data = dst.buffer;
