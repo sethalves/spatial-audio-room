@@ -84,9 +84,6 @@ CanvasControl.prototype.resize = function() {
 CanvasControl.prototype.draw = function() {
   this._context.globalAlpha = 1;
   this._context.clearRect(0, 0, this._canvas.width, this._canvas.height);
-
-  this._context.lineWidth = 5;
-  this._context.strokeStyle = '#bbb';
   this._context.strokeRect(0, 0, canvas.width, canvas.height);
 
   for (let i = 0; i < this._elements.length; i++) {
@@ -106,8 +103,9 @@ CanvasControl.prototype.draw = function() {
 
       let uid = this._elements[i].uid;
       if (usernames[uid] !== undefined) {
-        this._context.font = '24px Arial';
-        this._context.fillText(usernames[uid], this._elements[i].x * this._canvas.width - 24, y);
+        this._context.font = '20px Arial';
+        this._context.textAlign = 'center';
+        this._context.fillText(usernames[uid], this._elements[i].x * this._canvas.width, y);
       }
     }
   }
