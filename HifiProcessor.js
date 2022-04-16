@@ -22,10 +22,10 @@ registerProcessor('wasm-hrtf-input', class extends AudioWorkletProcessor {
 
     static get parameterDescriptors() {
         return [
-            { name: 'gain', defaultValue: 0, minValue: -100, maxValue: 20, automationRate: 'k-rate' },
-            { name: 'azimuth', defaultValue: 0, minValue: -Math.PI, maxValue: Math.PI, automationRate: 'k-rate' },
-            { name: 'distance', defaultValue: 1, minValue: 0.125, maxValue: 65536, automationRate: 'k-rate' },
-            { name: 'lpfdist', defaultValue: 16, minValue: 2, maxValue: 65536, automationRate: 'k-rate' },
+            { name: 'gain', defaultValue: 0, automationRate: 'k-rate' },
+            { name: 'azimuth', defaultValue: 0, automationRate: 'k-rate' },
+            { name: 'distance', defaultValue: 1, automationRate: 'k-rate' },
+            { name: 'lpfdist', defaultValue: 16, automationRate: 'k-rate' },
         ];
     }
 
@@ -69,16 +69,16 @@ registerProcessor('wasm-hrtf-output', class extends AudioWorkletProcessor {
 
         if (inputs[0].length == 0) {
             outputs[0][0].fill(0);
-            outputs[0][1].fill(0);    
+            outputs[0][1].fill(0);
             return true;
         }
 
-        let inputPointer = [ 
-            this._input.getPointer(), 
+        let inputPointer = [
+            this._input.getPointer(),
             this._input.getPointer() + Float32Array.BYTES_PER_ELEMENT * NUM_FRAMES / 2
-        ];        
-        let outputPointer = [ 
-            this._output.getPointer(), 
+        ];
+        let outputPointer = [
+            this._output.getPointer(),
             this._output.getPointer() + Float32Array.BYTES_PER_ELEMENT * NUM_FRAMES
         ];
 
@@ -98,7 +98,7 @@ registerProcessor('wasm-hrtf-output', class extends AudioWorkletProcessor {
 })
 
 registerProcessor('wasm-limiter', class extends AudioWorkletProcessor {
-    
+
     constructor() {
         super();
 
@@ -127,7 +127,7 @@ registerProcessor('wasm-noise-gate', class extends AudioWorkletProcessor {
 
     static get parameterDescriptors() {
         return [
-            { name: 'threshold', defaultValue: -40, minValue: -100, maxValue: 0, automationRate: 'k-rate' },
+            { name: 'threshold', defaultValue: -40, automationRate: 'k-rate' },
         ];
     }
 
