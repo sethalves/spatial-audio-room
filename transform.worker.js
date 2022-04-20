@@ -17,17 +17,29 @@ self.onmessage = function (event) {
             metadata = event.data.metadata;
             break;
         case 'sender':
+            // when using Insertable Streams
             senderTransform(event.data.readableStream, event.data.writableStream);
             break;
         case 'receiver':
+            // when using Insertable Streams
             receiverTransform(event.data.readableStream, event.data.writableStream, event.data.uid);
             break;
     }
-};
+}
 
-self.onmessageerror = (event) => {
-    console.log(`%cerror receiving message from main: ${event}`, 'color:yellow');
-};
+self.onrtctransform = function (event) {
+    const transformer = event.transformer;
+    switch (transformer.options.operation) {
+        case 'sender':
+            // when using Encoded Transform
+            senderTransform(transformer.readable, transformer.writable);
+            break;
+        case 'receiver':
+            // when using Encoded Transform
+            receiverTransform(transformer.readable, transformer.writable, transformer.options.uid);
+            break;
+    }
+}
 
 function senderTransform(readableStream, writableStream) {
     const transformStream = new TransformStream({

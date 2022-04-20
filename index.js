@@ -317,20 +317,29 @@ async function join() {
     console.log("publish success");
 
     //
-    // insertable streams
+    // Insertable Streams / Encoded Transform
     //
     let senders = client._p2pChannel.connection.peerConnection.getSenders();
     let sender = senders.find(e => e.track?.kind === 'audio');
 
-    const senderStreams = sender.createEncodedStreams();
-    const readableStream = senderStreams.readable;
-    const writableStream = senderStreams.writable;
+    if (window.RTCRtpScriptTransform) {
 
-    worker.postMessage({
-        operation: 'sender',
-        readableStream,
-        writableStream,
-    }, [readableStream, writableStream]);
+        console.log('%cusing WebRTC Encoded Transform...', 'color:yellow');
+        sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
+
+    } else {
+
+        console.log('%cusing WebRTC Insertable Streams...', 'color:yellow');
+        const senderStreams = sender.createEncodedStreams();
+        const readableStream = senderStreams.readable;
+        const writableStream = senderStreams.writable;
+
+        worker.postMessage({
+            operation: 'sender',
+            readableStream,
+            writableStream,
+        }, [readableStream, writableStream]);
+    }
 
     //
     // HACK! set user radius based on volume level
@@ -425,21 +434,30 @@ async function subscribe(user, mediaType) {
         sourceNode.connect(hifiSource).connect(hifiListener);
 
         //
-        // insertable streams
+        // Insertable Streams / Encoded Transform
         //
         let receivers = client._p2pChannel.connection.peerConnection.getReceivers();
         let receiver = receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'audio');
 
-        const receiverStreams = receiver.createEncodedStreams();
-        const readableStream = receiverStreams.readable;
-        const writableStream = receiverStreams.writable;
+        if (window.RTCRtpScriptTransform) {
 
-        worker.postMessage({
-            operation: 'receiver',
-            uid,
-            readableStream,
-            writableStream,
-        }, [readableStream, writableStream]);
+            console.log('%cusing WebRTC Encoded Transform...', 'color:yellow');
+            receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
+
+        } else {
+
+            console.log('%cusing WebRTC Insertable Streams...', 'color:yellow');
+            const receiverStreams = receiver.createEncodedStreams();
+            const readableStream = receiverStreams.readable;
+            const writableStream = receiverStreams.writable;
+
+            worker.postMessage({
+                operation: 'receiver',
+                uid,
+                readableStream,
+                writableStream,
+            }, [readableStream, writableStream]);
+        }
 
         elements.push({
             icon: 'sourceIcon',
@@ -519,9 +537,6 @@ async function startSpatialAudio() {
 
     worker = new Worker('transform.worker.js');
     worker.onmessage = handleMetadata;
-    worker.onmessageerror = (event) => {
-        console.log(`Error receiving message from worker: ${event}`);
-    };
 
     try {
         audioContext = new AudioContext({ sampleRate: 48000 });
