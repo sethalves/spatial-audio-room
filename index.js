@@ -320,20 +320,17 @@ async function join() {
     // insertable streams
     //
     let senders = client._p2pChannel.connection.peerConnection.getSenders();
-    senders.forEach(sender => {
+    let sender = senders.find(e => e.track?.kind === 'audio');
 
-        if (sender.track?.kind === 'audio') {
-            const senderStreams = sender.createEncodedStreams();
-            const readableStream = senderStreams.readable;
-            const writableStream = senderStreams.writable;
+    const senderStreams = sender.createEncodedStreams();
+    const readableStream = senderStreams.readable;
+    const writableStream = senderStreams.writable;
 
-            worker.postMessage({
-                operation: 'sender',
-                readableStream,
-                writableStream,
-            }, [readableStream, writableStream]);
-        }
-    });
+    worker.postMessage({
+        operation: 'sender',
+        readableStream,
+        writableStream,
+    }, [readableStream, writableStream]);
 
     //
     // HACK! set user radius based on volume level
@@ -431,22 +428,18 @@ async function subscribe(user, mediaType) {
         // insertable streams
         //
         let receivers = client._p2pChannel.connection.peerConnection.getReceivers();
-        receivers = receivers.filter(e => e.track?.id === mediaStreamTrack.id);
-        receivers.forEach(receiver => {
+        let receiver = receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'audio');
 
-            if (receiver.track?.kind === 'audio') {
-                const receiverStreams = receiver.createEncodedStreams();
-                const readableStream = receiverStreams.readable;
-                const writableStream = receiverStreams.writable;
+        const receiverStreams = receiver.createEncodedStreams();
+        const readableStream = receiverStreams.readable;
+        const writableStream = receiverStreams.writable;
 
-                worker.postMessage({
-                    operation: 'receiver',
-                    uid,
-                    readableStream,
-                    writableStream,
-                }, [readableStream, writableStream]);
-            }
-        });
+        worker.postMessage({
+            operation: 'receiver',
+            uid,
+            readableStream,
+            writableStream,
+        }, [readableStream, writableStream]);
 
         elements.push({
             icon: 'sourceIcon',
