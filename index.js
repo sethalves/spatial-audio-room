@@ -1,5 +1,9 @@
 'use strict';
 
+const simdBlob = Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]);
+const simdSupported = WebAssembly.validate(simdBlob);
+console.log('WebAssembly SIMD is ' + (simdSupported ? 'supported' : 'not supported') + ' by this browser.');
+
 // patch RTCPeerConnection to enable insertable streams
 let _RTCPeerConnection = RTCPeerConnection;
 RTCPeerConnection = function(...config) {
@@ -541,13 +545,13 @@ async function startSpatialAudio() {
     try {
         audioContext = new AudioContext({ sampleRate: 48000 });
     } catch (e) {
-        console.log('Web Audio is not supported by this browser.');
+        console.log('Web Audio API is not supported by this browser.');
         return;
     }
 
     console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
 
-    await audioContext.audioWorklet.addModule('HifiProcessor.js');
+    await audioContext.audioWorklet.addModule(simdSupported ? 'HifiProcessorSIMD.js' : 'HifiProcessor.js');
 
     hifiListener = new AudioWorkletNode(audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
     hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter');
