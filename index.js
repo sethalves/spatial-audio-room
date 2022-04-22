@@ -4,6 +4,9 @@ const simdBlob = Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1
 const simdSupported = WebAssembly.validate(simdBlob);
 console.log('WebAssembly SIMD is ' + (simdSupported ? 'supported' : 'not supported') + ' by this browser.');
 
+const encodedTransformSupported = !!window.RTCRtpScriptTransform;
+console.log('WebRTC Encoded Transform is ' + (encodedTransformSupported ? 'supported' : 'not supported') + ' by this browser.');
+
 // patch RTCPeerConnection to enable insertable streams
 let _RTCPeerConnection = RTCPeerConnection;
 RTCPeerConnection = function(...config) {
@@ -326,14 +329,12 @@ async function join() {
     let senders = client._p2pChannel.connection.peerConnection.getSenders();
     let sender = senders.find(e => e.track?.kind === 'audio');
 
-    if (window.RTCRtpScriptTransform) {
+    if (encodedTransformSupported) {
 
-        console.log('%cusing WebRTC Encoded Transform...', 'color:yellow');
         sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
 
     } else {
 
-        console.log('%cusing WebRTC Insertable Streams...', 'color:yellow');
         const senderStreams = sender.createEncodedStreams();
         const readableStream = senderStreams.readable;
         const writableStream = senderStreams.writable;
@@ -443,14 +444,12 @@ async function subscribe(user, mediaType) {
         let receivers = client._p2pChannel.connection.peerConnection.getReceivers();
         let receiver = receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'audio');
 
-        if (window.RTCRtpScriptTransform) {
+        if (encodedTransformSupported) {
 
-            console.log('%cusing WebRTC Encoded Transform...', 'color:yellow');
             receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
 
         } else {
 
-            console.log('%cusing WebRTC Insertable Streams...', 'color:yellow');
             const receiverStreams = receiver.createEncodedStreams();
             const readableStream = receiverStreams.readable;
             const writableStream = receiverStreams.writable;
