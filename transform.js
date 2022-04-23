@@ -3,44 +3,6 @@
 const METADATA_BYTES = 5;
 let metadata = new Uint8Array(METADATA_BYTES);
 
-function sourceMetadata(buffer, uid) {
-    self.postMessage({
-        operation: 'metadata',
-        uid,
-        metadata: buffer,
-    }, [buffer]);
-}
-
-self.onmessage = function (event) {
-    switch (event.data.operation) {
-        case 'metadata':
-            metadata = event.data.metadata;
-            break;
-        case 'sender':
-            // when using Insertable Streams
-            senderTransform(event.data.readableStream, event.data.writableStream);
-            break;
-        case 'receiver':
-            // when using Insertable Streams
-            receiverTransform(event.data.readableStream, event.data.writableStream, event.data.uid);
-            break;
-    }
-}
-
-self.onrtctransform = function (event) {
-    const transformer = event.transformer;
-    switch (transformer.options.operation) {
-        case 'sender':
-            // when using Encoded Transform
-            senderTransform(transformer.readable, transformer.writable);
-            break;
-        case 'receiver':
-            // when using Encoded Transform
-            receiverTransform(transformer.readable, transformer.writable, transformer.options.uid);
-            break;
-    }
-}
-
 function senderTransform(readableStream, writableStream) {
     const transformStream = new TransformStream({
         start() { console.log('%cworker set sender transform', 'color:yellow'); },

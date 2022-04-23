@@ -156,10 +156,14 @@ function listenerMetadata(position) {
     data.setInt16(2, qy);
     data.setInt8(4, qo);
 
-    worker.postMessage({
-        operation: 'metadata',
-        metadata: data.buffer
-    }, [data.buffer]);
+    if (encodedTransformSupported) {
+        worker.postMessage({
+            operation: 'metadata',
+            metadata: data.buffer
+        }, [data.buffer]);
+    } else {
+        metadata = data.buffer;
+    }
 }
 
 function sourceMetadata(buffer, uid) {
@@ -339,12 +343,7 @@ async function join() {
         const senderStreams = sender.createEncodedStreams();
         const readableStream = senderStreams.readable;
         const writableStream = senderStreams.writable;
-
-        worker.postMessage({
-            operation: 'sender',
-            readableStream,
-            writableStream,
-        }, [readableStream, writableStream]);
+        senderTransform(readableStream, writableStream);
     }
 
     //
@@ -454,13 +453,7 @@ async function subscribe(user, mediaType) {
             const receiverStreams = receiver.createEncodedStreams();
             const readableStream = receiverStreams.readable;
             const writableStream = receiverStreams.writable;
-
-            worker.postMessage({
-                operation: 'receiver',
-                uid,
-                readableStream,
-                writableStream,
-            }, [readableStream, writableStream]);
+            receiverTransform(readableStream, writableStream, uid);
         }
 
         elements.push({
@@ -539,8 +532,10 @@ async function startSpatialAudio() {
 
     audioElement = new Audio();
 
-    worker = new Worker('transform.worker.js');
-    worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
+    if (encodedTransformSupported) {
+        worker = new Worker('worker.js');
+        worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
+    }
 
     try {
         audioContext = new AudioContext({ sampleRate: 48000 });
