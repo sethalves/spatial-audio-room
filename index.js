@@ -1,3 +1,12 @@
+//
+//  Created by Ken Cooke on 3/11/22.
+//  Copyright 2022 High Fidelity, Inc.
+//
+//  The contents of this file are PROPRIETARY AND CONFIDENTIAL, and may not be
+//  used, disclosed to third parties, copied or duplicated in any form, in whole
+//  or in part, without the prior written consent of High Fidelity, Inc.
+//
+
 'use strict';
 
 const simdBlob = Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]);

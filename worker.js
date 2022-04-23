@@ -1,3 +1,12 @@
+//
+//  Created by Ken Cooke on 3/11/22.
+//  Copyright 2022 High Fidelity, Inc.
+//
+//  The contents of this file are PROPRIETARY AND CONFIDENTIAL, and may not be
+//  used, disclosed to third parties, copied or duplicated in any form, in whole
+//  or in part, without the prior written consent of High Fidelity, Inc.
+//
+
 'use strict';
 
 self.importScripts('transform.js');
