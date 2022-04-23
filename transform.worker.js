@@ -3,7 +3,7 @@
 const METADATA_BYTES = 5;
 let metadata = new Uint8Array(METADATA_BYTES);
 
-function setMetadata(buffer, uid) {
+function sourceMetadata(buffer, uid) {
     self.postMessage({
         operation: 'metadata',
         uid,
@@ -92,7 +92,7 @@ function receiverTransform(readableStream, writableStream, uid) {
             for (let i = 0; i < METADATA_BYTES; ++i) {
                 data[i] = src[len + i];
             }
-            setMetadata(data.buffer, uid);
+            sourceMetadata(data.buffer, uid);
 
             encodedFrame.data = dst.buffer;
             controller.enqueue(encodedFrame);

@@ -145,12 +145,12 @@ let hifiPosition = {
 
 let worker = undefined;
 
-function setMetadata() {
+function listenerMetadata(position) {
     let data = new DataView(new ArrayBuffer(5));
 
-    let qx = Math.round(hifiPosition.x * 256.0); // x in Q7.8
-    let qy = Math.round(hifiPosition.y * 256.0); // y in Q7.8
-    let qo = Math.round(hifiPosition.o * (128.0 / Math.PI));    // brad in Q7
+    let qx = Math.round(position.x * 256.0);    // x in Q7.8
+    let qy = Math.round(position.y * 256.0);    // y in Q7.8
+    let qo = Math.round(position.o * (128.0 / Math.PI));    // brad in Q7
 
     data.setInt16(0, qx);
     data.setInt16(2, qy);
@@ -162,15 +162,15 @@ function setMetadata() {
     }, [data.buffer]);
 }
 
-function handleMetadata(event) {
-    let data = new DataView(event.data.metadata);
+function sourceMetadata(buffer, uid) {
+    let data = new DataView(buffer);
 
     let x = data.getInt16(0) * (1/256.0);
     let y = data.getInt16(2) * (1/256.0);
     let o = data.getInt8(4) * (Math.PI / 128.0);
 
     // find hifiSource for this uid
-    let e = elements.find(e => e.uid === event.data.uid);
+    let e = elements.find(e => e.uid === uid);
     if (e !== undefined) {
 
         // update hifiSource position
@@ -246,11 +246,12 @@ function updatePositions(elements) {
     // only update the listener
     let e = elements.find(e => e.hifiSource === null);
     if (e !== undefined) {
+
         // transform canvas to audio coordinates
         hifiPosition.x = (e.x - 0.5) * roomDimensions.width;
         hifiPosition.y = -(e.y - 0.5) * roomDimensions.depth;
         hifiPosition.o = e.o;
-        setMetadata();
+        listenerMetadata(hifiPosition);
     }
 }
 
@@ -539,7 +540,7 @@ async function startSpatialAudio() {
     audioElement = new Audio();
 
     worker = new Worker('transform.worker.js');
-    worker.onmessage = handleMetadata;
+    worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
 
     try {
         audioContext = new AudioContext({ sampleRate: 48000 });
@@ -570,7 +571,7 @@ function stopSpatialAudio() {
     $("#sound").attr("hidden", true);
     stopEchoCancellation();
     audioContext.close();
-    worker.terminate();
+    worker && worker.terminate();
 }
 
 let audioBuffer = null;
