@@ -1,5 +1,12 @@
 'use strict';
 
+const simdBlob = Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]);
+const simdSupported = WebAssembly.validate(simdBlob);
+console.log('WebAssembly SIMD is ' + (simdSupported ? 'supported' : 'not supported') + ' by this browser.');
+
+const encodedTransformSupported = !!window.RTCRtpScriptTransform;
+console.log('WebRTC Encoded Transform is ' + (encodedTransformSupported ? 'supported' : 'not supported') + ' by this browser.');
+
 // patch RTCPeerConnection to enable insertable streams
 let _RTCPeerConnection = RTCPeerConnection;
 RTCPeerConnection = function(...config) {
@@ -136,6 +143,49 @@ let hifiPosition = {
     o: 0.0
 };
 
+let worker = undefined;
+
+function listenerMetadata(position) {
+    let data = new DataView(new ArrayBuffer(5));
+
+    let qx = Math.round(position.x * 256.0);    // x in Q7.8
+    let qy = Math.round(position.y * 256.0);    // y in Q7.8
+    let qo = Math.round(position.o * (128.0 / Math.PI));    // brad in Q7
+
+    data.setInt16(0, qx);
+    data.setInt16(2, qy);
+    data.setInt8(4, qo);
+
+    worker.postMessage({
+        operation: 'metadata',
+        metadata: data.buffer
+    }, [data.buffer]);
+}
+
+function sourceMetadata(buffer, uid) {
+    let data = new DataView(buffer);
+
+    let x = data.getInt16(0) * (1/256.0);
+    let y = data.getInt16(2) * (1/256.0);
+    let o = data.getInt8(4) * (Math.PI / 128.0);
+
+    // find hifiSource for this uid
+    let e = elements.find(e => e.uid === uid);
+    if (e !== undefined) {
+
+        // update hifiSource position
+        e.hifiSource._x = x;
+        e.hifiSource._y = y;
+        e.hifiSource._o = o;
+        setPosition(e.hifiSource);
+
+        // update screen position
+        e.x = 0.5 + (x / roomDimensions.width);
+        e.y = 0.5 - (y / roomDimensions.depth);
+        e.o = o;
+    }
+}
+
 function setThreshold(value) {
     if (hifiNoiseGate !== undefined) {
         hifiNoiseGate.parameters.get('threshold').value = value;
@@ -196,10 +246,12 @@ function updatePositions(elements) {
     // only update the listener
     let e = elements.find(e => e.hifiSource === null);
     if (e !== undefined) {
+
         // transform canvas to audio coordinates
         hifiPosition.x = (e.x - 0.5) * roomDimensions.width;
         hifiPosition.y = -(e.y - 0.5) * roomDimensions.depth;
         hifiPosition.o = e.o;
+        listenerMetadata(hifiPosition);
     }
 }
 
@@ -273,10 +325,27 @@ async function join() {
     console.log("publish success");
 
     //
-    // insertable streams
+    // Insertable Streams / Encoded Transform
     //
     let senders = client._p2pChannel.connection.peerConnection.getSenders();
-    senders.forEach(sender => senderTransform(sender));
+    let sender = senders.find(e => e.track?.kind === 'audio');
+
+    if (encodedTransformSupported) {
+
+        sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
+
+    } else {
+
+        const senderStreams = sender.createEncodedStreams();
+        const readableStream = senderStreams.readable;
+        const writableStream = senderStreams.writable;
+
+        worker.postMessage({
+            operation: 'sender',
+            readableStream,
+            writableStream,
+        }, [readableStream, writableStream]);
+    }
 
     //
     // HACK! set user radius based on volume level
@@ -297,93 +366,6 @@ async function join() {
         usernames[uid] = (new TextDecoder).decode(data);
         console.log('%creceived stream-message from:', 'color:cyan', usernames[uid]);
     });
-}
-
-function senderTransform(sender) {
-    const senderStreams = sender.createEncodedStreams();
-    const readableStream = senderStreams.readable;
-    const writableStream = senderStreams.writable;
-    const transformStream = new TransformStream({
-        start() { console.log('installed sender transform'); },
-        transform(encodedFrame, controller) {
-            if (sender.track.kind === "audio") {
-
-                let src = new DataView(encodedFrame.data);
-                let len = encodedFrame.data.byteLength;
-
-                // create dst buffer with 4 extra bytes
-                let dst = new DataView(new ArrayBuffer(len + 5));
-
-                // copy src data
-                for (let i = 0; i < len; ++i) {
-                    dst.setInt8(i, src.getInt8(i));
-                }
-
-                // insert metadata at the end
-                let qx = Math.round(hifiPosition.x * 256.0); // x in Q7.8
-                let qy = Math.round(hifiPosition.y * 256.0); // y in Q7.8
-                let qo = Math.round(hifiPosition.o * (128.0 / Math.PI));    // brad in Q7
-
-                dst.setInt16(len + 0, qx);
-                dst.setInt16(len + 2, qy);
-                dst.setInt8(len + 4, qo);
-
-                encodedFrame.data = dst.buffer;
-            }
-            controller.enqueue(encodedFrame);
-        },
-    });
-    readableStream.pipeThrough(transformStream).pipeTo(writableStream);
-}
-
-function receiverTransform(receiver, uid) {
-    const receiverStreams = receiver.createEncodedStreams();
-    const readableStream = receiverStreams.readable;
-    const writableStream = receiverStreams.writable;
-    const transformStream = new TransformStream({
-        uid,
-        start() { console.log('installed receiver transform for uid:', uid); },
-        transform(encodedFrame, controller) {
-            if (receiver.track.kind === "audio") {
-
-                let src = new DataView(encodedFrame.data);
-                let len = encodedFrame.data.byteLength - 5;
-
-                // create dst buffer with 4 fewer bytes
-                let dst = new DataView(new ArrayBuffer(len));
-
-                // copy src data
-                for (let i = 0; i < len; ++i) {
-                    dst.setInt8(i, src.getInt8(i));
-                }
-
-                // extract metadata at the end
-                let x = src.getInt16(len + 0) * (1/256.0);
-                let y = src.getInt16(len + 2) * (1/256.0);
-                let o = src.getInt8(len + 4) * (Math.PI / 128.0);
-
-                // find hifiSource for this uid
-                let e = elements.find(e => e.uid === uid);
-                if (e !== undefined) {
-
-                    // update hifiSource position
-                    e.hifiSource._x = x;
-                    e.hifiSource._y = y;
-                    e.hifiSource._o = o;
-                    setPosition(e.hifiSource);
-
-                    // update screen position
-                    e.x = 0.5 + (x / roomDimensions.width);
-                    e.y = 0.5 - (y / roomDimensions.depth);
-                    e.o = o;
-                }
-
-                encodedFrame.data = dst.buffer;
-            }
-            controller.enqueue(encodedFrame);
-        },
-    });
-    readableStream.pipeThrough(transformStream).pipeTo(writableStream);
 }
 
 async function leave() {
@@ -458,11 +440,28 @@ async function subscribe(user, mediaType) {
         sourceNode.connect(hifiSource).connect(hifiListener);
 
         //
-        // insertable streams
+        // Insertable Streams / Encoded Transform
         //
         let receivers = client._p2pChannel.connection.peerConnection.getReceivers();
-        let receiver = receivers.find(r => r.track.id === mediaStreamTrack.id);
-        receiverTransform(receiver, uid);
+        let receiver = receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'audio');
+
+        if (encodedTransformSupported) {
+
+            receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
+
+        } else {
+
+            const receiverStreams = receiver.createEncodedStreams();
+            const readableStream = receiverStreams.readable;
+            const writableStream = receiverStreams.writable;
+
+            worker.postMessage({
+                operation: 'receiver',
+                uid,
+                readableStream,
+                writableStream,
+            }, [readableStream, writableStream]);
+        }
 
         elements.push({
             icon: 'sourceIcon',
@@ -540,16 +539,19 @@ async function startSpatialAudio() {
 
     audioElement = new Audio();
 
+    worker = new Worker('transform.worker.js');
+    worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
+
     try {
         audioContext = new AudioContext({ sampleRate: 48000 });
     } catch (e) {
-        console.log('Web Audio is not supported by this browser.');
+        console.log('Web Audio API is not supported by this browser.');
         return;
     }
 
     console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
 
-    await audioContext.audioWorklet.addModule('HifiProcessor.js');
+    await audioContext.audioWorklet.addModule(simdSupported ? 'HifiProcessorSIMD.js' : 'HifiProcessor.js');
 
     hifiListener = new AudioWorkletNode(audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
     hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter');
@@ -569,6 +571,7 @@ function stopSpatialAudio() {
     $("#sound").attr("hidden", true);
     stopEchoCancellation();
     audioContext.close();
+    worker && worker.terminate();
 }
 
 let audioBuffer = null;
