@@ -137,12 +137,14 @@ threshold.oninput = () => {
 }
 
 let canvasControl;
+const canvasDimensions = { width: 8, height: 8 };   // in meters
 let elements = [];
 let usernames = {};
 
 let audioElement = undefined;
 let audioContext = undefined;
 
+let hifiSources = {};
 let hifiNoiseGate = undefined;  // mic stream connects here
 let hifiListener = undefined;   // hifiSource connects here
 let hifiLimiter = undefined;    // additional sounds connect here
@@ -182,19 +184,20 @@ function sourceMetadata(buffer, uid) {
     let y = data.getInt16(2) * (1/256.0);
     let o = data.getInt8(4) * (Math.PI / 128.0);
 
-    // find hifiSource for this uid
+    // update hifiSource position
+    let hifiSource = hifiSources[uid];
+    if (hifiSource !== undefined) {
+        hifiSource._x = x;
+        hifiSource._y = y;
+        hifiSource._o = o;
+        setPosition(hifiSource);
+    }
+
+    // update canvas position
     let e = elements.find(e => e.uid === uid);
     if (e !== undefined) {
-
-        // update hifiSource position
-        e.hifiSource._x = x;
-        e.hifiSource._y = y;
-        e.hifiSource._o = o;
-        setPosition(e.hifiSource);
-
-        // update screen position
-        e.x = 0.5 + (x / roomDimensions.width);
-        e.y = 0.5 - (y / roomDimensions.depth);
+        e.x = 0.5 + (x / canvasDimensions.width);
+        e.y = 0.5 - (y / canvasDimensions.height);
         e.o = o;
     }
 }
@@ -249,20 +252,14 @@ function setPosition(hifiSource) {
     hifiSource.parameters.get('distance').value = distance;
 }
 
-const roomDimensions = {
-    width: 8,
-    height: 2.5,
-    depth: 8,
-};
-
 function updatePositions(elements) {
     // only update the listener
-    let e = elements.find(e => e.hifiSource === null);
+    let e = elements.find(e => e.clickable === true);
     if (e !== undefined) {
 
         // transform canvas to audio coordinates
-        hifiPosition.x = (e.x - 0.5) * roomDimensions.width;
-        hifiPosition.y = -(e.y - 0.5) * roomDimensions.depth;
+        hifiPosition.x = (e.x - 0.5) * canvasDimensions.width;
+        hifiPosition.y = -(e.y - 0.5) * canvasDimensions.height;
         hifiPosition.o = e.o;
         listenerMetadata(hifiPosition);
     }
@@ -278,6 +275,7 @@ async function join() {
 
     // join a channel
     options.uid = await client.join(options.appid, options.channel, options.token || null);
+    usernames[options.uid] = options.username;
 
     //
     // canvas GUI
@@ -286,18 +284,14 @@ async function join() {
 
     elements.push({
         icon: 'listenerIcon',
-        x: 0.5 + (hifiPosition.x / roomDimensions.width),
-        y: 0.5 - (hifiPosition.y / roomDimensions.depth),
+        x: 0.5 + (hifiPosition.x / canvasDimensions.width),
+        y: 0.5 - (hifiPosition.y / canvasDimensions.height),
         o: hifiPosition.o,
         radius: 0.02,
         alpha: 0.5,
         clickable: true,
-
-        hifiSource: null,
         uid: options.uid,
     });
-
-    usernames[options.uid] = options.username;
 
     canvasControl = new CanvasControl(canvas, elements, updatePositions);
     canvasControl.draw();
@@ -400,6 +394,7 @@ async function leave() {
 
     elements.length = 0;
 
+    hifiSources = {};
     stopSpatialAudio();
 
     console.log("client leaves channel success");
@@ -445,6 +440,8 @@ async function subscribe(user, mediaType) {
         let sourceNode = audioContext.createMediaStreamSource(mediaStream);
 
         let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
+        hifiSources[uid] = hifiSource;
+
         sourceNode.connect(hifiSource).connect(hifiListener);
 
         //
@@ -470,8 +467,6 @@ async function subscribe(user, mediaType) {
             radius: 0.02,
             alpha: 0.5,
             clickable: false,
-
-            hifiSource,
             uid,
         });
     }
@@ -483,6 +478,8 @@ async function subscribe(user, mediaType) {
 
 async function unsubscribe(user) {
     const uid = user.uid;
+
+    delete hifiSources[uid];
 
     // find and remove this uid
     let i = elements.findIndex(e => e.uid === uid);
