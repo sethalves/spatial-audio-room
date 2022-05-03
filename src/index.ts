@@ -1,162 +1,222 @@
-//
-//  Created by Ken Cooke on 3/11/22.
-//  Copyright 2022 High Fidelity, Inc.
-//
-//  The contents of this file are PROPRIETARY AND CONFIDENTIAL, and may not be
-//  used, disclosed to third parties, copied or duplicated in any form, in whole
-//  or in part, without the prior written consent of High Fidelity, Inc.
-//
 
-'use strict';
+import type { IAgoraRTC, IAgoraRTCClient, UID, IMicrophoneAudioTrack, IAgoraRTCRemoteUser } from 'agora-rtc-sdk-ng';
+interface IAgoraRTCOpen extends IAgoraRTC {
+    setParameter? : any | undefined
+}
+declare const AgoraRTC: IAgoraRTCOpen;
 
-const simdBlob = Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]);
-const simdSupported = WebAssembly.validate(simdBlob);
-console.log('WebAssembly SIMD is ' + (simdSupported ? 'supported' : 'not supported') + ' by this browser.');
 
-const encodedTransformSupported = !!window.RTCRtpScriptTransform;
-console.log('WebRTC Encoded Transform is ' + (encodedTransformSupported ? 'supported' : 'not supported') + ' by this browser.');
+declare function checkSupported() : boolean[];
+let [ simdSupported, encodedTransformSupported, isChrome ] = checkSupported();
 
-// patch RTCPeerConnection to enable insertable streams
+declare function patchRTCPeerConnection(_RTCPeerConnection : any) : void;
 let _RTCPeerConnection = RTCPeerConnection;
-RTCPeerConnection = function(...config) {
-    if (config.length) config[0].encodedInsertableStreams = true;
-    return new _RTCPeerConnection(...config);
+patchRTCPeerConnection(_RTCPeerConnection);
+
+
+
+interface AudioWorkletNodeMeta extends AudioWorkletNode {
+    _x? : number,
+    _y? : number,
+    _o? : number
 }
 
+
+interface MetaData {
+    x? : number,
+    y? : number,
+    o? : number
+}
+
+
+interface TransformStreamWithID extends TransformStream {
+    uid? : UID | undefined
+}
+
+
+interface RTCConfiguration {
+    iceServers?: RTCIceServer[] | undefined;
+    iceTransportPolicy?: RTCIceTransportPolicy | undefined; // default = 'all'
+    bundlePolicy?: RTCBundlePolicy | undefined; // default = 'balanced'
+    rtcpMuxPolicy?: RTCRtcpMuxPolicy | undefined; // default = 'require'
+    peerIdentity?: string | undefined; // default = null
+    certificates?: RTCCertificate[] | undefined;
+    iceCandidatePoolSize?: number | undefined; // default = 0
+    encodedInsertableStreams?: boolean | undefined;
+}
+
+interface RTCRtpScriptTransformer {
+    readable : ReadableStream;
+    writable : WritableStream;
+    options : any;
+    generateKeyFrame : Function; // (optional sequence <DOMString> rids) : Promise<undefined>;
+    sendKeyFrameRequest : Function; // () : Promise<undefined> ();
+};
+
+declare class RTCRtpScriptTransform {
+    constructor(worker : Worker, options : any);
+};
+
+
+// Agora this.client with _p2pChannel exposed
+interface IAgoraRTCClientOpen extends IAgoraRTCClient {
+    _p2pChannel? : any | undefined,
+    sendStreamMessage? : any | undefined
+}
+
+
+interface AgoraClientOptions {
+    appid?: string | undefined,
+    channel?: string | undefined,
+    token?: string | undefined,
+    uid?: UID | undefined
+}
+
+// RTC with insertable stream support
+interface RTCRtpSenderIS extends RTCRtpSender {
+    createEncodedStreams : Function,
+    transform? : RTCRtpScriptTransform
+}
+interface RTCRtpReceiverIS extends RTCRtpReceiver {
+    createEncodedStreams : Function,
+    transform? : RTCRtpScriptTransform
+}
+
+
+interface IMicrophoneAudioTrackOpen extends IMicrophoneAudioTrack {
+    _updateOriginMediaStreamTrack? : Function | undefined
+}
+interface LocalTracks {
+    audioTrack: IMicrophoneAudioTrackOpen
+}
+
+
+
 // create Agora client
-let client = AgoraRTC.createClient({
+let client : IAgoraRTCClientOpen = AgoraRTC.createClient({
     mode: "rtc",
     codec: "vp8"
 });
 
-let localTracks = {
+let localTracks  : LocalTracks = {
     //videoTrack: null,
     audioTrack: null
 };
 
-let remoteUsers = {};
 
-// Agora client options
-let options = {
-    appid: null,
-    channel: null,
-    uid: null,
-    token: null,
-    username: null
-};
+let updateRemoteMetadata : any;
+let receiveRemoteMetadata : any;
+let updateVolumeIndicator : any;
+let onUserPublished : any;
+let onUserUnpublished : any;
 
-function decrypt_appid(data, key) {
-    let k = BigInt(key.split('').reduce((a, b) => a = Math.imul(a, 33) + b.charCodeAt(0) | 0, 0));
-    let t = BigInt('0x' + data) ^ (k * 38038099725390353860267635547n);
-    return t.toString(16);
-}
+let remoteUsers : { [uid: string] : IAgoraRTCRemoteUser; } = {};
+let worker : Worker = undefined;
 
-// the demo can auto join channel with params in url
-$(()=>{
-    let urlParams = new URL(location.href).searchParams;
-    options.channel = urlParams.get("channel");
-    options.password = urlParams.get("password");
-    options.username = urlParams.get("username");
-    if (options.channel && options.password) {
-        $("#channel").val(options.channel);
-        $("#password").val(options.password);
-        $("#username").val(options.username);
-        //$("#join-form").submit();
-    }
-}
-)
+let hifiSources : Map<UID, AudioWorkletNodeMeta> = new Map<UID, AudioWorkletNodeMeta>();
+let hifiNoiseGate  : AudioWorkletNode;  // mic stream connects here
+let hifiListener : AudioWorkletNodeMeta;   // hifiSource connects here
+let hifiLimiter : AudioWorkletNode;    // additional sounds connect here
 
-$("#username").change(function (e) {
-    options.username = $("#username").val();
+let audioElement : HTMLAudioElement;
+let audioContext : AudioContext;
 
-    // if already connected, update my name
-    if (localTracks.audioTrack) {
-        usernames[options.uid] = options.username;
-        client.sendStreamMessage((new TextEncoder).encode(usernames[options.uid]));
-        console.log('%cusername changed, sent stream-message of:', 'color:cyan', usernames[options.uid]);
-    }
-})
-
-$("#join-form").submit(async function(e) {
-    e.preventDefault();
-    $("#join").attr("disabled", true);
-    try {
-        options.appid = decrypt_appid($("#appid").val(), $("#password").val());
-        options.token = $("#token").val();
-        options.channel = $("#channel").val();
-        options.username = $("#username").val();
-        await join();
-        $("#success-alert").css("display", "block");
-    } catch (error) {
-        console.error(error);
-    } finally {
-        $("#leave").attr("disabled", false);
-    }
-})
-
-$("#leave").click(function(e) {
-    leave();
-    $("#success-alert").css("display", "none");
-})
-
-let isAecEnabled = false;
-$("#aec").click(async function(e) {
-    // toggle the state
-    isAecEnabled = !isAecEnabled;
-    $("#aec").css("background-color", isAecEnabled ? "purple" : "");
-
-    // if already connected, leave and rejoin
-    if (localTracks.audioTrack) {
-        await leave();
-        $("#join").attr("disabled", true);
-        await join();
-        $("#leave").attr("disabled", false);
-    }
-})
-
-let isMuteEnabled = false;
-$("#mute").click(function(e) {
-    // toggle the state
-    isMuteEnabled = !isMuteEnabled;
-    $("#mute").css("background-color", isMuteEnabled ? "purple" : "");
-
-    // if muted, set gate threshold to 0dB, else follow slider
-    setThreshold(isMuteEnabled ? 0.0 : threshold.value);
-})
-
-$("#sound").click(function(e) {
-    playSoundEffect();
-})
-
-// threshold slider
-threshold.oninput = () => {
-    if (!isMuteEnabled) {
-        setThreshold(threshold.value);
-    }
-    document.getElementById("threshold-value").value = threshold.value;
-}
-
-let canvasControl;
-const canvasDimensions = { width: 8, height: 8 };   // in meters
-let elements = [];
-let usernames = {};
-
-let audioElement = undefined;
-let audioContext = undefined;
-
-let hifiSources = {};
-let hifiNoiseGate = undefined;  // mic stream connects here
-let hifiListener = undefined;   // hifiSource connects here
-let hifiLimiter = undefined;    // additional sounds connect here
 let hifiPosition = {
     x: 2.0 * Math.random() - 1.0,
     y: 2.0 * Math.random() - 1.0,
     o: 0.0
 };
 
-let worker = undefined;
 
-function listenerMetadata(position) {
+// Agora client options
+interface AgoraClientOptions {
+    appid?: string | undefined,
+    channel?: string | undefined,
+    token?: string | undefined
+}
+let options : AgoraClientOptions = {
+    appid: null,
+    channel: null,
+    token: null
+};
+
+
+
+const METADATA_BYTES = 5;
+var metadata : ArrayBuffer = new Uint8Array(METADATA_BYTES);
+
+export function senderTransform(readableStream : ReadableStream, writableStream : WritableStream) {
+    const transformStream = new TransformStream({
+        start() { console.log('%cworker set sender transform', 'color:yellow'); },
+        transform(encodedFrame, controller) {
+
+            let src = new Uint8Array(encodedFrame.data);
+            let len = encodedFrame.data.byteLength;
+
+            // create dst buffer with METADATA_BYTES extra bytes
+            let dst = new Uint8Array(len + METADATA_BYTES);
+
+            // copy src data
+            for (let i = 0; i < len; ++i) {
+                dst[i] = src[i];
+            }
+
+            // insert metadata at the end
+            let data = new Uint8Array(metadata);
+            for (let i = 0; i < METADATA_BYTES; ++i) {
+                dst[len + i] = data[i];
+            }
+
+            encodedFrame.data = dst.buffer;
+            controller.enqueue(encodedFrame);
+        },
+    });
+    readableStream.pipeThrough(transformStream).pipeTo(writableStream);
+}
+
+export function receiverTransform(readableStream : ReadableStream, writableStream : WritableStream, uid : UID) {
+    const transformStream : TransformStreamWithID = new TransformStream({
+        start() { console.log('%cworker set receiver transform for uid:', 'color:yellow', uid); },
+        transform(encodedFrame, controller) {
+
+            let src = new Uint8Array(encodedFrame.data);
+            let len = encodedFrame.data.byteLength - METADATA_BYTES;
+
+            // create dst buffer with METADATA_BYTES fewer bytes
+            let dst = new Uint8Array(len);
+
+            // copy src data
+            for (let i = 0; i < len; ++i) {
+                dst[i] = src[i];
+            }
+
+            // extract metadata at the end
+            let data = new Uint8Array(METADATA_BYTES);
+            for (let i = 0; i < METADATA_BYTES; ++i) {
+                data[i] = src[len + i];
+            }
+            sourceMetadata(data.buffer, uid);
+
+            encodedFrame.data = dst.buffer;
+            controller.enqueue(encodedFrame);
+        },
+    });
+    transformStream.uid = uid;
+    readableStream.pipeThrough(transformStream).pipeTo(writableStream);
+}
+
+
+function sendBroadcastMessage(msg : Uint8Array) : boolean {
+    if (localTracks.audioTrack) {
+        client.sendStreamMessage(msg);
+        // console.log('%csent stream-message of:', 'color:cyan', msg);
+        return true;
+    }
+    return false;
+}
+
+
+function listenerMetadata(position : MetaData) {
     let data = new DataView(new ArrayBuffer(5));
 
     let qx = Math.round(position.x * 256.0);    // x in Q7.8
@@ -177,7 +237,7 @@ function listenerMetadata(position) {
     }
 }
 
-function sourceMetadata(buffer, uid) {
+function sourceMetadata(buffer : /* Uint8Array */ ArrayBuffer, uid : UID) : void {
     let data = new DataView(buffer);
 
     let x = data.getInt16(0) * (1/256.0);
@@ -185,7 +245,7 @@ function sourceMetadata(buffer, uid) {
     let o = data.getInt8(4) * (Math.PI / 128.0);
 
     // update hifiSource position
-    let hifiSource = hifiSources[uid];
+    let hifiSource = hifiSources.get(uid);
     if (hifiSource !== undefined) {
         hifiSource._x = x;
         hifiSource._y = y;
@@ -193,26 +253,49 @@ function sourceMetadata(buffer, uid) {
         setPosition(hifiSource);
     }
 
-    // update canvas position
-    let e = elements.find(e => e.uid === uid);
-    if (e !== undefined) {
-        e.x = 0.5 + (x / canvasDimensions.width);
-        e.y = 0.5 - (y / canvasDimensions.height);
-        e.o = o;
-    }
+    updateRemoteMetadata(x, y, o);
 }
 
-function setThreshold(value) {
+
+let thresholdValue : number;
+function setThreshold(value : number) {
+    thresholdValue = value;
     if (hifiNoiseGate !== undefined) {
         hifiNoiseGate.parameters.get('threshold').value = value;
         console.log('set noisegate threshold to', value, 'dB');
     }
 }
 
+
+let aecEnabled = false;
+function isAecEnabled() : boolean {
+    return aecEnabled;
+}
+async function setAecEnabled(v : boolean) : Promise<string> {
+    if (aecEnabled != v) {
+        aecEnabled = v;
+        if (localTracks.audioTrack) {
+            await leave();
+            await join(null, null, null, null, null, thresholdValue);
+        }
+    }
+    return "" + options.uid;
+}
+
+
+let muteEnabled = false;
+function isMutedEnabled() : boolean {
+    return muteEnabled;
+}
+function setMutedEnabled(v : boolean) {
+    muteEnabled = v;
+}
+
+
 // Fast approximation of Math.atan2(y, x)
 // rel |error| < 4e-5, smooth (exact at octant boundary)
 // for y=0 x=0, returns NaN
-function fastAtan2(y, x) {
+function fastAtan2(y : number, x : number) : number {
     let ax = Math.abs(x);
     let ay = Math.abs(y);
     let x1 = Math.min(ax, ay) / Math.max(ax, ay);
@@ -234,11 +317,11 @@ function fastAtan2(y, x) {
     return r;
 }
 
-function angleWrap(angle) {
+function angleWrap(angle : number) {
     return angle - 2 * Math.PI * Math.floor((angle + Math.PI) / (2 * Math.PI));
 }
 
-function setPosition(hifiSource) {
+function setPosition(hifiSource : AudioWorkletNodeMeta) {
     let dx = hifiSource._x - hifiPosition.x;
     let dy = hifiSource._y - hifiPosition.y;
 
@@ -252,20 +335,38 @@ function setPosition(hifiSource) {
     hifiSource.parameters.get('distance').value = distance;
 }
 
-function updatePositions(elements) {
-    // only update the listener
-    let e = elements.find(e => e.clickable === true);
-    if (e !== undefined) {
 
-        // transform canvas to audio coordinates
-        hifiPosition.x = (e.x - 0.5) * canvasDimensions.width;
-        hifiPosition.y = -(e.y - 0.5) * canvasDimensions.height;
-        hifiPosition.o = e.o;
-        listenerMetadata(hifiPosition);
-    }
+function setLocalMetaData(e : MetaData) : void {
+    hifiPosition.x = e.x;
+    hifiPosition.y = e.y;
+    hifiPosition.o = e.o;
+    listenerMetadata(hifiPosition);
 }
 
-async function join() {
+
+
+async function join(setUpdateRemoteMetadata : any,
+                    setReceiveRemoteMetadata : any,
+                    setUpdateVolumeIndicator : any,
+                    setOnUserPublished : any,
+                    setOnUserUnpublished : any,
+                    setThresholdValue : number) {
+
+    if (setUpdateRemoteMetadata) {
+        updateRemoteMetadata = setUpdateRemoteMetadata;
+    }
+    if (setReceiveRemoteMetadata) {
+        receiveRemoteMetadata = setReceiveRemoteMetadata;
+    }
+    if (setUpdateVolumeIndicator) {
+        updateVolumeIndicator = setUpdateVolumeIndicator;
+    }
+    if (setOnUserPublished) {
+        onUserPublished = setOnUserPublished;
+    }
+    if (setOnUserUnpublished) {
+        onUserUnpublished = setOnUserUnpublished;
+    }
 
     await startSpatialAudio();
 
@@ -275,30 +376,10 @@ async function join() {
 
     // join a channel
     options.uid = await client.join(options.appid, options.channel, options.token || null);
-    usernames[options.uid] = options.username;
-
-    //
-    // canvas GUI
-    //
-    let canvas = document.getElementById('canvas');
-
-    elements.push({
-        icon: 'listenerIcon',
-        x: 0.5 + (hifiPosition.x / canvasDimensions.width),
-        y: 0.5 - (hifiPosition.y / canvasDimensions.height),
-        o: hifiPosition.o,
-        radius: 0.02,
-        alpha: 0.5,
-        clickable: true,
-        uid: options.uid,
-    });
-
-    canvasControl = new CanvasControl(canvas, elements, updatePositions);
-    canvasControl.draw();
 
     // create local tracks
     let audioConfig = {
-        AEC: isAecEnabled,
+        AEC: aecEnabled,
         AGC: false,
         ANS: false,
         bypassWebAudio: true,
@@ -320,7 +401,7 @@ async function join() {
     let destinationNode = audioContext.createMediaStreamDestination();
 
     hifiNoiseGate = new AudioWorkletNode(audioContext, 'wasm-noise-gate');
-    setThreshold(isMuteEnabled ? 0.0 : threshold.value);
+    setThreshold(muteEnabled ? 0.0 : setThresholdValue);
 
     sourceNode.connect(hifiNoiseGate).connect(destinationNode);
 
@@ -334,7 +415,7 @@ async function join() {
     //
     // Insertable Streams / Encoded Transform
     //
-    let senders = client._p2pChannel.connection.peerConnection.getSenders();
+    let senders : Array<RTCRtpSenderIS> = client._p2pChannel.connection.peerConnection.getSenders();
     let sender = senders.find(e => e.track?.kind === 'audio');
 
     if (encodedTransformSupported) {
@@ -357,81 +438,55 @@ async function join() {
     client.enableAudioVolumeIndicator();
     client.on("volume-indicator", volumes => {
         volumes.forEach((volume, index) => {
-            let e = elements.find(e => e.uid === volume.uid);
-            if (e !== undefined)
-                e.radius = 0.02 + 0.04 * volume.level/100;
+            updateVolumeIndicator(volume, index);
         });
     })
 
     // on broadcast from remote user, set corresponding username
-    client.on("stream-message", (uid, data) => {
-        usernames[uid] = (new TextDecoder).decode(data);
-        console.log('%creceived stream-message from:', 'color:cyan', usernames[uid]);
+    client.on("stream-message", (uid : UID, data : Uint8Array) => {
+        setReceiveRemoteMetadata("" + uid, data);
     });
 }
 
+
 async function leave() {
 
-    for (let trackName in localTracks) {
-        let track = localTracks[trackName];
-        if (track) {
-            track.stop();
-            track.close();
-            localTracks[trackName] = undefined;
-        }
+    if (this.localTracks.audioTrack) {
+        this.localTracks.audioTrack.stop();
+        this.localTracks.audioTrack.close();
+        this.localTracks.audioTrack = undefined;
     }
-
-    // remove remote users and player views
-    remoteUsers = {};
-    $("#remote-playerlist").html("");
 
     // leave the channel
     await client.leave();
 
-    $("#local-player-name").text("");
-    $("#join").attr("disabled", false);
-    $("#leave").attr("disabled", true);
-
-    elements.length = 0;
-
-    hifiSources = {};
+    hifiSources.clear();
     stopSpatialAudio();
 
     console.log("client leaves channel success");
 }
 
-function handleUserPublished(user, mediaType) {
+function handleUserPublished(user : IAgoraRTCRemoteUser, mediaType : string) {
     const id = user.uid;
     remoteUsers[id] = user;
     subscribe(user, mediaType);
 }
 
-function handleUserUnpublished(user) {
-    const id = user.uid;
-    delete remoteUsers[id];
-    $(`#player-wrapper-${id}`).remove();
+function handleUserUnpublished(user : IAgoraRTCRemoteUser) {
+    const uid = user.uid;
+    delete remoteUsers[uid];
+    onUserUnpublished("" + uid);
     unsubscribe(user);
 }
 
-async function subscribe(user, mediaType) {
+async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
     const uid = user.uid;
 
-    // subscribe to a remote user
-    await client.subscribe(user, mediaType);
-    console.log("subscribe uid:", uid);
-
-    //    if (mediaType === 'video') {
-    //        const player = $(`
-    //      <div id="player-wrapper-${uid}">
-    //        <p class="player-name">remoteUser(${uid})</p>
-    //        <div id="player-${uid}" class="player"></div>
-    //      </div>
-    //    `);
-    //        $("#remote-playerlist").append(player);
-    //        user.videoTrack.play(`player-${uid}`);
-    //    }
-
     if (mediaType === 'audio') {
+
+        // subscribe to a remote user
+        await client.subscribe(user, mediaType);
+        console.log("subscribe uid:", uid);
 
         //user.audioTrack.play();
 
@@ -440,15 +495,15 @@ async function subscribe(user, mediaType) {
         let sourceNode = audioContext.createMediaStreamSource(mediaStream);
 
         let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
-        hifiSources[uid] = hifiSource;
+        hifiSources.set(uid, hifiSource);
 
         sourceNode.connect(hifiSource).connect(hifiListener);
 
         //
         // Insertable Streams / Encoded Transform
         //
-        let receivers = client._p2pChannel.connection.peerConnection.getReceivers();
-        let receiver = receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'audio');
+        let receivers : Array<RTCRtpReceiverIS> = client._p2pChannel.connection.peerConnection.getReceivers();
+        let receiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'audio');
 
         if (encodedTransformSupported) {
 
@@ -462,28 +517,14 @@ async function subscribe(user, mediaType) {
             receiverTransform(readableStream, writableStream, uid);
         }
 
-        elements.push({
-            icon: 'sourceIcon',
-            radius: 0.02,
-            alpha: 0.5,
-            clickable: false,
-            uid,
-        });
+        onUserPublished("" + uid);
     }
-
-    // broadcast my name
-    client.sendStreamMessage((new TextEncoder).encode(usernames[options.uid]));
-    console.log('%csent stream-message of:', 'color:cyan', usernames[options.uid]);
 }
 
-async function unsubscribe(user) {
+async function unsubscribe(user: IAgoraRTCRemoteUser) {
     const uid = user.uid;
 
-    delete hifiSources[uid];
-
-    // find and remove this uid
-    let i = elements.findIndex(e => e.uid === uid);
-    elements.splice(i, 1);
+    hifiSources.delete(uid);
 
     console.log("unsubscribe uid:", uid);
 }
@@ -494,8 +535,8 @@ async function unsubscribe(user) {
 // This should be removed when Chrome implements browser-wide echo cancellation.
 // https://bugs.chromium.org/p/chromium/issues/detail?id=687574#c60
 //
-let loopback = undefined;
-async function startEchoCancellation(element, context) {
+let loopback : RTCPeerConnection[];
+async function startEchoCancellation(element : HTMLAudioElement, context : AudioContext) {
 
     loopback = [new _RTCPeerConnection, new _RTCPeerConnection];
 
@@ -507,7 +548,7 @@ async function startEchoCancellation(element, context) {
     loopback[0].addTrack(destination.stream.getAudioTracks()[0]);
     loopback[1].ontrack = e => element.srcObject = new MediaStream([e.track]);
 
-    async function iceGatheringComplete(pc) {
+    async function iceGatheringComplete(pc : RTCPeerConnection) : Promise<RTCSessionDescriptionInit> {
         return pc.iceGatheringState === 'complete' ? pc.localDescription :
             new Promise(resolve => {
                 pc.onicegatheringstatechange = e => { pc.iceGatheringState === 'complete' && resolve(pc.localDescription); };
@@ -558,24 +599,22 @@ async function startSpatialAudio() {
     hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter');
     hifiListener.connect(hifiLimiter);
 
-    if (isAecEnabled && !!window.chrome) {
+    if (isAecEnabled && isChrome) {
         startEchoCancellation(audioElement, audioContext);
     } else {
         hifiLimiter.connect(audioContext.destination);
     }
 
-    $("#sound").attr("hidden", false);
     audioElement.play();
 }
 
 function stopSpatialAudio() {
-    $("#sound").attr("hidden", true);
     stopEchoCancellation();
     audioContext.close();
     worker && worker.terminate();
 }
 
-let audioBuffer = null;
+let audioBuffer : AudioBuffer = null;
 async function playSoundEffect() {
 
     // load on first play
