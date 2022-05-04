@@ -66,8 +66,8 @@ $("#leave").click(function(e) {
 
 $("#aec").click(async function(e) {
     // toggle the state
-    isAecEnabled = !isAecEnabled;
-    $("#aec").css("background-color", isAecEnabled ? "purple" : "");
+    HiFiAudio.setAecEnabled(!HiFiAudio.isAecEnabled());
+    $("#aec").css("background-color", HiFiAudio.isAecEnabled() ? "purple" : "");
 
     // if already connected, leave and rejoin
     if (localTracks.audioTrack) {
@@ -80,15 +80,15 @@ $("#aec").click(async function(e) {
 
 $("#mute").click(function(e) {
     // toggle the state
-    isMuteEnabled = !isMuteEnabled;
-    $("#mute").css("background-color", isMuteEnabled ? "purple" : "");
+    HiFiAudio.setMutedEnabled(!HiFiAudio.isMutedEnabled());
+    $("#mute").css("background-color", HiFiAudio.isMutedEnabled() ? "purple" : "");
 
     // if muted, set gate threshold to 0dB, else follow slider
-    setThreshold(isMuteEnabled ? 0.0 : threshold.value);
+    HiFiAudio.setThreshold(HiFiAudio.isMutedEnabled() ? 0.0 : threshold.value);
 })
 
 $("#sound").click(function(e) {
-    playSoundEffect();
+    HiFiAudio.playSoundEffect();
 })
 
 // threshold slider
@@ -176,15 +176,16 @@ async function joinRoom() {
         o: 0.0
     };
 
+    HiFiAudio.on("remote-position-updated", updateRemotePosition);
+    HiFiAudio.on("broadcast-received", receiveBroadcast);
+    HiFiAudio.on("remote-volume-updated", updateVolumeIndicator);
+    HiFiAudio.on("remote-client-joined", onUserPublished);
+    HiFiAudio.on("remote-client-left", onUserUnpublished);
+
     localUid = await HiFiAudio.join(options.appid,
                                     options.channel,
                                     initialPosition,
-                                    threshold.value,
-                                    updateRemotePosition,
-                                    receiveBroadcast,
-                                    updateVolumeIndicator,
-                                    onUserPublished,
-                                    onUserUnpublished);
+                                    threshold.value);
 
     usernames[ localUid ] = options.username;
 
@@ -212,7 +213,7 @@ async function joinRoom() {
 
 
 async function leaveRoom() {
-    await leave();
+    await HiFiAudio.leave();
 
     // remove remote users and player views
     $("#remote-playerlist").html("");
@@ -224,6 +225,8 @@ async function leaveRoom() {
     elements.length = 0;
 
     $("#sound").attr("hidden", true);
+
+    console.log("client leaves channel success");
 }
 
 
