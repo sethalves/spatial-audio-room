@@ -7,10 +7,10 @@ module.exports = ({ buildEnv }) => {
         entry: {
             "Audio": [
                 './example/canvas-control.js',
-                './example/index.js',
+                './example/audio-room.js',
                 './src/check-supported.js',
                 './src/patchRTCPeerConnection.js',
-                './src/index.ts'
+                './src/hifi-audio.ts'
             ],
         },
         plugins: [

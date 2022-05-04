@@ -5,12 +5,17 @@
 
 WEBPACK=node_modules/.bin/webpack
 
-
-
 all:
+	rm -rf dist/
+	mkdir -p dist/
+	cp -r vendor dist/vendor
+	tsc --declaration true
+
+
+webpack-dev:
 	${WEBPACK} --env buildEnv=dev
 
-prod:
+webpack:
 	${WEBPACK} --env buildEnv=prod
 
 deps:
