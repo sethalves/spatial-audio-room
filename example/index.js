@@ -132,14 +132,14 @@ function updateRemotePosition(uid, x, y, o) {
 }
 
 
-function updateVolumeIndicator(volume, index) {
-    let e = elements.find(e => e.uid === volume.uid);
+function updateVolumeIndicator(uid, level) {
+    let e = elements.find(e => e.uid === uid);
     if (e !== undefined)
-        e.radius = 0.02 + 0.04 * volume.level/100;
+        e.radius = 0.02 + 0.04 * level/100;
 }
 
 
-function receiveRemoteMetadata(uid, data) {
+function receiveBroadcast(uid, data) {
     usernames[uid] = (new TextDecoder).decode(data);
     console.log('%creceived stream-message from:', 'color:cyan', usernames[uid]);
 }
@@ -176,15 +176,15 @@ async function joinRoom() {
         o: 0.0
     };
 
-    let localUid = await join(options.appid,
-                              options.channel,
-                              initialPosition,
-                              updateRemotePosition,
-                              receiveRemoteMetadata,
-                              updateVolumeIndicator,
-                              onUserPublished,
-                              onUserUnpublished,
-                              threshold.value);
+    localUid = await join(options.appid,
+                          options.channel,
+                          initialPosition,
+                          threshold.value,
+                          updateRemotePosition,
+                          receiveBroadcast,
+                          updateVolumeIndicator,
+                          onUserPublished,
+                          onUserUnpublished);
 
     usernames[ localUid ] = options.username;
 
@@ -228,10 +228,8 @@ async function leaveRoom() {
 
 
 function setUsername(username) {
-    sendBroadcastMessage((new TextEncoder).encode(usernames[localUid]));
     if (localUid) {
         usernames[localUid] = username;
-        client.sendStreamMessage((new TextEncoder).encode(usernames[localUid]));
-        console.log('%cusername changed, sent stream-message of:', 'color:cyan', usernames[localUid]);
+        sendBroadcastMessage((new TextEncoder).encode(username));
     }
 }

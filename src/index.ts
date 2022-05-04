@@ -103,11 +103,11 @@ let localTracks  : LocalTracks = {
 };
 
 
-let updateRemoteMetadata : any;
-let receiveRemoteMetadata : any;
-let updateVolumeIndicator : any;
-let onUserPublished : any;
-let onUserUnpublished : any;
+let onUpdateRemotePosition : any;
+let onReceiveBroadcast : any;
+let onUpdateVolumeIndicator : any;
+let onRemoteUserJoined : any;
+let onRemoteUserLeft : any;
 
 let remoteUsers : { [uid: string] : IAgoraRTCRemoteUser; } = {};
 let worker : Worker = undefined;
@@ -127,7 +127,8 @@ let hifiPosition = { x: 0.0, y: 0.0, o: 0.0 };
 interface AgoraClientOptions {
     appid?: string | undefined,
     channel?: string | undefined,
-    token?: string | undefined
+    token?: string | undefined,
+    thresholdValue?: number | undefined
 }
 let agoraOptions : AgoraClientOptions = {
     appid: null,
@@ -205,7 +206,6 @@ export function receiverTransform(readableStream : ReadableStream, writableStrea
 export function sendBroadcastMessage(msg : Uint8Array) : boolean {
     if (localTracks.audioTrack) {
         client.sendStreamMessage(msg);
-        // console.log('%csent stream-message of:', 'color:cyan', msg);
         return true;
     }
     return false;
@@ -249,13 +249,12 @@ function sourceMetadata(buffer : /* Uint8Array */ ArrayBuffer, uid : UID) : void
         setPosition(hifiSource);
     }
 
-    updateRemoteMetadata("" + uid, x, y, o);
+    onUpdateRemotePosition("" + uid, x, y, o);
 }
 
 
-let thresholdValue : number;
 function setThreshold(value : number) {
-    thresholdValue = value;
+    agoraOptions.thresholdValue = value;
     if (hifiNoiseGate !== undefined) {
         hifiNoiseGate.parameters.get('threshold').value = value;
         console.log('set noisegate threshold to', value, 'dB');
@@ -272,7 +271,7 @@ async function setAecEnabled(v : boolean) : Promise<string> {
         aecEnabled = v;
         if (localTracks.audioTrack) {
             await leave();
-            await join(null, null, null, null, null, null, null, null, thresholdValue);
+            await joinAgoraRoom();
         }
     }
     return "" + agoraOptions.uid;
@@ -341,23 +340,19 @@ export function setLocalMetaData(e : MetaData) : void {
 
 
 
-export async function join(appID : any,
-                           channel : any,
-                           initialPosition : any,
-                           setUpdateRemoteMetadata : any,
-                           setReceiveRemoteMetadata : any,
-                           setUpdateVolumeIndicator : any,
-                           setOnUserPublished : any,
-                           setOnUserUnpublished : any,
-                           setThresholdValue : number) {
+export async function join(appID : string,
+                           channel : string,
+                           initialPosition : MetaData,
+                           initialThresholdValue : number,
+                           setUpdateRemotePosition : Function,
+                           setReceiveBroadcast : Function,
+                           setUpdateVolumeIndicator : Function,
+                           setOnUserPublished : Function,
+                           setOnUserUnpublished : Function) {
 
-    if (appID) {
-        agoraOptions.appid = appID;
-    }
-
-    if (channel) {
-        agoraOptions.channel = channel;
-    }
+    agoraOptions.appid = appID;
+    agoraOptions.channel = channel;
+    agoraOptions.thresholdValue = initialThresholdValue;
 
     if (initialPosition) {
         hifiPosition.x = initialPosition.x;
@@ -365,21 +360,17 @@ export async function join(appID : any,
         hifiPosition.o = initialPosition.o;
     }
 
-    if (setUpdateRemoteMetadata) {
-        updateRemoteMetadata = setUpdateRemoteMetadata;
-    }
-    if (setReceiveRemoteMetadata) {
-        receiveRemoteMetadata = setReceiveRemoteMetadata;
-    }
-    if (setUpdateVolumeIndicator) {
-        updateVolumeIndicator = setUpdateVolumeIndicator;
-    }
-    if (setOnUserPublished) {
-        onUserPublished = setOnUserPublished;
-    }
-    if (setOnUserUnpublished) {
-        onUserUnpublished = setOnUserUnpublished;
-    }
+    onUpdateRemotePosition = setUpdateRemotePosition;
+    onReceiveBroadcast = setReceiveBroadcast;
+    onUpdateVolumeIndicator = setUpdateVolumeIndicator;
+    onRemoteUserJoined = setOnUserPublished;
+    onRemoteUserLeft = setOnUserUnpublished;
+
+    return await joinAgoraRoom();
+}
+
+
+async function joinAgoraRoom() {
 
     await startSpatialAudio();
 
@@ -420,7 +411,7 @@ export async function join(appID : any,
     let destinationNode = audioContext.createMediaStreamDestination();
 
     hifiNoiseGate = new AudioWorkletNode(audioContext, 'wasm-noise-gate');
-    setThreshold(muteEnabled ? 0.0 : setThresholdValue);
+    setThreshold(muteEnabled ? 0.0 : agoraOptions.thresholdValue);
 
     sourceNode.connect(hifiNoiseGate).connect(destinationNode);
 
@@ -457,13 +448,13 @@ export async function join(appID : any,
     client.enableAudioVolumeIndicator();
     client.on("volume-indicator", volumes => {
         volumes.forEach((volume, index) => {
-            updateVolumeIndicator(volume, index);
+            onUpdateVolumeIndicator("" + volume.uid, volume.level);
         });
     })
 
     // on broadcast from remote user, set corresponding username
     client.on("stream-message", (uid : UID, data : Uint8Array) => {
-        setReceiveRemoteMetadata("" + uid, data);
+        onReceiveBroadcast("" + uid, data);
     });
 
     return agoraOptions.uid;
@@ -496,7 +487,7 @@ function handleUserPublished(user : IAgoraRTCRemoteUser, mediaType : string) {
 function handleUserUnpublished(user : IAgoraRTCRemoteUser) {
     const uid = user.uid;
     delete remoteUsers[uid];
-    onUserUnpublished("" + uid);
+    onRemoteUserLeft("" + uid);
     unsubscribe(user);
 }
 
@@ -538,7 +529,7 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
             receiverTransform(readableStream, writableStream, uid);
         }
 
-        onUserPublished("" + uid);
+        onRemoteUserJoined("" + uid);
     }
 }
 
