@@ -2,8 +2,8 @@
     "name": "hifi-web-audio",
     "version": "1.0.0-0",
     "description": "",
-    "main": "./dist/HighFidelityWebAudio-latest.js",
-    "types": "./dist/HighFidelityWebAudio-latest.d.ts",
+    "main": "./dist/hifi-audio.js",
+    "types": "./dist/hifi-audio.js",
     "files": [
         "dist"
     ],
