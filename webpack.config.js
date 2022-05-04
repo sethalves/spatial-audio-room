@@ -49,7 +49,8 @@ module.exports = ({ buildEnv }) => {
         resolve: {
             extensions: ['.ts', '.js'],
             alias: {
-                './hifi-audio.js$': path.resolve(__dirname, 'src/hifi-audio.ts')
+                './hifi-audio.js$': path.resolve(__dirname, 'src/hifi-audio.ts'),
+                './transform.js$': path.resolve(__dirname, 'src/transform.ts')
             },
         },
     };

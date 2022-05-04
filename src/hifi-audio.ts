@@ -12,6 +12,7 @@ import { patchRTCPeerConnection } from './patchRTCPeerConnection.js';
 let _RTCPeerConnection = RTCPeerConnection;
 patchRTCPeerConnection(_RTCPeerConnection);
 
+import { metadata, senderTransform, receiverTransform } from './transform.js';
 
 
 interface AudioWorkletNodeMeta extends AudioWorkletNode {
@@ -25,11 +26,6 @@ interface MetaData {
     x? : number,
     y? : number,
     o? : number
-}
-
-
-interface TransformStreamWithID extends TransformStream {
-    uid? : UID | undefined
 }
 
 
@@ -137,72 +133,6 @@ let agoraOptions : AgoraClientOptions = {
 };
 
 
-
-const METADATA_BYTES = 5;
-var metadata : ArrayBuffer = new Uint8Array(METADATA_BYTES);
-
-export function senderTransform(readableStream : ReadableStream, writableStream : WritableStream) {
-    const transformStream = new TransformStream({
-        start: () => { console.log('%cworker set sender transform', 'color:yellow'); },
-        transform: (encodedFrame, controller) => {
-
-            let src = new Uint8Array(encodedFrame.data);
-            let len = encodedFrame.data.byteLength;
-
-            // create dst buffer with METADATA_BYTES extra bytes
-            let dst = new Uint8Array(len + METADATA_BYTES);
-
-            // copy src data
-            for (let i = 0; i < len; ++i) {
-                dst[i] = src[i];
-            }
-
-            // insert metadata at the end
-            let data = new Uint8Array(metadata);
-            for (let i = 0; i < METADATA_BYTES; ++i) {
-                dst[len + i] = data[i];
-            }
-
-            encodedFrame.data = dst.buffer;
-            controller.enqueue(encodedFrame);
-        },
-    });
-    readableStream.pipeThrough(transformStream).pipeTo(writableStream);
-}
-
-export function receiverTransform(readableStream : ReadableStream, writableStream : WritableStream, uid : UID) {
-    const transformStream : TransformStreamWithID = new TransformStream({
-        start: () => { console.log('%cworker set receiver transform for uid:', 'color:yellow', uid); },
-        transform: (encodedFrame, controller) => {
-
-            let src = new Uint8Array(encodedFrame.data);
-            let len = encodedFrame.data.byteLength - METADATA_BYTES;
-
-            // create dst buffer with METADATA_BYTES fewer bytes
-            let dst = new Uint8Array(len);
-
-            // copy src data
-            for (let i = 0; i < len; ++i) {
-                dst[i] = src[i];
-            }
-
-            // extract metadata at the end
-            let data = new Uint8Array(METADATA_BYTES);
-            for (let i = 0; i < METADATA_BYTES; ++i) {
-                data[i] = src[len + i];
-            }
-
-            sourceMetadata(data.buffer, uid);
-
-            encodedFrame.data = dst.buffer;
-            controller.enqueue(encodedFrame);
-        },
-    });
-    transformStream.uid = uid;
-    readableStream.pipeThrough(transformStream).pipeTo(writableStream);
-}
-
-
 export function sendBroadcastMessage(msg : Uint8Array) : boolean {
     if (localTracks.audioTrack) {
         client.sendStreamMessage(msg);
@@ -229,11 +159,11 @@ function listenerMetadata(position : MetaData) {
             metadata: data.buffer
         }, [data.buffer]);
     } else {
-        metadata = data.buffer;
+        metadata.data = data.buffer;
     }
 }
 
-function sourceMetadata(buffer : /* Uint8Array */ ArrayBuffer, uid : UID) : void {
+export function sourceMetadata(buffer : /* Uint8Array */ ArrayBuffer, uid : UID) : void {
     let data = new DataView(buffer);
 
     let x = data.getInt16(0) * (1/256.0);
