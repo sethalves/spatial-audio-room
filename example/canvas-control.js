@@ -1,11 +1,17 @@
+
+
+import { fastAtan2 } from '../src/index.ts'
+
+
 /**
  * Class for managing 2D visualization/interaction for audio demos.
  * @param {Object} canvas
  * @param {Object} elements
  * @param {Function} callbackFunc
  */
-function CanvasControl(canvas, elements, callbackFunc) {
+export function CanvasControl(canvas, elements, usernames, callbackFunc) {
   this._canvas = canvas;
+  this._usernames = usernames;
   this._elements = elements;
   this._callbackFunc = callbackFunc;
 
@@ -102,10 +108,10 @@ CanvasControl.prototype.draw = function() {
       this._context.restore();
 
       let uid = this._elements[i].uid;
-      if (usernames[uid] !== undefined) {
+      if (this._usernames[uid] !== undefined) {
         this._context.font = '20px Arial';
         this._context.textAlign = 'center';
-        this._context.fillText(usernames[uid], this._elements[i].x * this._canvas.width, y);
+        this._context.fillText(this._usernames[uid], this._elements[i].x * this._canvas.width, y);
       }
     }
   }

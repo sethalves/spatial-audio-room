@@ -9,11 +9,16 @@
 
 'use strict';
 
+import { join, setLocalMetaData, sendBroadcastMessage } from '../src/index.ts'
+import { CanvasControl } from './canvas-control.js'
+
 function decrypt_appid(data, key) {
     let k = BigInt(key.split('').reduce((a, b) => a = Math.imul(a, 33) + b.charCodeAt(0) | 0, 0));
     let t = BigInt('0x' + data) ^ (k * 38038099725390353860267635547n);
     return t.toString(16);
 }
+
+let options = {};
 
 // the demo can auto join channel with params in url
 $(()=>{
@@ -45,7 +50,7 @@ $("#join-form").submit(async function(e) {
         options.token = $("#token").val();
         options.channel = $("#channel").val();
         options.username = $("#username").val();
-        await join();
+        await joinRoom();
         $("#success-alert").css("display", "block");
     } catch (error) {
         console.error(error);
@@ -68,7 +73,7 @@ $("#aec").click(async function(e) {
     if (localTracks.audioTrack) {
         await leaveRoom();
         $("#join").attr("disabled", true);
-        await join();
+        await joinRoom();
         $("#leave").attr("disabled", false);
     }
 })
@@ -107,14 +112,16 @@ function updatePositions(elements) {
     let e = elements.find(e => e.clickable === true);
     if (e !== undefined) {
         // transform canvas to audio coordinates
-        setLocalMetaData((e.x - 0.5) * canvasDimensions.width,
-                         -(e.y - 0.5) * canvasDimensions.height,
-                         e.o);
+        setLocalMetaData({
+            x: (e.x - 0.5) * canvasDimensions.width,
+            y: -(e.y - 0.5) * canvasDimensions.height,
+            o: e.o
+        });
     }
 }
 
 
-function updateRemotePosition(x, y, o) {
+function updateRemotePosition(uid, x, y, o) {
     // update canvas position
     let e = elements.find(e => e.uid === uid);
     if (e !== undefined) {
@@ -148,12 +155,12 @@ function onUserPublished(uid) {
     });
 
     // broadcast my name
-    sendBroadcastMessage((new TextEncoder).encode(usernames[localID]));
+    sendBroadcastMessage((new TextEncoder).encode(usernames[localUid]));
 }
 
 
 function onUserUnpublished(uid) {
-    $(`#player-wrapper-${id}`).remove();
+    $(`#player-wrapper-${uid}`).remove();
 
     // find and remove this uid
     let i = elements.findIndex(e => e.uid === uid);
@@ -163,12 +170,21 @@ function onUserUnpublished(uid) {
 
 async function joinRoom() {
 
-    localUid = join(updateRemotePosition,
-                    receiveRemoteMetadata,
-                    updateVolumeIndicator,
-                    onUserPublished,
-                    onUserUnpublished,
-                    threshold.value);
+    let initialPosition = {
+        x: 2.0 * Math.random() - 1.0,
+        y: 2.0 * Math.random() - 1.0,
+        o: 0.0
+    };
+
+    let localUid = await join(options.appid,
+                              options.channel,
+                              initialPosition,
+                              updateRemotePosition,
+                              receiveRemoteMetadata,
+                              updateVolumeIndicator,
+                              onUserPublished,
+                              onUserUnpublished,
+                              threshold.value);
 
     usernames[ localUid ] = options.username;
 
@@ -179,16 +195,16 @@ async function joinRoom() {
 
     elements.push({
         icon: 'listenerIcon',
-        x: 0.5 + (hifiPosition.x / canvasDimensions.width),
-        y: 0.5 - (hifiPosition.y / canvasDimensions.height),
-        o: hifiPosition.o,
+        x: 0.5 + (initialPosition.x / canvasDimensions.width),
+        y: 0.5 - (initialPosition.y / canvasDimensions.height),
+        o: initialPosition.o,
         radius: 0.02,
         alpha: 0.5,
         clickable: true,
         uid: localUid,
     });
 
-    canvasControl = new CanvasControl(canvas, elements, updatePositions);
+    canvasControl = new CanvasControl(canvas, elements, usernames, updatePositions);
     canvasControl.draw();
 
     $("#sound").attr("hidden", false);
@@ -211,9 +227,9 @@ async function leaveRoom() {
 }
 
 
-function setUsername(username : string) {
+function setUsername(username) {
     sendBroadcastMessage((new TextEncoder).encode(usernames[localUid]));
-    if (localTracks.audioTrack) {
+    if (localUid) {
         usernames[localUid] = username;
         client.sendStreamMessage((new TextEncoder).encode(usernames[localUid]));
         console.log('%cusername changed, sent stream-message of:', 'color:cyan', usernames[localUid]);

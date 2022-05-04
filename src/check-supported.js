@@ -1,7 +1,7 @@
 
 'use strict';
 
-function checkSupported() {
+export function checkSupported() {
 
     const simdBlob = Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]);
     const simdSupported = WebAssembly.validate(simdBlob);

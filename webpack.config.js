@@ -5,7 +5,13 @@ const CopyPlugin = require("copy-webpack-plugin");
 module.exports = ({ buildEnv }) => {
     let config = {
         entry: {
-            "Audio": './src/index.ts',
+            "Audio": [
+                './example/canvas-control.js',
+                './example/index.js',
+                './src/check-supported.js',
+                './src/patchRTCPeerConnection.js',
+                './src/index.ts'
+            ],
         },
         plugins: [
             new webpack.LoaderOptionsPlugin({
@@ -19,17 +25,18 @@ module.exports = ({ buildEnv }) => {
                     { from: "assets/hifi.wasm.simd.js", to: "" },
                     { from: "assets/WASMAudioBuffer.js", to: "" },
                     { from: "assets/worker.js", to: "" },
+                    { from: "example/index.css", to: "" },
+                    { from: "example/index.html", to: "" },
+                    { from: "example/listener.svg", to: "" },
+                    { from: "example/sound.wav", to: "" },
+                    { from: "example/source.svg", to: "" },
                     { from: "vendor/*", to: "" }
                 ],
             }),
         ],
         output: {
-            filename: `HighFidelity[name]-latest.js`,
-            path: path.resolve(__dirname, 'dist'),
-            // The two options below are the keys to allowing other developers
-            // to use the libarary without making use of any loaders.
-            library: 'HighFidelity[name]',
-            libraryTarget: 'var'
+            filename: `audio-room.js`,
+            path: path.resolve(__dirname, 'dist')
         },
         module: {
             rules: [

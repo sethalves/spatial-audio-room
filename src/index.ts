@@ -5,11 +5,10 @@ interface IAgoraRTCOpen extends IAgoraRTC {
 }
 declare const AgoraRTC: IAgoraRTCOpen;
 
-
-declare function checkSupported() : boolean[];
+import { checkSupported } from './check-supported';
 let [ simdSupported, encodedTransformSupported, isChrome ] = checkSupported();
 
-declare function patchRTCPeerConnection(_RTCPeerConnection : any) : void;
+import { patchRTCPeerConnection } from './patchRTCPeerConnection';
 let _RTCPeerConnection = RTCPeerConnection;
 patchRTCPeerConnection(_RTCPeerConnection);
 
@@ -121,20 +120,16 @@ let hifiLimiter : AudioWorkletNode;    // additional sounds connect here
 let audioElement : HTMLAudioElement;
 let audioContext : AudioContext;
 
-let hifiPosition = {
-    x: 2.0 * Math.random() - 1.0,
-    y: 2.0 * Math.random() - 1.0,
-    o: 0.0
-};
+let hifiPosition = { x: 0.0, y: 0.0, o: 0.0 };
 
 
-// Agora client options
+// Agora client agoraOptions
 interface AgoraClientOptions {
     appid?: string | undefined,
     channel?: string | undefined,
     token?: string | undefined
 }
-let options : AgoraClientOptions = {
+let agoraOptions : AgoraClientOptions = {
     appid: null,
     channel: null,
     token: null
@@ -147,8 +142,8 @@ var metadata : ArrayBuffer = new Uint8Array(METADATA_BYTES);
 
 export function senderTransform(readableStream : ReadableStream, writableStream : WritableStream) {
     const transformStream = new TransformStream({
-        start() { console.log('%cworker set sender transform', 'color:yellow'); },
-        transform(encodedFrame, controller) {
+        start: () => { console.log('%cworker set sender transform', 'color:yellow'); },
+        transform: (encodedFrame, controller) => {
 
             let src = new Uint8Array(encodedFrame.data);
             let len = encodedFrame.data.byteLength;
@@ -176,8 +171,8 @@ export function senderTransform(readableStream : ReadableStream, writableStream 
 
 export function receiverTransform(readableStream : ReadableStream, writableStream : WritableStream, uid : UID) {
     const transformStream : TransformStreamWithID = new TransformStream({
-        start() { console.log('%cworker set receiver transform for uid:', 'color:yellow', uid); },
-        transform(encodedFrame, controller) {
+        start: () => { console.log('%cworker set receiver transform for uid:', 'color:yellow', uid); },
+        transform: (encodedFrame, controller) => {
 
             let src = new Uint8Array(encodedFrame.data);
             let len = encodedFrame.data.byteLength - METADATA_BYTES;
@@ -195,6 +190,7 @@ export function receiverTransform(readableStream : ReadableStream, writableStrea
             for (let i = 0; i < METADATA_BYTES; ++i) {
                 data[i] = src[len + i];
             }
+
             sourceMetadata(data.buffer, uid);
 
             encodedFrame.data = dst.buffer;
@@ -206,7 +202,7 @@ export function receiverTransform(readableStream : ReadableStream, writableStrea
 }
 
 
-function sendBroadcastMessage(msg : Uint8Array) : boolean {
+export function sendBroadcastMessage(msg : Uint8Array) : boolean {
     if (localTracks.audioTrack) {
         client.sendStreamMessage(msg);
         // console.log('%csent stream-message of:', 'color:cyan', msg);
@@ -253,7 +249,7 @@ function sourceMetadata(buffer : /* Uint8Array */ ArrayBuffer, uid : UID) : void
         setPosition(hifiSource);
     }
 
-    updateRemoteMetadata(x, y, o);
+    updateRemoteMetadata("" + uid, x, y, o);
 }
 
 
@@ -276,10 +272,10 @@ async function setAecEnabled(v : boolean) : Promise<string> {
         aecEnabled = v;
         if (localTracks.audioTrack) {
             await leave();
-            await join(null, null, null, null, null, thresholdValue);
+            await join(null, null, null, null, null, null, null, null, thresholdValue);
         }
     }
-    return "" + options.uid;
+    return "" + agoraOptions.uid;
 }
 
 
@@ -295,7 +291,7 @@ function setMutedEnabled(v : boolean) {
 // Fast approximation of Math.atan2(y, x)
 // rel |error| < 4e-5, smooth (exact at octant boundary)
 // for y=0 x=0, returns NaN
-function fastAtan2(y : number, x : number) : number {
+export function fastAtan2(y : number, x : number) : number {
     let ax = Math.abs(x);
     let ay = Math.abs(y);
     let x1 = Math.min(ax, ay) / Math.max(ax, ay);
@@ -336,7 +332,7 @@ function setPosition(hifiSource : AudioWorkletNodeMeta) {
 }
 
 
-function setLocalMetaData(e : MetaData) : void {
+export function setLocalMetaData(e : MetaData) : void {
     hifiPosition.x = e.x;
     hifiPosition.y = e.y;
     hifiPosition.o = e.o;
@@ -345,12 +341,29 @@ function setLocalMetaData(e : MetaData) : void {
 
 
 
-async function join(setUpdateRemoteMetadata : any,
-                    setReceiveRemoteMetadata : any,
-                    setUpdateVolumeIndicator : any,
-                    setOnUserPublished : any,
-                    setOnUserUnpublished : any,
-                    setThresholdValue : number) {
+export async function join(appID : any,
+                           channel : any,
+                           initialPosition : any,
+                           setUpdateRemoteMetadata : any,
+                           setReceiveRemoteMetadata : any,
+                           setUpdateVolumeIndicator : any,
+                           setOnUserPublished : any,
+                           setOnUserUnpublished : any,
+                           setThresholdValue : number) {
+
+    if (appID) {
+        agoraOptions.appid = appID;
+    }
+
+    if (channel) {
+        agoraOptions.channel = channel;
+    }
+
+    if (initialPosition) {
+        hifiPosition.x = initialPosition.x;
+        hifiPosition.y = initialPosition.y;
+        hifiPosition.o = initialPosition.o;
+    }
 
     if (setUpdateRemoteMetadata) {
         updateRemoteMetadata = setUpdateRemoteMetadata;
@@ -371,11 +384,17 @@ async function join(setUpdateRemoteMetadata : any,
     await startSpatialAudio();
 
     // add event listener to play remote tracks when remote user publishs.
-    client.on("user-published", handleUserPublished);
-    client.on("user-unpublished", handleUserUnpublished);
+
+    client.on("user-published", (user : IAgoraRTCRemoteUser, mediaType : string) => {
+        handleUserPublished(user, mediaType);
+    });
+
+    client.on("user-unpublished", (user : IAgoraRTCRemoteUser) => {
+        handleUserUnpublished(user);
+    });
 
     // join a channel
-    options.uid = await client.join(options.appid, options.channel, options.token || null);
+    agoraOptions.uid = await client.join(agoraOptions.appid, agoraOptions.channel, agoraOptions.token || null);
 
     // create local tracks
     let audioConfig = {
@@ -446,6 +465,8 @@ async function join(setUpdateRemoteMetadata : any,
     client.on("stream-message", (uid : UID, data : Uint8Array) => {
         setReceiveRemoteMetadata("" + uid, data);
     });
+
+    return agoraOptions.uid;
 }
 
 
@@ -581,7 +602,9 @@ async function startSpatialAudio() {
 
     if (encodedTransformSupported) {
         worker = new Worker('worker.js');
-        worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
+        worker.onmessage = (event) => {
+            sourceMetadata(event.data.metadata, event.data.uid);
+        }
     }
 
     try {
