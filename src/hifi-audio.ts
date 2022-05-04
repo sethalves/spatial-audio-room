@@ -13,13 +13,6 @@ let _RTCPeerConnection = RTCPeerConnection;
 patchRTCPeerConnection(_RTCPeerConnection);
 
 import { metadata, senderTransform, receiverTransform } from './transform.js';
-// interface MetadataBounceBuffer {
-//     data : ArrayBuffer
-// }
-// declare var metadata : MetadataBounceBuffer;
-// declare function senderTransform(readableStream : ReadableStream, writableStream : WritableStream) : void;
-// declare function receiverTransform(readableStream : ReadableStream, writableStream : WritableStream, uid : UID,
-//                                    sourceMetadata : Function) : void;
 
 
 interface AudioWorkletNodeMeta extends AudioWorkletNode {

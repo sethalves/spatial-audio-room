@@ -9,7 +9,7 @@
 
 'use strict';
 
-import { join, setLocalMetaData, sendBroadcastMessage } from './hifi-audio.js'
+import * as HiFiAudio from './hifi-audio.js'
 import { CanvasControl } from './canvas-control.js'
 
 function decrypt_appid(data, key) {
@@ -112,7 +112,7 @@ function updatePositions(elements) {
     let e = elements.find(e => e.clickable === true);
     if (e !== undefined) {
         // transform canvas to audio coordinates
-        setLocalMetaData({
+        HiFiAudio.setLocalMetaData({
             x: (e.x - 0.5) * canvasDimensions.width,
             y: -(e.y - 0.5) * canvasDimensions.height,
             o: e.o
@@ -155,7 +155,7 @@ function onUserPublished(uid) {
     });
 
     // broadcast my name
-    sendBroadcastMessage((new TextEncoder).encode(usernames[localUid]));
+    HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(usernames[localUid]));
 }
 
 
@@ -176,15 +176,15 @@ async function joinRoom() {
         o: 0.0
     };
 
-    localUid = await join(options.appid,
-                          options.channel,
-                          initialPosition,
-                          threshold.value,
-                          updateRemotePosition,
-                          receiveBroadcast,
-                          updateVolumeIndicator,
-                          onUserPublished,
-                          onUserUnpublished);
+    localUid = await HiFiAudio.join(options.appid,
+                                    options.channel,
+                                    initialPosition,
+                                    threshold.value,
+                                    updateRemotePosition,
+                                    receiveBroadcast,
+                                    updateVolumeIndicator,
+                                    onUserPublished,
+                                    onUserUnpublished);
 
     usernames[ localUid ] = options.username;
 
