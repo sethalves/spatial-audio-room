@@ -41,17 +41,16 @@ module.exports = ({ buildEnv }) => {
         module: {
             rules: [
                 {
-                    test: /\.tsx?$/,
                     use: 'ts-loader',
                     exclude: /node_modules/,
                 },
             ],
         },
         resolve: {
-            extensions: ['.tsx', '.ts', '.js'],
+            extensions: ['.ts', '.js'],
             alias: {
-                'perf_hooks': false
-            }
+                './hifi-audio.js$': path.resolve(__dirname, 'src/hifi-audio.ts')
+            },
         },
     };
 

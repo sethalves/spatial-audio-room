@@ -10,7 +10,8 @@ all:
 	mkdir -p dist/
 	cp -r vendor dist/vendor
 	tsc --declaration true
-
+	cp assets/*.js dist/
+	cp example/* dist/
 
 webpack-dev:
 	${WEBPACK} --env buildEnv=dev
@@ -22,7 +23,7 @@ deps:
 	npm install webpack webpack-cli copy-webpack-plugin ts-loader --save-dev
 	npm install agora-rtc-sdk-ng
 
-install: all
+install:
 	rsync -avP --delete dist/ /var/www/html/audio-room/
 
 clean:

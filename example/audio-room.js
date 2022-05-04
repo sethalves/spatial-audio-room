@@ -9,7 +9,7 @@
 
 'use strict';
 
-import { join, setLocalMetaData, sendBroadcastMessage } from '../src/hifi-audio.ts'
+import { join, setLocalMetaData, sendBroadcastMessage } from './hifi-audio.js'
 import { CanvasControl } from './canvas-control.js'
 
 function decrypt_appid(data, key) {

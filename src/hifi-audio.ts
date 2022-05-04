@@ -5,10 +5,10 @@ interface IAgoraRTCOpen extends IAgoraRTC {
 }
 declare const AgoraRTC: IAgoraRTCOpen;
 
-import { checkSupported } from './check-supported';
+import { checkSupported } from './check-supported.js';
 let [ simdSupported, encodedTransformSupported, isChrome ] = checkSupported();
 
-import { patchRTCPeerConnection } from './patchRTCPeerConnection';
+import { patchRTCPeerConnection } from './patchRTCPeerConnection.js';
 let _RTCPeerConnection = RTCPeerConnection;
 patchRTCPeerConnection(_RTCPeerConnection);
 

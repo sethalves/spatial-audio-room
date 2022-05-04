@@ -1,6 +1,6 @@
 
 
-import { fastAtan2 } from '../src/hifi-audio.ts'
+import { fastAtan2 } from './hifi-audio.js'
 
 
 /**
