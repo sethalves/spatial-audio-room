@@ -13,6 +13,13 @@ let _RTCPeerConnection = RTCPeerConnection;
 patchRTCPeerConnection(_RTCPeerConnection);
 
 import { metadata, senderTransform, receiverTransform } from './transform.js';
+// interface MetadataBounceBuffer {
+//     data : ArrayBuffer
+// }
+// declare var metadata : MetadataBounceBuffer;
+// declare function senderTransform(readableStream : ReadableStream, writableStream : WritableStream) : void;
+// declare function receiverTransform(readableStream : ReadableStream, writableStream : WritableStream, uid : UID,
+//                                    sourceMetadata : Function) : void;
 
 
 interface AudioWorkletNodeMeta extends AudioWorkletNode {
@@ -163,7 +170,7 @@ function listenerMetadata(position : MetaData) {
     }
 }
 
-export function sourceMetadata(buffer : /* Uint8Array */ ArrayBuffer, uid : UID) : void {
+export function sourceMetadata(buffer : ArrayBuffer, uid : UID) : void {
     let data = new DataView(buffer);
 
     let x = data.getInt16(0) * (1/256.0);
@@ -456,7 +463,7 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
             const receiverStreams = receiver.createEncodedStreams();
             const readableStream = receiverStreams.readable;
             const writableStream = receiverStreams.writable;
-            receiverTransform(readableStream, writableStream, uid);
+            receiverTransform(readableStream, writableStream, uid, sourceMetadata);
         }
 
         onRemoteUserJoined("" + uid);

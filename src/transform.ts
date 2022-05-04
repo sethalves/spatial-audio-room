@@ -10,7 +10,8 @@
 'use strict';
 
 import type { UID } from 'agora-rtc-sdk-ng';
-import { sourceMetadata } from './hifi-audio.js';
+// import { sourceMetadata } from './hifi-audio.js';
+// declare function sourceMetadata(buffer : ArrayBuffer, uid : UID): void;
 
 interface TransformStreamWithID extends TransformStream {
     uid? : UID | undefined
@@ -25,7 +26,7 @@ export let metadata : MetadataBounceBuffer = {
     data: new Uint8Array(METADATA_BYTES)
 };
 
-export function senderTransform(readableStream : ReadableStream, writableStream : WritableStream) {
+export function senderTransform(readableStream : ReadableStream, writableStream : WritableStream) : void {
     const transformStream = new TransformStream({
         start() { console.log('%cworker set sender transform', 'color:yellow'); },
         transform(encodedFrame, controller) {
@@ -54,7 +55,8 @@ export function senderTransform(readableStream : ReadableStream, writableStream 
     readableStream.pipeThrough(transformStream).pipeTo(writableStream);
 }
 
-export function receiverTransform(readableStream : ReadableStream, writableStream : WritableStream, uid : UID) {
+export function receiverTransform(readableStream : ReadableStream, writableStream : WritableStream, uid : UID,
+                           sourceMetadata : Function) : void {
     const transformStream : TransformStreamWithID = new TransformStream({
         start() { console.log('%cworker set receiver transform for uid:', 'color:yellow', uid); },
         transform(encodedFrame, controller) {

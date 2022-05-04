@@ -9,7 +9,7 @@
 
 'use strict';
 
-self.importScripts('transform.js');
+self.importScripts('worker-transform.js');
 
 function sourceMetadata(buffer, uid) {
     self.postMessage({
@@ -44,7 +44,7 @@ self.onrtctransform = function (event) {
             break;
         case 'receiver':
             // when using Encoded Transform
-            receiverTransform(transformer.readable, transformer.writable, transformer.options.uid);
+            receiverTransform(transformer.readable, transformer.writable, transformer.options.uid, sourceMetadata);
             break;
     }
 }
