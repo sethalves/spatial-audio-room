@@ -93,7 +93,7 @@ let client : IAgoraRTCClientOpen = AgoraRTC.createClient({
     codec: "vp8"
 });
 
-let localTracks  : LocalTracks = {
+let localTracks : LocalTracks = {
     //videoTrack: null,
     audioTrack: null
 };
@@ -108,7 +108,7 @@ let onRemoteUserLeft : any;
 let remoteUsers : { [uid: string] : IAgoraRTCRemoteUser; } = {};
 let worker : Worker = undefined;
 
-let hifiSources : Map<UID, AudioWorkletNodeMeta> = new Map<UID, AudioWorkletNodeMeta>();
+let hifiSources: { [name: UID]: AudioWorkletNodeMeta } = {};
 let hifiNoiseGate  : AudioWorkletNode;  // mic stream connects here
 let hifiListener : AudioWorkletNodeMeta;   // hifiSource connects here
 let hifiLimiter : AudioWorkletNode;    // additional sounds connect here
@@ -171,7 +171,7 @@ export function sourceMetadata(buffer : ArrayBuffer, uid : UID) : void {
     let o = data.getInt8(4) * (Math.PI / 128.0);
 
     // update hifiSource position
-    let hifiSource = hifiSources.get(uid);
+    let hifiSource = hifiSources[uid];
     if (hifiSource !== undefined) {
         hifiSource._x = x;
         hifiSource._y = y;
@@ -216,6 +216,9 @@ export function isMutedEnabled() : boolean {
 }
 export function setMutedEnabled(v : boolean) {
     muteEnabled = v;
+    if (hifiNoiseGate !== undefined) {
+        hifiNoiseGate.parameters.get('threshold').value = muteEnabled ? 0.0 : hifiOptions.thresholdValue;
+    }
 }
 
 
@@ -410,10 +413,12 @@ export async function leave() {
         localTracks.audioTrack = undefined;
     }
 
+    remoteUsers = {};
+
     // leave the channel
     await client.leave();
 
-    hifiSources.clear();
+    hifiSources = {};
     stopSpatialAudio();
 }
 
@@ -448,7 +453,7 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
         let sourceNode = audioContext.createMediaStreamSource(mediaStream);
 
         let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
-        hifiSources.set(uid, hifiSource);
+        hifiSources[uid] = hifiSource;
 
         sourceNode.connect(hifiSource).connect(hifiListener);
 
@@ -479,7 +484,7 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
 async function unsubscribe(user: IAgoraRTCRemoteUser) {
     const uid = user.uid;
 
-    hifiSources.delete(uid);
+    delete hifiSources[uid];
 
     console.log("unsubscribe uid:", uid);
 }
@@ -536,9 +541,7 @@ async function startSpatialAudio() {
 
     if (encodedTransformSupported) {
         worker = new Worker('worker.js');
-        worker.onmessage = (event) => {
-            sourceMetadata(event.data.metadata, event.data.uid);
-        }
+        worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
     }
 
     try {

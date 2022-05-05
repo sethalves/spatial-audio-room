@@ -3,7 +3,7 @@
     "version": "1.0.0-0",
     "description": "",
     "main": "./dist/hifi-audio.js",
-    "types": "./dist/hifi-audio.js",
+    "types": "./dist/hifi-audio.d.ts",
     "files": [
         "dist"
     ],
