@@ -154,10 +154,12 @@ function listenerMetadata(position : MetaData) {
     data.setInt8(4, qo);
 
     if (encodedTransformSupported) {
-        worker.postMessage({
-            operation: 'metadata',
-            metadata: data.buffer
-        }, [data.buffer]);
+        if (worker) {
+            worker.postMessage({
+                operation: 'metadata',
+                metadata: data.buffer
+            }, [data.buffer]);
+        }
     } else {
         metadata.data = data.buffer;
     }
