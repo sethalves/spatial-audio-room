@@ -86,12 +86,11 @@ interface LocalTracks {
 }
 
 
+let loopback : RTCPeerConnection[];
+let audioBuffer : AudioBuffer = null;
 
 // create Agora client
-let client : IAgoraRTCClientOpen = AgoraRTC.createClient({
-    mode: "rtc",
-    codec: "vp8"
-});
+let client : IAgoraRTCClientOpen;
 
 let localTracks : LocalTracks = {
     //videoTrack: null,
@@ -134,7 +133,7 @@ let hifiOptions : AgoraClientOptions = {
 
 
 export function sendBroadcastMessage(msg : Uint8Array) : boolean {
-    if (localTracks.audioTrack) {
+    if (client && localTracks.audioTrack) {
         client.sendStreamMessage(msg);
         return true;
     }
@@ -318,6 +317,11 @@ async function joinAgoraRoom() {
 
     // add event listener to play remote tracks when remote user publishs.
 
+    client = AgoraRTC.createClient({
+        mode: "rtc",
+        codec: "vp8"
+    });
+
     client.on("user-published", (user : IAgoraRTCRemoteUser, mediaType : string) => {
         handleUserPublished(user, mediaType);
     });
@@ -421,7 +425,14 @@ export async function leave() {
     await client.leave();
 
     hifiSources = {};
+    hifiNoiseGate = undefined;
+    hifiListener = undefined;
+    hifiLimiter = undefined;
+    audioElement = undefined;
+    loopback = [];
+
     stopSpatialAudio();
+    client = undefined;
 }
 
 function handleUserPublished(user : IAgoraRTCRemoteUser, mediaType : string) {
@@ -497,7 +508,6 @@ async function unsubscribe(user: IAgoraRTCRemoteUser) {
 // This should be removed when Chrome implements browser-wide echo cancellation.
 // https://bugs.chromium.org/p/chromium/issues/detail?id=687574#c60
 //
-let loopback : RTCPeerConnection[];
 async function startEchoCancellation(element : HTMLAudioElement, context : AudioContext) {
 
     loopback = [new _RTCPeerConnection, new _RTCPeerConnection];
@@ -572,11 +582,14 @@ async function startSpatialAudio() {
 
 function stopSpatialAudio() {
     stopEchoCancellation();
+
     audioContext.close();
+    audioContext = undefined;
+
     worker && worker.terminate();
+    worker = undefined;
 }
 
-let audioBuffer : AudioBuffer = null;
 export async function playSoundEffect() {
 
     // load on first play

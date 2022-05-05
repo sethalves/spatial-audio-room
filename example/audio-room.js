@@ -68,14 +68,6 @@ $("#aec").click(async function(e) {
     // toggle the state
     HiFiAudio.setAecEnabled(!HiFiAudio.isAecEnabled());
     $("#aec").css("background-color", HiFiAudio.isAecEnabled() ? "purple" : "");
-
-    // if already connected, leave and rejoin
-    if (localTracks.audioTrack) {
-        await leaveRoom();
-        $("#join").attr("disabled", true);
-        await joinRoom();
-        $("#leave").attr("disabled", false);
-    }
 })
 
 $("#mute").click(function(e) {
