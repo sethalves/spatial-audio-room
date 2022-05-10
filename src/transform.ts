@@ -56,7 +56,7 @@ export function senderTransform(readableStream : ReadableStream, writableStream 
 }
 
 export function receiverTransform(readableStream : ReadableStream, writableStream : WritableStream, uid : UID,
-                           sourceMetadata : Function) : void {
+                                  sourceMetadata : Function) : void {
     const transformStream : TransformStreamWithID = new TransformStream({
         start() { console.log('%cworker set receiver transform for uid:', 'color:yellow', uid); },
         transform(encodedFrame, controller) {

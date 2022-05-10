@@ -432,7 +432,7 @@ export async function leave() {
     loopback = [];
 
     stopSpatialAudio();
-    client = undefined;
+    // client = undefined;
 }
 
 function handleUserPublished(user : IAgoraRTCRemoteUser, mediaType : string) {
