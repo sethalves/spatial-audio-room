@@ -49,7 +49,11 @@ registerProcessor('wasm-hrtf-input', class extends AudioWorkletProcessor {
     process(inputs, outputs, parameters) {
 
         // copy in
-        this._inputBuffer.getF32Array().set(inputs[0][0]);
+        if (inputs[0].length == 0) {
+            this._inputBuffer.getF32Array().fill(0);
+        } else {
+            this._inputBuffer.getF32Array().set(inputs[0][0]);
+        }
 
         // process
         this._hrtf.setParameters(parameters.gain[0], parameters.azimuth[0], parameters.distance[0], parameters.lpfdist[0]);
@@ -75,12 +79,6 @@ registerProcessor('wasm-hrtf-output', class extends AudioWorkletProcessor {
 
     process(inputs, outputs) {
 
-        if (inputs[0].length == 0) {
-            outputs[0][0].fill(0);
-            outputs[0][1].fill(0);
-            return true;
-        }
-
         let inputPointer = [
             this._input.getPointer(),
             this._input.getPointer() + Float32Array.BYTES_PER_ELEMENT * NUM_FRAMES / 2
@@ -91,7 +89,12 @@ registerProcessor('wasm-hrtf-output', class extends AudioWorkletProcessor {
         ];
 
         // deinterleave in
-        deinterleave(inputs[0][0], this._input._channelData, NUM_FRAMES / 2);
+        if (inputs[0].length == 0) {
+            this._input.getChannelData(0).fill(0);
+            this._input.getChannelData(1).fill(0);
+        } else {
+            deinterleave(inputs[0][0], this._input._channelData, NUM_FRAMES / 2);
+        }
 
         // process
         this._interpolate2[0].process(inputPointer[0], outputPointer[0], NUM_FRAMES / 2);
@@ -119,7 +122,11 @@ registerProcessor('wasm-limiter', class extends AudioWorkletProcessor {
     process(inputs, outputs) {
 
         // interleave in
-        interleave(inputs[0], this._inoutBuffer.getF32Array(), NUM_FRAMES);
+        if (inputs[0].length == 0) {
+            this._inoutBuffer.getF32Array().fill(0);
+        } else {
+            interleave(inputs[0], this._inoutBuffer.getF32Array(), NUM_FRAMES);
+        }
 
         // process (in-place)
         this._limiter.process(this._inoutBuffer.getPointer(), this._inoutBuffer.getPointer(), NUM_FRAMES);
@@ -150,7 +157,11 @@ registerProcessor('wasm-noise-gate', class extends AudioWorkletProcessor {
     process(inputs, outputs, parameters) {
 
         // copy in
-        this._inoutBuffer.getF32Array().set(inputs[0][0]);
+        if (inputs[0].length == 0) {
+            this._inoutBuffer.getF32Array().fill(0);
+        } else {
+            this._inoutBuffer.getF32Array().set(inputs[0][0]);
+        }
 
         // process (in-place)
         this._noiseGate.setThreshold(parameters.threshold[0]);
