@@ -42,8 +42,8 @@ registerProcessor('wasm-hrtf-input', class extends AudioWorkletProcessor {
 
         this._hrtf = new Module.HrtfInput();
 
-        this._inputBuffer = new WASMAudioBuffer(Module, NUM_FRAMES, 1, 1);
-        this._outputBuffer = new WASMAudioBuffer(Module, NUM_FRAMES, 1, 1);
+        this._inputBuffer = new WASMAudioBuffer(Module, NUM_FRAMES, 1, 1);  // mono
+        this._outputBuffer = new WASMAudioBuffer(Module, NUM_FRAMES, 1, 1); // interleaved stereo, 1/2 sample rate
     }
 
     process(inputs, outputs, parameters) {
@@ -73,27 +73,27 @@ registerProcessor('wasm-hrtf-output', class extends AudioWorkletProcessor {
 
         this._interpolate2 = [ new Module.Interpolate2(), new Module.Interpolate2() ];
 
-        this._input = new WASMAudioBuffer(Module, NUM_FRAMES / 2, 2, 2);
-        this._output = new WASMAudioBuffer(Module, NUM_FRAMES, 2, 2);
+        this._inputBuffer = new WASMAudioBuffer(Module, NUM_FRAMES / 2, 2, 2);  // stereo, 1/2 sample rate
+        this._outputBuffer = new WASMAudioBuffer(Module, NUM_FRAMES, 2, 2);     // stereo
     }
 
     process(inputs, outputs) {
 
         let inputPointer = [
-            this._input.getPointer(),
-            this._input.getPointer() + Float32Array.BYTES_PER_ELEMENT * NUM_FRAMES / 2
+            this._inputBuffer.getPointer(),
+            this._inputBuffer.getPointer() + Float32Array.BYTES_PER_ELEMENT * NUM_FRAMES / 2
         ];
         let outputPointer = [
-            this._output.getPointer(),
-            this._output.getPointer() + Float32Array.BYTES_PER_ELEMENT * NUM_FRAMES
+            this._outputBuffer.getPointer(),
+            this._outputBuffer.getPointer() + Float32Array.BYTES_PER_ELEMENT * NUM_FRAMES
         ];
 
         // deinterleave in
         if (inputs[0].length == 0) {
-            this._input.getChannelData(0).fill(0);
-            this._input.getChannelData(1).fill(0);
+            this._inputBuffer.getChannelData(0).fill(0);
+            this._inputBuffer.getChannelData(1).fill(0);
         } else {
-            deinterleave(inputs[0][0], this._input._channelData, NUM_FRAMES / 2);
+            deinterleave(inputs[0][0], this._inputBuffer._channelData, NUM_FRAMES / 2);
         }
 
         // process
@@ -101,8 +101,8 @@ registerProcessor('wasm-hrtf-output', class extends AudioWorkletProcessor {
         this._interpolate2[1].process(inputPointer[1], outputPointer[1], NUM_FRAMES / 2);
 
         // copy out
-        outputs[0][0].set(this._output.getChannelData(0));
-        outputs[0][1].set(this._output.getChannelData(1));
+        outputs[0][0].set(this._outputBuffer.getChannelData(0));
+        outputs[0][1].set(this._outputBuffer.getChannelData(1));
 
         return true;
     }
@@ -115,8 +115,7 @@ registerProcessor('wasm-limiter', class extends AudioWorkletProcessor {
 
         this._limiter = new Module.Limiter(sampleRate);
 
-        // interleaved stereo buffer
-        this._inoutBuffer = new WASMAudioBuffer(Module, 2 * NUM_FRAMES, 1, 1);
+        this._inoutBuffer = new WASMAudioBuffer(Module, 2 * NUM_FRAMES, 1, 1);  // interleaved stereo
     }
 
     process(inputs, outputs) {
@@ -151,7 +150,7 @@ registerProcessor('wasm-noise-gate', class extends AudioWorkletProcessor {
 
         this._noiseGate = new Module.NoiseGate(sampleRate);
 
-        this._inoutBuffer = new WASMAudioBuffer(Module, NUM_FRAMES, 1, 1);
+        this._inoutBuffer = new WASMAudioBuffer(Module, NUM_FRAMES, 1, 1);  // mono
     }
 
     process(inputs, outputs, parameters) {
