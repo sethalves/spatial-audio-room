@@ -87,7 +87,6 @@ interface LocalTracks {
 
 
 let loopback : RTCPeerConnection[];
-let audioBuffer : AudioBuffer = null;
 
 // create Agora client
 let client : IAgoraRTCClientOpen;
@@ -186,15 +185,6 @@ export function sourceMetadata(buffer : ArrayBuffer, uid : UID) : void {
 }
 
 
-export function setThreshold(value : number) {
-    hifiOptions.thresholdValue = value;
-    if (hifiNoiseGate !== undefined) {
-        hifiNoiseGate.parameters.get('threshold').value = value;
-        console.log('set noisegate threshold to', value, 'dB');
-    }
-}
-
-
 let aecEnabled = false;
 export function isAecEnabled() : boolean {
     return aecEnabled;
@@ -220,6 +210,14 @@ export function setMutedEnabled(v : boolean) {
     if (hifiNoiseGate !== undefined) {
         hifiNoiseGate.parameters.get('threshold').value = muteEnabled ? 0.0 : hifiOptions.thresholdValue;
     }
+}
+
+export function setThreshold(value : number) {
+    hifiOptions.thresholdValue = value;
+    setMutedEnabled(muteEnabled);
+}
+export function getThreshold() {
+    return hifiOptions.thresholdValue;
 }
 
 
@@ -590,17 +588,12 @@ function stopSpatialAudio() {
     worker = undefined;
 }
 
-export async function playSoundEffect() {
-
-    // load on first play
-    if (!audioBuffer) {
-        let response = await fetch('https://raw.githubusercontent.com/kencooke/spatial-audio-room/master/sound.wav');
-        let buffer = await response.arrayBuffer();
-        audioBuffer = await audioContext.decodeAudioData(buffer);
-    }
-
+export async function playSoundEffect(buffer : ArrayBuffer, loop : boolean) : Promise<AudioBufferSourceNode> {
+    let audioBuffer : AudioBuffer = await audioContext.decodeAudioData(buffer);
     let sourceNode = new AudioBufferSourceNode(audioContext);
     sourceNode.buffer = audioBuffer;
+    sourceNode.loop = loop;
     sourceNode.connect(hifiLimiter);
     sourceNode.start();
+    return sourceNode;
 }
