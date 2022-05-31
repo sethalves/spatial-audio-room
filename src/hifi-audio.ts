@@ -59,14 +59,6 @@ interface IAgoraRTCClientOpen extends IAgoraRTCClient {
     sendStreamMessage? : any | undefined
 }
 
-
-interface AgoraClientOptions {
-    appid?: string | undefined,
-    channel?: string | undefined,
-    token?: string | undefined,
-    uid?: UID | undefined
-}
-
 // RTC with insertable stream support
 interface RTCRtpSenderIS extends RTCRtpSender {
     createEncodedStreams : Function,
@@ -118,17 +110,14 @@ let hifiPosition = { x: 0.0, y: 0.0, o: 0.0 };
 
 
 // Agora client hifiOptions
-interface AgoraClientOptions {
+interface HifiOptions {
     appid?: string | undefined,
     channel?: string | undefined,
-    token?: string | undefined,
+    tokenProvider?: Function | undefined,
+    uid?: UID | undefined,
     thresholdValue?: number | undefined
 }
-let hifiOptions : AgoraClientOptions = {
-    appid: null,
-    channel: null,
-    token: null
-};
+let hifiOptions : HifiOptions = {};
 
 
 export function sendBroadcastMessage(msg : Uint8Array) : boolean {
@@ -291,13 +280,16 @@ export function on(eventName : string, callback : Function) {
 
 
 export async function join(appID : string,
+                           tokenProvider : Function,
                            channel : string,
                            initialPosition : MetaData,
                            initialThresholdValue : number) {
 
     hifiOptions.appid = appID;
+    hifiOptions.tokenProvider = tokenProvider;
     hifiOptions.channel = channel;
     hifiOptions.thresholdValue = initialThresholdValue;
+    hifiOptions.uid = (Math.random()*4294967296)>>>0;
 
     if (initialPosition) {
         hifiPosition.x = initialPosition.x;
@@ -328,8 +320,25 @@ async function joinAgoraRoom() {
         handleUserUnpublished(user);
     });
 
+    client.on("token-privilege-will-expire", async function () {
+        if (hifiOptions.tokenProvider) {
+            console.log("refreshing token...");
+            let token = await hifiOptions.tokenProvider(hifiOptions.uid, hifiOptions.channel, 1);
+            await client.renewToken(token);
+        }
+    });
+
+    client.on("token-privilege-did-expire", async function () {
+        console.log("token expired...");
+    });
+
+    let token : string;
+    if (hifiOptions.tokenProvider) {
+        token = await hifiOptions.tokenProvider(hifiOptions.uid, hifiOptions.channel, 1);
+    }
+
     // join a channel
-    hifiOptions.uid = await client.join(hifiOptions.appid, hifiOptions.channel, hifiOptions.token || null);
+    await client.join(hifiOptions.appid, hifiOptions.channel, token || null, hifiOptions.uid);
 
     // create local tracks
     let audioConfig = {
