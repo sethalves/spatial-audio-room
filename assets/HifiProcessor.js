@@ -26,6 +26,31 @@ function deinterleave(src, dst, N) {
     }
 }
 
+registerProcessor('wasm-license', class extends AudioWorkletProcessor {
+
+    constructor() {
+        super();
+
+        const tokenErrorString = [
+            "TOKEN_VALID",
+            "TOKEN_INVALID_LENGTH",
+            "TOKEN_INVALID_HEADER",
+            "TOKEN_INVALID_VERSION",
+            "TOKEN_INVALID_SIGNATURE",
+            "TOKEN_CLOCK_ROLLBACK",
+            "TOKEN_EXPIRED"
+        ];
+
+        this.port.onmessage = (e) => {
+            let code = Module.activate(e.data);
+            console.log('[wasm-license] activate token:', e.data);
+            console.log('[wasm-license] activate returned:', tokenErrorString[code]);
+        }
+    }
+
+    process(inputs, outputs) { return true; }
+})
+
 registerProcessor('wasm-hrtf-input', class extends AudioWorkletProcessor {
 
     static get parameterDescriptors() {
