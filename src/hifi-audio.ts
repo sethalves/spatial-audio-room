@@ -116,11 +116,13 @@ interface HifiOptions {
     tokenProvider?: Function | undefined,
     uid?: UID | undefined,
     thresholdValue?: number | undefined
+    thresholdSet?: boolean | undefined
 }
 let hifiOptions : HifiOptions = {};
 
 
 export function sendBroadcastMessage(msg : Uint8Array) : boolean {
+    console.log("hifi-audio: send broadcast message");
     if (client && localTracks.audioTrack) {
         client.sendStreamMessage(msg);
         return true;
@@ -179,6 +181,8 @@ export function isAecEnabled() : boolean {
     return aecEnabled;
 }
 export async function setAecEnabled(v : boolean) : Promise<string> {
+    console.log("hifi-audio: setAecEnabled(" + v + ")");
+
     if (aecEnabled != v) {
         aecEnabled = v;
         if (localTracks.audioTrack) {
@@ -195,6 +199,8 @@ export function isMutedEnabled() : boolean {
     return muteEnabled;
 }
 export function setMutedEnabled(v : boolean) {
+    console.log("hifi-audio: setMutedEnabled(" + v + "), thresholdValue=" + hifiOptions.thresholdValue);
+
     muteEnabled = v;
     if (hifiNoiseGate !== undefined) {
         hifiNoiseGate.parameters.get('threshold').value = muteEnabled ? 0.0 : hifiOptions.thresholdValue;
@@ -202,7 +208,10 @@ export function setMutedEnabled(v : boolean) {
 }
 
 export function setThreshold(value : number) {
+    console.log("hifi-audio: setThreshold(" + value + ")");
+
     hifiOptions.thresholdValue = value;
+    hifiOptions.thresholdSet = true;
     setMutedEnabled(muteEnabled);
 }
 export function getThreshold() {
@@ -285,10 +294,15 @@ export async function join(appID : string,
                            initialPosition : MetaData,
                            initialThresholdValue : number) {
 
+    console.log("hifi-audio: join -- initialThresholdValue=" + initialThresholdValue);
+
     hifiOptions.appid = appID;
     hifiOptions.tokenProvider = tokenProvider;
     hifiOptions.channel = channel;
-    hifiOptions.thresholdValue = initialThresholdValue;
+    if (!hifiOptions.thresholdSet) {
+        hifiOptions.thresholdValue = initialThresholdValue;
+        hifiOptions.thresholdSet = true;
+    }
     hifiOptions.uid = (Math.random()*4294967296)>>>0;
 
     if (initialPosition) {
@@ -364,7 +378,8 @@ async function joinAgoraRoom() {
     let destinationNode = audioContext.createMediaStreamDestination();
 
     hifiNoiseGate = new AudioWorkletNode(audioContext, 'wasm-noise-gate');
-    setThreshold(muteEnabled ? 0.0 : hifiOptions.thresholdValue);
+    console.log("hifi-audio: setting initial threshold to " + hifiOptions.thresholdValue);
+    setThreshold(hifiOptions.thresholdValue);
 
     sourceNode.connect(hifiNoiseGate).connect(destinationNode);
 
@@ -419,6 +434,8 @@ async function joinAgoraRoom() {
 
 
 export async function leave() {
+
+    console.log("hifi-audio: leave()");
 
     if (localTracks.audioTrack) {
         localTracks.audioTrack.stop();
@@ -516,6 +533,7 @@ async function unsubscribe(user: IAgoraRTCRemoteUser) {
 // https://bugs.chromium.org/p/chromium/issues/detail?id=687574#c60
 //
 async function startEchoCancellation(element : HTMLAudioElement, context : AudioContext) {
+    console.log("hifi-audio: startEchoCancellation()");
 
     loopback = [new _RTCPeerConnection, new _RTCPeerConnection];
 
@@ -549,12 +567,15 @@ async function startEchoCancellation(element : HTMLAudioElement, context : Audio
 }
 
 function stopEchoCancellation() {
+    console.log("hifi-audio: stopEchoCancellation()");
+
     loopback && loopback.forEach(pc => pc.close());
     loopback = null;
     console.log('Stopped AEC.')
 }
 
 async function startSpatialAudio() {
+    console.log("hifi-audio: startSpatialAudio()");
 
     audioElement = new Audio();
 
@@ -588,6 +609,8 @@ async function startSpatialAudio() {
 }
 
 function stopSpatialAudio() {
+    console.log("hifi-audio: stopSpatialAudio()");
+
     stopEchoCancellation();
 
     audioContext.close();
@@ -598,6 +621,8 @@ function stopSpatialAudio() {
 }
 
 export async function playSoundEffect(buffer : ArrayBuffer, loop : boolean) : Promise<AudioBufferSourceNode> {
+    console.log("hifi-audio: playSoundEffect()");
+
     let audioBuffer : AudioBuffer = await audioContext.decodeAudioData(buffer);
     let sourceNode = new AudioBufferSourceNode(audioContext);
     sourceNode.buffer = audioBuffer;
