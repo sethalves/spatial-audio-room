@@ -1,50 +1,137 @@
-.banner {
-  padding: 0;
-  background-color: #52575c;
-  color: white;
-}
 
-.banner-text {
-  padding: 8px 20px;
-  margin: 0;
-}
-
-
-#join-form {
-  margin-top: 10px;
-}
-
-.tips {
-  font-size: 12px;
-  margin-bottom: 2px;
-  color: gray;
-}
-
-.join-info-text {
-  margin-bottom: 2px;
-}
-
-input {
-  width: 100%;
-  margin-bottom: 2px;
-}
-
-.player {
-  width: 480px;
-  height: 320px;
-}
-
-.player-name {
-  margin: 8px 0;
-}
 
 #success-alert, #success-alert-with-token {
-  display: none;
+    display: none;
 }
 
 @media (max-width: 640px) {
-  .player {
-    width: 320px;
-    height: 240px;
-  }
+    .player {
+        width: 320px;
+        height: 240px;
+    }
 }
+
+
+.main-page {
+    display: inline-grid;
+    width: 100%;
+    min-height: 95vh;
+    grid-template-columns: 1fr;
+    grid-template-rows: min-content auto;
+}
+
+
+.top-bar { background-color: lightgray; }
+.top-bar > * { display: inline-block; }
+.logo {
+    grid-row-start: 1;
+    grid-row-end: 3;
+    height: 100px;
+}
+.logo > * { display: inline; }
+
+.room-user-join-grid {
+    display: inline-grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    column-gap: 50px;
+}
+
+.entry-label {
+    display: flex;
+    font-size: 65%;
+    align-self: flex-end;
+    margin: 0;
+}
+
+.text-entry {
+    display:inline-block;
+    line-height:100%;
+}
+
+.lower-page {
+    display: inline-grid;
+    width: 100%;
+    grid-template-columns: min-content auto;
+    grid-template-rows: 1fr;
+}
+
+.controls-and-rooms {
+    display: inline-grid;
+    grid-template-columns: repeat(1, 1fr);
+    grid-template-rows: repeat(3, min-content);
+    height: min-content;
+}
+
+.controls-and-rooms > * {
+    margin-top: 20px;
+    margin-left: 20px;
+    margin-right: 20px;
+    margin-bottom: 0px;
+    height: min-content;
+}
+
+.controls {
+    background-color: lightgray;
+    display: inline-grid;
+    grid-template-columns: min-content auto;
+    grid-template-rows: repeat(6, 1fr);
+}
+
+.controls > * {
+    margin-left: 10px;
+}
+
+.controls-all-cols {
+    grid-column-start: 1;
+    grid-column-end: 3;
+}
+
+.control-label {
+    color: white;
+    width: max-content;
+    margin-right: 10px;
+}
+
+.rooms {
+    background-color: lightgray;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    -webkit-transition: .4s;
+    transition: .4s;
+}
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    -webkit-transition: .4s;
+    transition: .4s;
+}
+input:checked + .slider { background-color: #2196F3; }
+input:focus + .slider { box-shadow: 0 0 1px #2196F3; }
+input:checked + .slider:before {
+    -webkit-transform: translateX(26px);
+    -ms-transform: translateX(26px);
+    transform: translateX(26px);
+}
+.slider.round { border-radius: 34px; }
+.slider.round:before { border-radius: 50%; }

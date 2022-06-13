@@ -1,52 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>Spatial Audio Room</title>
-        <link rel="stylesheet" href="./vendor/bootstrap.min.css">
-        <link rel="stylesheet" href="./index.css">
-    </head>
-    <body>
-        <div class="container-fluid banner">
-            <p class="banner-text">Spatial Audio Room</p>
-        </div>
-        <div class="container">
-            <form id="join-form">
-                <div class="row join-info-group">
-                    <div class="col-sm" hidden>
-                        <p class="join-info-text">AppID</p>
-                        <input id="appid" type="text" value="366ef844621b07594078146f4433647a" required>
-                    </div>
-                    <div class="col-sm">
-                        <p class="join-info-text">Channel</p>
-                        <input id="channel" type="text" value="hifi-demo" required>
-                        <input id="password" type="text" placeholder="password" required>
-                        <input id="username" type="text" placeholder="username">
-                    </div>
-                </div>
-                <div class="button-group">
-                    <button id="join" type="submit" class="btn btn-primary btn-sm">Join</button>
-                    <button id="leave" type="button" class="btn btn-primary btn-sm" disabled>Leave</button>
-                    <button id="aec" type="button" class="btn btn-primary btn-sm">AEC</button>
-                    <button id="mute" type="button" class="btn btn-primary btn-sm">Mute</button>
-                    <button id="sound" type="button" class="btn btn-primary btn-sm" style="float:right;" hidden>Sound</button>
-                    <input id='threshold' type='range' min=-96 max=0 value=-40 step=1>Threshold=<output id="threshold-value">-40</output>
-                </div>
-            </form>
-            <div class="canvas-group" style="width:100%; text-align: center;">
-                <canvas id="canvas" oncontextmenu="return false;"></canvas>
-                <img src="listener.svg" class="icon" alt="listener" id="listenerIcon" hidden>
-                <img src="source.svg" class="icon" alt="source" id="sourceIcon" hidden>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Spatial Audio Room</title>
+    <link rel="stylesheet" href="./vendor/bootstrap.min.css">
+    <link rel="stylesheet" href="./index.css">
+  </head>
+  <body>
+    <div hidden>
+      <input id="appid" type="text" value="366ef844621b07594078146f4433647a" required>
+    </div>
+
+    <form id="join-form">
+      <div class="main-page">
+        <div class="top-bar">
+
+          <div class="room-user-join-grid">
+            <div class="logo">
+              <div><!-- image here --></div>
+              <div><p>Spatial Audio Demo</p></div>
             </div>
+
+            <p class="entry-label">Room Name</p>
+            <p class="entry-label">User Name</p>
+            <p class="entry-label"></p>
+            <div><input class="text-entry" id="channel" type="text" value="hifi-demo" required></div>
+            <div><input class="text-entry" id="username" type="text" placeholder="username"></div>
+            <div>
+              <button id="join" type="submit" class="btn btn-primary btn-sm">Join</button>
+              <button id="leave" type="button" class="btn btn-primary btn-sm" disabled>Leave</button>
+              <button id="sound" type="button" class="btn btn-primary btn-sm" style="float: right;" hidden>Sound</button>
+            </div>
+          </div>
+
+        </div>
+
+
+        <div class="lower-page">
+
+          <div class="controls-and-rooms">
+            <div class="controls">
+              <p class="controls-all-cols">Audio Controls</p>
+
+              <label class="switch">
+                <input id="mute" type="checkbox">
+                <span class="slider round"></span>
+              </label>
+              <p class="control-label">Mute</p>
+
+              <label class="switch">
+                <input id="aec" type="checkbox">
+                <span class="slider round"></span>
+              </label>
+              <p class="control-label">Cancel Echo</p>
+
+              <p></p>
+              <p class="control-label">Mic Threshold</p>
+              <div class="controls-all-cols" style="display: flex; align-self: flex-start; margin: 0;">
+                <input id="threshold" style="margin-left: 10px; margin-right: 10px" type="range"
+                       min=-96 max=0 value=-40 step=1>
+              </div>
+              <div class="controls-all-cols" style="display: flex;">
+                <p>Noise Threshold:</p>
+                <output class="controls-all-cols" id="threshold-value">-40</output>
+              </div>
+            </div>
+
+            <div class="rooms">
+              <p>Demo Rooms</p>
+            </div>
+
             <div id="success-alert" class="alert alert-success" role="alert">
-                <span>You have successfully joined the room </span>
+              <span>You have successfully joined the room </span>
             </div>
+
+          </div>
+
+          <div class="canvas-group" style="height: 100%">
+            <canvas id="canvas" oncontextmenu="return false;"></canvas>
+            <img src="listener.svg" class="icon" alt="listener" id="listenerIcon" hidden>
+            <img src="source.svg" class="icon" alt="source" id="sourceIcon" hidden>
+          </div>
         </div>
-        <script src="./vendor/jquery-3.4.1.min.js"></script>
-        <script src="./vendor/bootstrap.bundle.min.js"></script>
-        <script src="./vendor/AgoraRTC_N-4.11.1.js"></script>
-        <script type="module" src="./audio-room.js"></script>
-    </body>
+
+      </div>
+    </form>
+
+    <script src="./vendor/jquery-3.4.1.min.js"></script>
+    <script src="./vendor/bootstrap.bundle.min.js"></script>
+    <script src="./vendor/AgoraRTC_N-4.11.1.js"></script>
+    <script type="module" src="./audio-room.js"></script>
+
+  </body>
 </html>

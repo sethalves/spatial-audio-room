@@ -12,25 +12,16 @@
 import * as HiFiAudio from './hifi-audio.js'
 import { CanvasControl } from './canvas-control.js'
 
-function decrypt_appid(data, key) {
-    let k = BigInt(key.split('').reduce((a, b) => a = Math.imul(a, 33) + b.charCodeAt(0) | 0, 0));
-    let t = BigInt('0x' + data) ^ (k * 38038099725390353860267635547n);
-    return t.toString(16);
-}
-
 let options = {};
 
 // the demo can auto join channel with params in url
 $(()=>{
     let urlParams = new URL(location.href).searchParams;
     options.channel = urlParams.get("channel");
-    options.password = urlParams.get("password");
     options.username = urlParams.get("username");
-    if (options.channel && options.password) {
+    if (options.channel) {
         $("#channel").val(options.channel);
-        $("#password").val(options.password);
         $("#username").val(options.username);
-        //$("#join-form").submit();
     }
 }
 )
@@ -46,7 +37,7 @@ $("#join-form").submit(async function(e) {
     e.preventDefault();
     $("#join").attr("disabled", true);
     try {
-        options.appid = decrypt_appid($("#appid").val(), $("#password").val());
+        options.appid = $("#appid").val();
         options.token = $("#token").val();
         options.channel = $("#channel").val();
         options.username = $("#username").val();
@@ -85,9 +76,7 @@ $("#sound").click(function(e) {
 
 // threshold slider
 threshold.oninput = () => {
-    if (!isMuteEnabled) {
-        setThreshold(threshold.value);
-    }
+    HiFiAudio.setThreshold(threshold.value);
     document.getElementById("threshold-value").value = threshold.value;
 }
 
@@ -160,6 +149,36 @@ function onUserUnpublished(uid) {
 }
 
 
+// https://docs.agora.io/en/Interactive%20Broadcast/token_server
+async function fetchToken(uid /*: UID*/, channelName /*: string*/, tokenRole /*: number*/) /* : Promise<string> */ {
+
+    // assume token server is on same webserver as this app...
+    let tokenURL = new URL(window.location.href)
+    tokenURL.pathname = "/fetch_rtc_token";
+    const response = await window.fetch(tokenURL.href, {
+        method: 'POST',
+        headers: {
+            'content-type': 'application/json;charset=UTF-8'
+        },
+        body: JSON.stringify({
+            uid: uid,
+            channelName: channelName,
+            role: tokenRole
+        })
+    });
+
+    let data = await response.json();
+    if (response.ok) {
+        console.log("token server response: " + JSON.stringify(data));
+        if (data && data.token) {
+            return data.token;
+        }
+    }
+    console.log("failed to get agora token.");
+    return null;
+}
+
+
 async function joinRoom() {
 
     let initialPosition = {
@@ -175,6 +194,7 @@ async function joinRoom() {
     HiFiAudio.on("remote-client-left", onUserUnpublished);
 
     localUid = await HiFiAudio.join(options.appid,
+                                    fetchToken,
                                     options.channel,
                                     initialPosition,
                                     threshold.value);

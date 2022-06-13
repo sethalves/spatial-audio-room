@@ -78,13 +78,21 @@ CanvasControl.prototype.invokeCallback = function() {
 };
 
 CanvasControl.prototype.resize = function() {
-  let canvasWidth = this._canvas.parentNode.clientWidth;
+    let canvasWidth = this._canvas.parentNode.clientWidth;
+    let canvasHeight = this._canvas.parentNode.clientHeight;
+
   // let maxCanvasSize = 800;
   // if (canvasWidth > maxCanvasSize) {
   //   canvasWidth = maxCanvasSize;
   // }
-  this._canvas.width = canvasWidth;
-  this._canvas.height = canvasWidth;
+
+    if (canvasWidth < canvasHeight) {
+        this._canvas.width = canvasWidth;
+        this._canvas.height = canvasWidth;
+    } else {
+        this._canvas.width = canvasHeight;
+        this._canvas.height = canvasHeight;
+    }
 };
 
 CanvasControl.prototype.draw = function() {
