@@ -95,6 +95,17 @@
 
 .rooms {
     background-color: lightgray;
+    display: inline-grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(5, min-content);
+    height: min-content;
+}
+
+.rooms-button {
+    margin-left: 12%;
+    margin-top: 0px;
+    margin-bottom: 15px;
+    width: 75%;
 }
 
 

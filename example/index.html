@@ -30,7 +30,7 @@
             <div><input class="text-entry" id="username" type="text" placeholder="username"></div>
             <div>
               <button id="join" type="submit" class="btn btn-primary btn-sm">Join</button>
-              <button id="leave" type="button" class="btn btn-primary btn-sm" disabled>Leave</button>
+              <button disabled id="leave" type="button" class="btn btn-primary btn-sm" disabled>Leave</button>
               <button id="sound" type="button" class="btn btn-primary btn-sm" style="float: right;" hidden>Sound</button>
             </div>
           </div>
@@ -69,7 +69,13 @@
             </div>
 
             <div class="rooms">
-              <p>Demo Rooms</p>
+              <p style="margin-left: 10px;">Demo Rooms</p>
+
+              <button disabled id="room-conf-table" type="button" class="btn btn-primary btn-sm rooms-button">Conf Table</button>
+              <button disabled id="room-quad-music" type="button" class="btn btn-primary btn-sm rooms-button">Quad Music</button>
+              <button disabled id="room-spin-class" type="button" class="btn btn-primary btn-sm rooms-button">Spin Class</button>
+              <button disabled id="room-bar" type="button" class="rooms-button btn btn-primary btn-sm">Bar</button>
+
             </div>
 
             <div id="success-alert" class="alert alert-success" role="alert">

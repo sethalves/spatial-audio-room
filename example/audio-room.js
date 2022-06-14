@@ -14,7 +14,10 @@ import { CanvasControl } from './canvas-control.js'
 
 let options = {};
 
-// the demo can auto join channel with params in url
+let roomIDs = [ "room-conf-table", "room-quad-music", "room-spin-class", "room-bar" ];
+
+
+// the demo can auto-set channel with params in url
 $(()=>{
     let urlParams = new URL(location.href).searchParams;
     options.channel = urlParams.get("channel");
@@ -22,6 +25,16 @@ $(()=>{
     if (options.channel) {
         $("#channel").val(options.channel);
         $("#username").val(options.username);
+    }
+
+    options.admin = false;
+    if (urlParams.get("admin")) {
+        options.admin = true;
+    }
+
+    for (const rID of roomIDs) {
+        let roomButton = document.getElementById(rID);
+        roomButton.style.background="#6c757d";
     }
 }
 )
@@ -43,6 +56,12 @@ $("#join-form").submit(async function(e) {
         options.username = $("#username").val();
         await joinRoom();
         $("#success-alert").css("display", "block");
+
+        if (options.admin) {
+            setRoomButtonsEnabled(true);
+        }
+        switchToRoom("room-conf-table");
+
     } catch (error) {
         console.error(error);
     } finally {
@@ -53,6 +72,7 @@ $("#join-form").submit(async function(e) {
 $("#leave").click(function(e) {
     leaveRoom();
     $("#success-alert").css("display", "none");
+    setRoomButtonsEnabled(false);
 })
 
 $("#aec").click(async function(e) {
@@ -75,6 +95,12 @@ $("#sound").click(async function(e) {
     let audioBuffer = await audioData.arrayBuffer();
     HiFiAudio.playSoundEffect(audioBuffer, false);
 })
+
+
+for (const rID of roomIDs) {
+    $("#" + rID).click(function(e) { switchToRoom(rID); })
+}
+
 
 // threshold slider
 threshold.oninput = () => {
@@ -137,8 +163,7 @@ function onUserPublished(uid) {
         uid,
     });
 
-    // broadcast my name
-    HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(usernames[localUid]));
+    sendUsername();
 }
 
 
@@ -244,9 +269,38 @@ async function leaveRoom() {
 }
 
 
+function sendUsername() {
+    // broadcast my name
+    HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(usernames[localUid]));
+}
+
+
 function setUsername(username) {
     if (localUid) {
         usernames[localUid] = username;
-        sendBroadcastMessage((new TextEncoder).encode(username));
+        sendUsername();
     }
+}
+
+
+function setRoomButtonsEnabled(v) {
+    for (const rID of roomIDs) {
+        let roomButton = document.getElementById(rID);
+        roomButton.disabled = !v;
+    }
+}
+
+
+function switchToRoom(roomID) {
+
+    for (const rID of roomIDs) {
+        let roomButton = document.getElementById(rID);
+        if (rID == roomID) {
+            roomButton.style.background="#007bff";
+        } else {
+            roomButton.style.background="#6c757d";
+        }
+    }
+
+    console.log("switch to room: " + roomID);
 }
