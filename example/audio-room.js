@@ -70,8 +70,10 @@ $("#mute").click(function(e) {
     HiFiAudio.setThreshold(HiFiAudio.isMutedEnabled() ? 0.0 : threshold.value);
 })
 
-$("#sound").click(function(e) {
-    HiFiAudio.playSoundEffect();
+$("#sound").click(async function(e) {
+    let audioData = await fetch('https://raw.githubusercontent.com/kencooke/spatial-audio-room/master/sound.wav');
+    let audioBuffer = await audioData.arrayBuffer();
+    HiFiAudio.playSoundEffect(audioBuffer, false);
 })
 
 // threshold slider

@@ -77,14 +77,40 @@ CanvasControl.prototype.invokeCallback = function() {
   }
 };
 
-CanvasControl.prototype.resize = function() {
-    let canvasWidth = this._canvas.parentNode.clientWidth;
-    let canvasHeight = this._canvas.parentNode.clientHeight;
 
-  // let maxCanvasSize = 800;
-  // if (canvasWidth > maxCanvasSize) {
-  //   canvasWidth = maxCanvasSize;
-  // }
+function getAbsoluteHeight(eltID) {
+    let elm = document.getElementById(eltID);
+    let elmHeight = parseInt(document.defaultView.getComputedStyle(elm, '').getPropertyValue('height'));
+    let elmMargin = parseInt(document.defaultView.getComputedStyle(elm, '').getPropertyValue('margin-top')) +
+        parseInt(document.defaultView.getComputedStyle(elm, '').getPropertyValue('margin-bottom'));
+    return (elmHeight+elmMargin);
+}
+
+function getAbsoluteWidth(eltID) {
+    let elm = document.getElementById(eltID);
+    let elmWidth = parseInt(document.defaultView.getComputedStyle(elm, '').getPropertyValue('width'));
+    let elmMargin = parseInt(document.defaultView.getComputedStyle(elm, '').getPropertyValue('margin-left')) +
+        parseInt(document.defaultView.getComputedStyle(elm, '').getPropertyValue('margin-right'));
+    return (elmWidth+elmMargin);
+}
+
+
+CanvasControl.prototype.resize = function() {
+    // let canvasWidth = this._canvas.parentNode.clientWidth;
+    // let canvasHeight = this._canvas.parentNode.clientHeight;
+
+    let dpr = window.devicePixelRatio || 1;
+
+    let screenSize = window.innerWidth * dpr;
+    if (screenSize > window.innerHeight * dpr) {
+        screenSize = window.innerHeight * dpr;
+    }
+
+    let windowWidth = Math.floor(window.innerWidth * dpr);
+    let windowHeight = Math.floor(window.innerHeight * dpr);
+
+    let canvasWidth = windowWidth - getAbsoluteWidth('controls-and-rooms') - 40;
+    let canvasHeight = windowHeight - getAbsoluteHeight('top-bar') - 40;
 
     if (canvasWidth < canvasHeight) {
         this._canvas.width = canvasWidth;

@@ -66,7 +66,7 @@
 .controls-and-rooms > * {
     margin-top: 20px;
     margin-left: 20px;
-    margin-right: 20px;
+    margin-right: 0px;
     margin-bottom: 0px;
     height: min-content;
 }
@@ -95,6 +95,15 @@
 
 .rooms {
     background-color: lightgray;
+}
+
+
+.canvas-group {
+    margin-top: 20px;
+    margin-left: 20px;
+    margin-right: 0px;
+    margin-bottom: 0px;
+    height: min-content;
 }
 
 .switch {
