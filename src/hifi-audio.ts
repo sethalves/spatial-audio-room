@@ -429,7 +429,7 @@ async function joinAgoraRoom() {
         }
     });
 
-    return hifiOptions.uid;
+    return "" + hifiOptions.uid;
 }
 
 

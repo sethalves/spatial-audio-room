@@ -216,7 +216,7 @@ async function joinRoom() {
         radius: 0.02,
         alpha: 0.5,
         clickable: true,
-        uid: localUid,
+        uid: localUid
     });
 
     canvasControl = new CanvasControl(canvas, elements, usernames, updatePositions);
