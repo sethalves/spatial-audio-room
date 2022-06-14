@@ -15,9 +15,10 @@ import { CanvasControl } from './canvas-control.js'
 let options = {};
 
 let roomIDs = [ "room-conf-table", "room-quad-music", "room-spin-class", "room-bar" ];
+let currentRoomID = roomIDs[0];
 
 
-// the demo can auto-set channel with params in url
+// the demo can auto-set channel and user-name with params in url
 $(()=>{
     let urlParams = new URL(location.href).searchParams;
     options.channel = urlParams.get("channel");
@@ -60,7 +61,8 @@ $("#join-form").submit(async function(e) {
         if (options.admin) {
             setRoomButtonsEnabled(true);
         }
-        switchToRoom("room-conf-table");
+        currentRoomID = "room-conf-table";
+        updateRoomsUI();
 
     } catch (error) {
         console.error(error);
@@ -98,7 +100,10 @@ $("#sound").click(async function(e) {
 
 
 for (const rID of roomIDs) {
-    $("#" + rID).click(function(e) { switchToRoom(rID); })
+    $("#" + rID).click(function(e) {
+        currentRoomID = rID;
+        updateRoomsUI();
+    })
 }
 
 
@@ -149,8 +154,29 @@ function updateVolumeIndicator(uid, level) {
 
 
 function receiveBroadcast(uid, data) {
-    usernames[uid] = (new TextDecoder).decode(data);
     console.log('%creceived stream-message from:', 'color:cyan', usernames[uid]);
+
+    let txt = (new TextDecoder).decode(data);
+    let msg = JSON.parse(txt);
+
+    switch(msg.type) {
+
+    case "username":
+        usernames[uid] = msg.username;
+        break;
+
+    case "room":
+        if (options.admin) {
+            console.log("WARNING -- got room message, but I'm admin!");
+        } else {
+            currentRoomID = msg.roomID;
+            updateRoomsUI();
+        }
+        break;
+
+    default:
+        console.log("WARNING -- unknown broadcast message type: " + txt);
+    }
 }
 
 
@@ -164,6 +190,7 @@ function onUserPublished(uid) {
     });
 
     sendUsername();
+    updateRoomsUI();
 }
 
 
@@ -271,7 +298,11 @@ async function leaveRoom() {
 
 function sendUsername() {
     // broadcast my name
-    HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(usernames[localUid]));
+    let msg = {
+        type: "username",
+        username: usernames[localUid]
+    };
+    HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(JSON.stringify(msg)));
 }
 
 
@@ -291,16 +322,22 @@ function setRoomButtonsEnabled(v) {
 }
 
 
-function switchToRoom(roomID) {
+function updateRoomsUI() {
 
     for (const rID of roomIDs) {
         let roomButton = document.getElementById(rID);
-        if (rID == roomID) {
+        if (rID == currentRoomID) {
             roomButton.style.background="#007bff";
         } else {
             roomButton.style.background="#6c757d";
         }
     }
 
-    console.log("switch to room: " + roomID);
+    if (options.admin) {
+        let msg = {
+            type: "room",
+            roomID: currentRoomID
+        };
+        HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(JSON.stringify(msg)));
+    }
 }
