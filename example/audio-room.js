@@ -62,6 +62,7 @@ $("#join-form").submit(async function(e) {
             setRoomButtonsEnabled(true);
         }
         currentRoomID = "room-conf-table";
+        transmitRoom();
         updateRoomsUI();
 
     } catch (error) {
@@ -102,6 +103,7 @@ $("#sound").click(async function(e) {
 for (const rID of roomIDs) {
     $("#" + rID).click(function(e) {
         currentRoomID = rID;
+        transmitRoom();
         updateRoomsUI();
     })
 }
@@ -166,12 +168,8 @@ function receiveBroadcast(uid, data) {
         break;
 
     case "room":
-        if (options.admin) {
-            console.log("WARNING -- got room message, but I'm admin!");
-        } else {
-            currentRoomID = msg.roomID;
-            updateRoomsUI();
-        }
+        currentRoomID = msg.roomID;
+        updateRoomsUI();
         break;
 
     default:
@@ -190,7 +188,7 @@ function onUserPublished(uid) {
     });
 
     sendUsername();
-    updateRoomsUI();
+    transmitRoom()
 }
 
 
@@ -322,6 +320,17 @@ function setRoomButtonsEnabled(v) {
 }
 
 
+function transmitRoom() {
+    if (options.admin) {
+        let msg = {
+            type: "room",
+            roomID: currentRoomID
+        };
+        HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(JSON.stringify(msg)));
+    }
+}
+
+
 function updateRoomsUI() {
 
     for (const rID of roomIDs) {
@@ -331,13 +340,5 @@ function updateRoomsUI() {
         } else {
             roomButton.style.background="#6c757d";
         }
-    }
-
-    if (options.admin) {
-        let msg = {
-            type: "room",
-            roomID: currentRoomID
-        };
-        HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(JSON.stringify(msg)));
     }
 }
