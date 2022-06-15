@@ -17,6 +17,21 @@ let options = {};
 let roomIDs = [ "room-conf-table", "room-quad-music", "room-spin-class", "room-bar" ];
 let currentRoomID = roomIDs[0];
 
+function degToRad(d) {
+    return Math.PI * d / 180.0;
+}
+
+
+let roomPositions = {
+    "room-conf-table": [
+        { x: 0, y: -2, o: degToRad(0) },
+        { x: 2, y: 0, o: degToRad(270) },
+        { x: 0, y: 2, o: degToRad(180) },
+        { x: -2, y: 0, o: degToRad(90) }
+    ]
+};
+
+
 
 // the demo can auto-set channel and user-name with params in url
 $(()=>{
@@ -62,7 +77,7 @@ $("#join-form").submit(async function(e) {
             setRoomButtonsEnabled(true);
         }
         currentRoomID = "room-conf-table";
-        transmitRoom();
+        configureRoom();
         updateRoomsUI();
 
     } catch (error) {
@@ -103,7 +118,7 @@ $("#sound").click(async function(e) {
 for (const rID of roomIDs) {
     $("#" + rID).click(function(e) {
         currentRoomID = rID;
-        transmitRoom();
+        configureRoom();
         updateRoomsUI();
     })
 }
@@ -123,9 +138,9 @@ let usernames = {};
 
 
 // called when the user drags around their own dot...
-function updatePositions(elements) {
+function updatePositions(elts) {
     // only update the listener
-    let e = elements.find(e => e.clickable === true);
+    let e = elts.find(e => e.clickable === true);
     if (e !== undefined) {
         // transform canvas to audio coordinates
         HiFiAudio.setLocalMetaData({
@@ -163,14 +178,23 @@ function receiveBroadcast(uid, data) {
 
     switch(msg.type) {
 
-    case "username":
+    case "username": {
         usernames[uid] = msg.username;
         break;
+    }
 
-    case "room":
+    case "room": {
         currentRoomID = msg.roomID;
         updateRoomsUI();
         break;
+    }
+
+    case "position": {
+        if (msg.uid == localUid) {
+            setOwnPosition(msg.position);
+        }
+        break;
+    }
 
     default:
         console.log("WARNING -- unknown broadcast message type: " + txt);
@@ -188,7 +212,7 @@ function onUserPublished(uid) {
     });
 
     sendUsername();
-    transmitRoom()
+    configureRoom()
 }
 
 
@@ -320,13 +344,31 @@ function setRoomButtonsEnabled(v) {
 }
 
 
-function transmitRoom() {
-    if (options.admin) {
-        let msg = {
-            type: "room",
-            roomID: currentRoomID
-        };
-        HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(JSON.stringify(msg)));
+function configureRoom() {
+    if (!options.admin) {
+        return;
+    }
+
+    let msg = {
+        type: "room",
+        roomID: currentRoomID
+    };
+    HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(JSON.stringify(msg)));
+
+    let positions = roomPositions[ currentRoomID ];
+    if (positions) {
+        for (let i = 0; i < elements.length && i < positions.length; i++) {
+            if (elements[ i ].uid == localUid) {
+                setOwnPosition(positions[ i ]);
+            } else {
+                let msg = {
+                    type: "position",
+                    uid: elements[ i ].uid,
+                    position: positions[ i ]
+                };
+                HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(JSON.stringify(msg)));
+            }
+        }
     }
 }
 
@@ -341,4 +383,17 @@ function updateRoomsUI() {
             roomButton.style.background="#6c757d";
         }
     }
+}
+
+
+function setOwnPosition(p) {
+    console.log("SET OWN POSITION: " + JSON.stringify(p));
+
+    let e = elements.find(e => e.uid === localUid);
+    if (e !== undefined) {
+        e.x = 0.5 + (p.x / canvasDimensions.width);
+        e.y = 0.5 - (p.y / canvasDimensions.height);
+        e.o = p.o;
+    }
+    updatePositions(elements);
 }
