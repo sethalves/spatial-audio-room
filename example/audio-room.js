@@ -267,7 +267,10 @@ async function joinRoom() {
     HiFiAudio.on("remote-client-joined", onUserPublished);
     HiFiAudio.on("remote-client-left", onUserUnpublished);
 
-    HiFiAudio.setAecEnabled(true);
+    var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    if (isSafari) {
+        HiFiAudio.setAecEnabled(true);
+    }
 
     localUid = await HiFiAudio.join(options.appid,
                                     fetchToken,
