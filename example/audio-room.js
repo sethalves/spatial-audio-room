@@ -93,17 +93,17 @@ $("#leave").click(function(e) {
     setRoomButtonsEnabled(false);
 })
 
+
 $("#aec").click(async function(e) {
     // toggle the state
     HiFiAudio.setAecEnabled(!HiFiAudio.isAecEnabled());
-    $("#aec").css("background-color", HiFiAudio.isAecEnabled() ? "purple" : "");
+    updateAudioControlsUI();
 })
 
 $("#mute").click(function(e) {
     // toggle the state
     HiFiAudio.setMutedEnabled(!HiFiAudio.isMutedEnabled());
-    $("#mute").css("background-color", HiFiAudio.isMutedEnabled() ? "purple" : "");
-
+    updateAudioControlsUI();
     // if muted, set gate threshold to 0dB, else follow slider
     HiFiAudio.setThreshold(HiFiAudio.isMutedEnabled() ? 0.0 : threshold.value);
 })
@@ -269,6 +269,8 @@ async function joinRoom() {
     HiFiAudio.on("remote-client-joined", onUserPublished);
     HiFiAudio.on("remote-client-left", onUserUnpublished);
 
+    HiFiAudio.setAecEnabled(true);
+
     localUid = await HiFiAudio.join(options.appid,
                                     fetchToken,
                                     options.channel,
@@ -297,6 +299,9 @@ async function joinRoom() {
     canvasControl.draw();
 
     $("#sound").attr("hidden", false);
+
+    updateAudioControlsUI();
+    updateRoomsUI();
 }
 
 
@@ -370,6 +375,15 @@ function configureRoom() {
             }
         }
     }
+}
+
+
+function updateAudioControlsUI() {
+    $("#aec").css("background-color", HiFiAudio.isAecEnabled() ? "purple" : "");
+    $("#aec").prop('checked', HiFiAudio.isAecEnabled());
+
+    $("#mute").css("background-color", HiFiAudio.isMutedEnabled() ? "purple" : "");
+    $("#mute").prop('checked', HiFiAudio.isMutedEnabled());
 }
 
 
