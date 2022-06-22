@@ -71,7 +71,6 @@ $("#join-form").submit(async function(e) {
         options.channel = $("#channel").val();
         options.username = $("#username").val();
         await joinRoom();
-        $("#success-alert").css("display", "block");
 
         if (options.admin) {
             setRoomButtonsEnabled(true);
@@ -89,7 +88,6 @@ $("#join-form").submit(async function(e) {
 
 $("#leave").click(function(e) {
     leaveRoom();
-    $("#success-alert").css("display", "none");
     setRoomButtonsEnabled(false);
 })
 

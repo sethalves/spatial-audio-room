@@ -1,9 +1,5 @@
 
 
-#success-alert, #success-alert-with-token {
-    display: none;
-}
-
 @media (max-width: 640px) {
     .player {
         width: 320px;
