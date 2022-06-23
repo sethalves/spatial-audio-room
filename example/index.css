@@ -71,7 +71,7 @@
     background-color: lightgray;
     display: inline-grid;
     grid-template-columns: min-content auto;
-    grid-template-rows: repeat(6, 1fr);
+    grid-template-rows: repeat(5, 1fr);
 }
 
 .controls > * {
