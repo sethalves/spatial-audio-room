@@ -1,0 +1,17 @@
+# put this in /lib/systemd/system
+# journalctl -e -f -u token-server &
+# systemctl start token-server
+
+[Unit]
+Description=Agora token-server
+After=network.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/speakeasy/token-server
+Environment="PATH=/usr/bin"
+ExecStart=/home/ubuntu/speakeasy/token-server/token-server
+
+[Install]
+WantedBy=multi-user.target
