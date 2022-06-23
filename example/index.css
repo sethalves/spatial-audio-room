@@ -19,12 +19,21 @@
 
 .top-bar { background-color: lightgray; }
 .top-bar > * { display: inline-block; }
-.logo {
+.logo-div {
     grid-row-start: 1;
     grid-row-end: 3;
-    height: 100px;
+    margin-left: 10px;
+    margin-top: 10px;
 }
-.logo > * { display: inline; }
+.logo-div > * { display: inline; }
+.logo {
+    height: 60px;
+}
+.logo-label {
+    font-size: 100%;
+    text-align: right;
+}
+
 
 .room-user-join-grid {
     display: inline-grid;

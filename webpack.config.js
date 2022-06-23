@@ -24,6 +24,7 @@ module.exports = ({ buildEnv }) => {
                     { from: "assets/hifi.wasm.js", to: "" },
                     { from: "assets/hifi.wasm.simd.js", to: "" },
                     { from: "assets/WASMAudioBuffer.js", to: "" },
+                    { from: "assets/Logo-HighFidelity-Line-PrimaryBlue.svg", to: "" },
                     { from: "assets/worker.js", to: "" },
                     { from: "example/index.css", to: "" },
                     { from: "example/index.html", to: "" },
