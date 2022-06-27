@@ -440,6 +440,10 @@ async function joinAgoraRoom() {
 
 export async function leave() {
 
+    if (!client) {
+        return;
+    }
+
     console.log("hifi-audio: leave()");
 
     if (localTracks.audioTrack) {

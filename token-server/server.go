@@ -71,6 +71,8 @@ func keepAlive(c *websocket.Conn, timeout time.Duration) {
 
 
 var websockets map[*websocket.Conn]bool = make(map[*websocket.Conn]bool)
+var currentRoomID string
+
 
 var upgrader = websocket.Upgrader{
 	EnableCompression: true,
@@ -119,7 +121,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(dat)
 
 		msgType := dat["message-type"].(string)
-		fmt.Println("message-type = ", msgType)
+		fmt.Println("message-type =", msgType)
 
 		if (msgType == "get-agora-token") {
 
@@ -143,14 +145,19 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 
 			data, _ := json.Marshal(response)
 			c.WriteMessage(websocket.TextMessage, data)
-		} else if (msgType == "join-room") {
-			var response map[string]interface{} = make(map[string]interface{})
-			response["message-type"] = "join-room"
+		}
+
+		if (msgType == "join-room") {
 			var channelAndRoom = dat["room"].(string)
 			s := strings.Split(channelAndRoom, ":")
-			response["room"] = s[1]
-			data, _ := json.Marshal(response)
+			currentRoomID = s[1]
+		}
 
+		if (msgType == "get-current-room" || msgType == "join-room") {
+			var response map[string]interface{} = make(map[string]interface{})
+			response["message-type"] = "join-room"
+			response["room"] = currentRoomID
+			data, _ := json.Marshal(response)
 			for ws, _ := range websockets {
 				ws.WriteMessage(websocket.TextMessage, data)
 			}

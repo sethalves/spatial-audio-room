@@ -104,7 +104,6 @@ $("#join-form").submit(async function(e) {
         if (options.admin) {
             setRoomButtonsEnabled(true);
         }
-        currentRoomID = "room-conf-table";
         configureRoom();
         updateRoomsUI();
 
@@ -142,13 +141,16 @@ $("#mute").click(function(e) {
 // })
 
 
+function joinRoomByID(rID) {
+    webSocket.send(JSON.stringify({
+        "message-type": "join-room",
+        "room": options.channel + ":" + rID,
+    }));
+}
+
+
 for (const rID of roomIDs) {
-    $("#" + rID).click(function(e) {
-        webSocket.send(JSON.stringify({
-            "message-type": "join-room",
-            "room": options.channel + ":" + rID,
-        }));
-    })
+    $("#" + rID).click(function(e) { joinRoomByID(rID); })
 }
 
 
@@ -253,6 +255,33 @@ function onUserUnpublished(uid) {
 }
 
 
+async function getCurrentRoom() {
+    var resolve, reject;
+
+    const tokenPromise = new Promise((setResolve, setReject) => {
+        resolve = setResolve;
+        reject = setReject;
+    });
+
+    var previousOnMessage = webSocket.onmessage;
+    webSocket.onmessage = function (event) {
+        console.log("got websocket response: ", event.data);
+        previousOnMessage(event);
+        let msg = JSON.parse(event.data);
+        if (msg["message-type"] == "join-room") {
+            webSocket.onmessage = previousOnMessage;
+            resolve(currentRoomID);
+        }
+    }
+
+    webSocket.send(JSON.stringify({
+        "message-type": "get-current-room"
+    }));
+
+    return tokenPromise;
+}
+
+
 // https://docs.agora.io/en/Interactive%20Broadcast/token_server
 async function fetchToken(uid /*: UID*/, channelName /*: string*/, tokenRole /*: number*/) {
 
@@ -266,9 +295,9 @@ async function fetchToken(uid /*: UID*/, channelName /*: string*/, tokenRole /*:
     var previousOnMessage = webSocket.onmessage;
     webSocket.onmessage = function (event) {
         console.log("got websocket response: ", event.data);
-        webSocket.onmessage = previousOnMessage;
         let msg = JSON.parse(event.data);
         if (msg["message-type"] == "new-agora-token") {
+            webSocket.onmessage = previousOnMessage;
             resolve(msg["token"]);
         } else {
             previousOnMessage(event);
@@ -303,6 +332,12 @@ async function joinRoom() {
     var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
     if (isSafari) {
         HiFiAudio.setAecEnabled(true);
+    }
+
+    if (options.admin) {
+        joinRoomByID(currentRoomID);
+    } else {
+        await getCurrentRoom();
     }
 
     localUid = await HiFiAudio.join(options.appid,
@@ -424,7 +459,6 @@ function updateAudioControlsUI() {
 
 
 function updateRoomsUI() {
-
     for (const rID of roomIDs) {
         let roomButton = document.getElementById(rID);
         if (rID == currentRoomID) {
