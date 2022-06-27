@@ -14,7 +14,7 @@ import { CanvasControl } from './canvas-control.js'
 
 let options = {};
 
-let roomIDs = [ "room-conf-table", "room-quad-music", "room-spin-class", "room-bar" ];
+let roomIDs = [ "room-conf-table", "room-quad-music", "room-bar" ];
 let currentRoomID = roomIDs[0];
 
 function degToRad(d) {
@@ -24,13 +24,34 @@ function degToRad(d) {
 
 let roomPositions = {
     "room-conf-table": [
-        { x: 0, y: -2, o: degToRad(0) },
-        { x: 2, y: 0, o: degToRad(270) },
-        { x: 0, y: 2, o: degToRad(180) },
-        { x: -2, y: 0, o: degToRad(90) }
+        { x: 0, y: -1, o: degToRad(0) },
+        { x: 1, y: 0, o: degToRad(270) },
+        { x: 0, y: 1, o: degToRad(180) },
+        { x: -1, y: 0, o: degToRad(90) }
     ]
 };
 
+
+// assume token server is on same webserver as this app...
+let tokenURL = new URL(window.location.href)
+tokenURL.pathname = "/token-server";
+tokenURL.protocol = "wss";
+
+let webSocket = new WebSocket(tokenURL.href);
+webSocket.onmessage = async function (event) {
+    console.log("got websocket message: ", event.data);
+    let msg = JSON.parse(event.data);
+    if (msg["message-type"] == "join-room") {
+        if (currentRoomID != msg.room) {
+            console.log("switching to room " + msg.room);
+            currentRoomID = msg.room;
+            configureRoom();
+            updateRoomsUI();
+            await leaveRoom();
+            await joinRoom();
+        }
+    }
+}
 
 
 // the demo can auto-set channel and user-name with params in url
@@ -115,9 +136,10 @@ $("#sound").click(async function(e) {
 
 for (const rID of roomIDs) {
     $("#" + rID).click(function(e) {
-        currentRoomID = rID;
-        configureRoom();
-        updateRoomsUI();
+        webSocket.send(JSON.stringify({
+            "message-type": "join-room",
+            "room": options.channel + ":" + rID,
+        }));
     })
 }
 
@@ -181,11 +203,11 @@ function receiveBroadcast(uid, data) {
         break;
     }
 
-    case "room": {
-        currentRoomID = msg.roomID;
-        updateRoomsUI();
-        break;
-    }
+    // case "room": {
+    //     currentRoomID = msg.roomID;
+    //     updateRoomsUI();
+    //     break;
+    // }
 
     case "position": {
         if (msg.uid == localUid) {
@@ -224,32 +246,35 @@ function onUserUnpublished(uid) {
 
 
 // https://docs.agora.io/en/Interactive%20Broadcast/token_server
-async function fetchToken(uid /*: UID*/, channelName /*: string*/, tokenRole /*: number*/) /* : Promise<string> */ {
+async function fetchToken(uid /*: UID*/, channelName /*: string*/, tokenRole /*: number*/) {
 
-    // assume token server is on same webserver as this app...
-    let tokenURL = new URL(window.location.href)
-    tokenURL.pathname = "/fetch_rtc_token";
-    const response = await window.fetch(tokenURL.href, {
-        method: 'POST',
-        headers: {
-            'content-type': 'application/json;charset=UTF-8'
-        },
-        body: JSON.stringify({
-            uid: uid,
-            channelName: channelName,
-            role: tokenRole
-        })
+    var resolve, reject;
+
+    const tokenPromise = new Promise((setResolve, setReject) => {
+        resolve = setResolve;
+        reject = setReject;
     });
 
-    let data = await response.json();
-    if (response.ok) {
-        console.log("token server response: " + JSON.stringify(data));
-        if (data && data.token) {
-            return data.token;
+    var previousOnMessage = webSocket.onmessage;
+    webSocket.onmessage = function (event) {
+        console.log("got websocket response: ", event.data);
+        webSocket.onmessage = previousOnMessage;
+        let msg = JSON.parse(event.data);
+        if (msg["message-type"] == "new-agora-token") {
+            resolve(msg["token"]);
+        } else {
+            previousOnMessage(event);
         }
     }
-    console.log("failed to get agora token.");
-    return null;
+
+    webSocket.send(JSON.stringify({
+        "message-type": "get-agora-token",
+        "uid": uid,
+        "agora-channel-name": channelName,
+        "token-role": tokenRole
+    }));
+
+    return tokenPromise;
 }
 
 
@@ -274,7 +299,7 @@ async function joinRoom() {
 
     localUid = await HiFiAudio.join(options.appid,
                                     fetchToken,
-                                    options.channel,
+                                    options.channel + ":" + currentRoomID,
                                     initialPosition,
                                     threshold.value);
 
@@ -303,6 +328,8 @@ async function joinRoom() {
 
     updateAudioControlsUI();
     updateRoomsUI();
+
+    // HiFiAudio.playSoundEffectFromURL('https://demo.highfidelity.com/audio/PF_back_left.opus', false);
 }
 
 

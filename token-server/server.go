@@ -3,37 +3,32 @@
 package main
 
 import (
-	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/RtcTokenBuilder"
+	"flag"
 	"fmt"
 	"log"
+	"strings"
 	"net/http"
 	"time"
 	"encoding/json"
-	"errors"
-	"strconv"
+	"github.com/gorilla/websocket"
+	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/RtcTokenBuilder"
 )
 
-type rtc_int_token_struct struct{
-	Uid_rtc_int uint32 `json:"uid"`
-	Channel_name string `json:"ChannelName"`
-	Role uint32 `json:"role"`
+func checkError(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
 
-var rtc_token string
-var int_uid uint32
-var channel_name string
-
-var role_num uint32
-var role rtctokenbuilder.Role
 
 // Use RtcTokenBuilder to generate an RTC token.
-func generateRtcToken(int_uid uint32, channelName string, role rtctokenbuilder.Role){
+func generateRtcToken(int_uid uint32, channelName string, role rtctokenbuilder.Role) string {
 
 	appID := "aee8658414ec41a4a5d97a79ddf86bd7"
 	appCertificate := "f01f7d954f614a508ae81a672e8cd557"
 	// Number of seconds after which the token expires.
-	// For demonstration purposes the expiry time is set to 40 seconds. This shows you the automatic token renew actions of the client.
-	expireTimeInSeconds := uint32(3600)
+	// expireTimeInSeconds := uint32(3600)
+	expireTimeInSeconds := uint32(120)
 	// Get current timestamp.
 	currentTimestamp := uint32(time.Now().UTC().Unix())
 	// Timestamp when the token expires.
@@ -48,85 +43,131 @@ func generateRtcToken(int_uid uint32, channelName string, role rtctokenbuilder.R
 		fmt.Printf("ChannelName is %s\n", channelName)
 		fmt.Printf("Role is %d\n", role)
 	}
-	rtc_token = result
+	return result
 }
 
 
-func rtcTokenHandler(w http.ResponseWriter, r *http.Request){
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS");
-	w.Header().Set("Access-Control-Allow-Headers", "*");
+func keepAlive(c *websocket.Conn, timeout time.Duration) {
+    lastResponse := time.Now()
+    c.SetPongHandler(func(msg string) error {
+		lastResponse = time.Now()
+		return nil
+	})
 
-	if r.Method == "OPTIONS" {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	if r.Method != "POST" && r.Method != "OPTIONS" {
-		http.Error(w, "Unsupported method. Please check.", http.StatusNotFound)
-		return
-	}
-
-	var t_int rtc_int_token_struct
-	var unmarshalErr *json.UnmarshalTypeError
-	int_decoder := json.NewDecoder(r.Body)
-	int_err := int_decoder.Decode(&t_int)
-	if (int_err == nil) {
-
-		int_uid = t_int.Uid_rtc_int
-		channel_name = t_int.Channel_name
-		role_num = t_int.Role
-
-		log.Printf("RECEIVED: uid=%d channel=%s role=%d\n", int_uid, channel_name, role_num)
-
-		switch role_num {
-		case 0:
-			// DEPRECATED. RoleAttendee has the same privileges as RolePublisher.
-			role = rtctokenbuilder.RoleAttendee
-		case 1:
-			role = rtctokenbuilder.RolePublisher
-		case 2:
-			role = rtctokenbuilder.RoleSubscriber
-		case 101:
-			// DEPRECATED. RoleAdmin has the same privileges as RolePublisher.
-			role = rtctokenbuilder.RoleAdmin
+	go func() {
+		for {
+			err := c.WriteMessage(websocket.PingMessage, []byte("keepalive"))
+			if err != nil {
+				return
+			}
+			time.Sleep(timeout/2)
+			if(time.Since(lastResponse) > timeout) {
+				c.Close()
+				return
+			}
 		}
-	}
-	if (int_err != nil) {
+	}()
+}
 
-		if errors.As(int_err, &unmarshalErr){
-			errorResponse(w, "Bad request. Wrong type provided for field " + unmarshalErr.Value  + unmarshalErr.Field + unmarshalErr.Struct, http.StatusBadRequest)
+
+var websockets map[*websocket.Conn]bool = make(map[*websocket.Conn]bool)
+
+var upgrader = websocket.Upgrader{
+	EnableCompression: true,
+	CheckOrigin: func(r *http.Request) bool { return true }}
+
+func wsHandler(w http.ResponseWriter, r *http.Request) {
+	c, err := upgrader.Upgrade(w, r, nil)
+	checkError(err)
+	keepAlive(c, 30 * time.Second)
+	defer c.Close()
+
+	websockets[c] = true
+
+	for {
+		mt, message, err := c.ReadMessage()
+
+		if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+			log.Printf("closing websocket -- normal close");
+			delete(websockets, c)
+			return
+		}
+		if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
+			log.Printf("closing websocket -- abnormal close");
+			delete(websockets, c)
+			return
+		}
+		if err != nil {
+			log.Printf("websocket connection -- failed: %s\n", err.Error())
+			delete(websockets, c)
+			return
+		}
+
+		if mt == websocket.TextMessage {
+			log.Println("got text message websocket: ", string(message))
+		} else if mt == websocket.BinaryMessage {
+			log.Println("got binary message websocket: ", string(message))
 		} else {
-			errorResponse(w, "Bad request.", http.StatusBadRequest)
+			log.Println("got mt: ", mt)
 		}
-		return
+
+		var dat map[string]interface{}
+
+		if err := json.Unmarshal(message, &dat); err != nil {
+			panic(err)
+		}
+		fmt.Println(dat)
+
+		msgType := dat["message-type"].(string)
+		fmt.Println("message-type = ", msgType)
+
+		if (msgType == "get-agora-token") {
+
+			var role_num uint32 = uint32(dat["token-role"].(float64))
+			var int_uid uint32 = uint32(dat["uid"].(float64))
+			var agora_channel string = dat["agora-channel-name"].(string)
+
+			var role rtctokenbuilder.Role
+			switch role_num {
+			case 0: role = rtctokenbuilder.RoleAttendee
+			case 1: role = rtctokenbuilder.RolePublisher
+			case 2: role = rtctokenbuilder.RoleSubscriber
+			case 101: role = rtctokenbuilder.RoleAdmin
+			}
+
+			var rtc_token = generateRtcToken(int_uid, agora_channel, role)
+
+			var response map[string]interface{} = make(map[string]interface{})
+			response["message-type"] = "new-agora-token"
+			response["token"] = rtc_token;
+
+			data, _ := json.Marshal(response)
+			c.WriteMessage(websocket.TextMessage, data)
+		} else if (msgType == "join-room") {
+			var response map[string]interface{} = make(map[string]interface{})
+			response["message-type"] = "join-room"
+			var channelAndRoom = dat["room"].(string)
+			s := strings.Split(channelAndRoom, ":")
+			response["room"] = s[1]
+			data, _ := json.Marshal(response)
+
+			for ws, _ := range websockets {
+				ws.WriteMessage(websocket.TextMessage, data)
+			}
+		}
 	}
-
-	generateRtcToken(int_uid, channel_name, role)
-	errorResponse(w, rtc_token, http.StatusOK)
-	log.Println(w, r)
 }
 
-func errorResponse(w http.ResponseWriter, message string, httpStatusCode int){
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.WriteHeader(httpStatusCode)
-	resp := make(map[string]string)
-	resp["token"] = message
-	resp["code"] = strconv.Itoa(httpStatusCode)
-	jsonResp, _ := json.Marshal(resp)
-	log.Printf("RESPONDING: %s\n", jsonResp)
-	w.Write(jsonResp)
-}
+
+
+var addr = flag.String("addr", "0.0.0.0:4440", "hostname:port")
 
 func main(){
-	// Handling routes
-	// RTC token from RTC num uid
-	http.HandleFunc("/fetch_rtc_token", rtcTokenHandler)
-	fmt.Printf("Starting server at port 8082\n")
+	flag.Parse()
+	log.Printf("websocket listening on %v\n", *addr)
 
-	if err := http.ListenAndServe(":8082", nil); err != nil {
-		log.Fatal(err)
-	}
+	log.SetFlags(0)
+	http.HandleFunc("/", wsHandler)
+	err := http.ListenAndServe(*addr, nil)
+	log.Fatal(err);
 }

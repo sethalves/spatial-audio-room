@@ -271,6 +271,11 @@ export function setLocalMetaData(e : MetaData) : void {
 }
 
 
+export function setNewToken(token: string) : void {
+    client.renewToken(token);
+}
+
+
 export function on(eventName : string, callback : Function) {
     if (eventName == "remote-position-updated") {
         onUpdateRemotePosition = callback;
@@ -628,6 +633,21 @@ function stopSpatialAudio() {
 export async function playSoundEffect(buffer : ArrayBuffer, loop : boolean) : Promise<AudioBufferSourceNode> {
     console.log("hifi-audio: playSoundEffect()");
 
+    let audioBuffer : AudioBuffer = await audioContext.decodeAudioData(buffer);
+    let sourceNode = new AudioBufferSourceNode(audioContext);
+    sourceNode.buffer = audioBuffer;
+    sourceNode.loop = loop;
+    sourceNode.connect(hifiLimiter);
+    sourceNode.start();
+    return sourceNode;
+}
+
+
+export async function playSoundEffectFromURL(url : string, loop : boolean) : Promise<AudioBufferSourceNode> {
+    console.log("hifi-audio: playSoundEffectFromURL()");
+
+    let audioData = await fetch(url);
+    let buffer = await audioData.arrayBuffer();
     let audioBuffer : AudioBuffer = await audioContext.decodeAudioData(buffer);
     let sourceNode = new AudioBufferSourceNode(audioContext);
     sourceNode.buffer = audioBuffer;
