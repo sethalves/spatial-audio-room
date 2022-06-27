@@ -48,7 +48,15 @@ webSocket.onmessage = async function (event) {
             configureRoom();
             updateRoomsUI();
             await leaveRoom();
-            await joinRoom();
+
+            $("#join").attr("disabled", true);
+            try {
+                await joinRoom();
+            } catch (error) {
+                console.error(error);
+            } finally {
+                $("#leave").attr("disabled", false);
+            }
         }
     }
 }
@@ -127,11 +135,11 @@ $("#mute").click(function(e) {
     HiFiAudio.setThreshold(HiFiAudio.isMutedEnabled() ? 0.0 : threshold.value);
 })
 
-$("#sound").click(async function(e) {
-    let audioData = await fetch('https://raw.githubusercontent.com/kencooke/spatial-audio-room/master/sound.wav');
-    let audioBuffer = await audioData.arrayBuffer();
-    HiFiAudio.playSoundEffect(audioBuffer, false);
-})
+// $("#sound").click(async function(e) {
+//     let audioData = await fetch('https://raw.githubusercontent.com/kencooke/spatial-audio-room/master/sound.wav');
+//     let audioBuffer = await audioData.arrayBuffer();
+//     HiFiAudio.playSoundEffect(audioBuffer, false);
+// })
 
 
 for (const rID of roomIDs) {
@@ -324,7 +332,7 @@ async function joinRoom() {
     canvasControl = new CanvasControl(canvas, elements, usernames, updatePositions);
     canvasControl.draw();
 
-    $("#sound").attr("hidden", false);
+    // $("#sound").attr("hidden", false);
 
     updateAudioControlsUI();
     updateRoomsUI();
@@ -345,7 +353,7 @@ async function leaveRoom() {
 
     elements.length = 0;
 
-    $("#sound").attr("hidden", true);
+    // $("#sound").attr("hidden", true);
 
     console.log("client leaves channel success");
 }
