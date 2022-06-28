@@ -371,6 +371,7 @@ async function joinRoom() {
 
     updateAudioControlsUI();
     updateRoomsUI();
+    sendUsername();
 
     // HiFiAudio.playSoundEffectFromURL('https://demo.highfidelity.com/audio/PF_back_left.opus', false);
 }
@@ -395,6 +396,10 @@ async function leaveRoom() {
 
 
 function sendUsername() {
+    if (!usernames[localUid]) {
+        return;
+    }
+
     // broadcast my name
     let msg = {
         type: "username",
