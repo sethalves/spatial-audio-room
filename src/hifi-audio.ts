@@ -122,7 +122,10 @@ let hifiOptions : HifiOptions = {};
 
 
 export function sendBroadcastMessage(msg : Uint8Array) : boolean {
-    console.log("hifi-audio: send broadcast message");
+
+    var msgString = new TextDecoder().decode(msg);
+    console.log("hifi-audio: send broadcast message: " + JSON.stringify(msgString));
+
     if (client && localTracks.audioTrack) {
         client.sendStreamMessage(msg);
         return true;
@@ -602,7 +605,7 @@ async function startSpatialAudio() {
 
     console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
 
-    await audioContext.audioWorklet.addModule(simdSupported ? 'HifiProcessorSIMD.js' : 'HifiProcessor.js');
+    await audioContext.audioWorklet.addModule(simdSupported ? 'hifi.wasm.simd.js' : 'hifi.wasm.js');
 
     // temporary license token that expires 1/1/2023
     const token = 'aGlmaQAAAAHLuJ9igD2xY0xxPKza+Rcw9gQGOo8T5k+/HJpF/UR1k99pVS6n6QfyWTz1PTHkpt62tta3jn0Ntbdx73ah/LBv14T1HjJULQE=';
