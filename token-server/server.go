@@ -82,10 +82,10 @@ func handleTokenRequest(dat map[string]interface{}) map[string]interface{} {
 		int_uid = uint32(dat["uid"].(float64))
 	}
 
-	var expireTimeInSeconds uint32 = 120
-	// if etis, ok := dat["timeout"]; ok {
-	// 	expireTimeInSeconds = uint32(dat["timeout"].(float64))
-	// }
+	var expireTimeInSeconds uint32 = 86400
+	if _, ok := dat["timeout"]; ok {
+		expireTimeInSeconds = uint32(dat["timeout"].(float64))
+	}
 
 	var rtc_token = generateRtcToken(int_uid, agora_channel, role, expireTimeInSeconds)
 
@@ -194,9 +194,8 @@ func tokenHTTPHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var response = handleTokenRequest(dat)
-	data, _ := json.Marshal(response)
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(data)
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(response["token"].(string)))
 }
 
 
