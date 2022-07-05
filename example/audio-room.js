@@ -82,6 +82,13 @@ webSocket.onmessage = async function (event) {
     if (msg["message-type"] == "join-room") {
         if (currentRoomID != msg.room) {
             console.log("switching to room " + msg.room);
+
+            if (msg.room == "room-video") {
+                let videoRoomURL = new URL(window.location.href)
+                videoRoomURL.pathname = "/spatial-video-room";
+                window.location = videoRoomURL;
+            }
+
             currentRoomID = msg.room;
             configureRoom();
             updateRoomsUI();
