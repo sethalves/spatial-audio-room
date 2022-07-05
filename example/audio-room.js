@@ -54,7 +54,7 @@ let roomIDs = [];
 for (const [key, value] of Object.entries(roomOptions)) {
     roomIDs.push(key);
 }
-let currentRoomID = roomIDs[0];
+let currentRoomID = roomIDs[3];
 
 
 // assume token server is on same webserver as this app...
@@ -66,13 +66,23 @@ tokenURL.protocol = "wss";
 //
 // Sortable layout of video elements
 //
-let sortable = Sortable.create(playerlist, {
-    sort: true,
-    direction: "horizontal",
-    onChange: updatePositions,  // update positions on drag-and-drop
-});
+let sortable;
+let resizeObserver;
 
 
+function readyVideoSortable() {
+    if (sortable) {
+        return;
+    }
+
+    sortable = Sortable.create(playerlist, {
+        sort: true,
+        direction: "horizontal",
+        onChange: updateVideoPositions,  // update positions on drag-and-drop
+    });
+    resizeObserver = new ResizeObserver(updateVideoPositions);
+    resizeObserver.observe(playerlist); // update positions on resize
+}
 
 
 let webSocket = new WebSocket(tokenURL.href);
@@ -82,25 +92,20 @@ webSocket.onmessage = async function (event) {
     if (msg["message-type"] == "join-room") {
         if (currentRoomID != msg.room) {
             console.log("switching to room " + msg.room);
-
-            if (msg.room == "room-video") {
-                let videoRoomURL = new URL(window.location.href)
-                videoRoomURL.pathname = "/spatial-video-room";
-                window.location = videoRoomURL;
-            }
-
             currentRoomID = msg.room;
-            configureRoom();
-            updateRoomsUI();
-            await leaveRoom();
+            if (localUid) {
+                configureRoom();
+                updateRoomsUI();
+                await leaveRoom();
 
-            $("#join").attr("disabled", true);
-            try {
-                await joinRoom();
-            } catch (error) {
-                console.error(error);
-            } finally {
-                $("#leave").attr("disabled", false);
+                $("#join").attr("disabled", true);
+                try {
+                    await joinRoom();
+                } catch (error) {
+                    console.error(error);
+                } finally {
+                    $("#leave").attr("disabled", false);
+                }
             }
         }
     }
@@ -227,6 +232,37 @@ function updatePositions(elts) {
 }
 
 
+function updateVideoPositions() {
+    readyVideoSortable();
+    let order = sortable.toArray();
+
+    // compute horizontal bounds
+    let xmin = 999999;
+    let xmax = 0;
+    order.forEach((uid, i) => {
+        let rect = sortable.el.children[i].getClientRects();
+        xmin = Math.min(xmin, rect[0].left);
+        xmax = Math.max(xmax, rect[0].right);
+    });
+
+    // center the horizontal axis at zero
+    let xoff = (xmin + xmax) / 2;
+    xmin -= xoff;
+    xmax -= xoff;
+
+    // compute azimuth from center of video element
+    order.forEach((uid, i) => {
+        let rect = sortable.el.children[i].getClientRects();
+        let x = (rect[0].left + rect[0].right) / 2 - xoff;
+        let azimuth = (Math.PI / 2) * (x / xmax);   // linear, not atan(x)
+
+        // update hifiSource
+        HiFiAudio.setAzimuth(uid, azimuth);
+        console.log("Set uid =", uid, "to azimuth =", (azimuth * 180) / Math.PI);
+    });
+}
+
+
 function updateRemotePosition(uid, x, y, o) {
     // update canvas position
     let e = elements.find(e => e.uid === uid);
@@ -255,6 +291,10 @@ function receiveBroadcast(uid, data) {
 
     case "username": {
         usernames[uid] = msg.username;
+        let ropts = roomOptions[ currentRoomID ];
+        if (ropts.video) {
+            $(`#player-name-${uid}`).text(usernames[uid]);
+        }
         break;
     }
 
@@ -278,13 +318,33 @@ function receiveBroadcast(uid, data) {
 
 
 function onUserPublished(uid) {
-    elements.push({
-        icon: 'sourceIcon',
-        radius: 0.02,
-        alpha: 0.5,
-        clickable: false,
-        uid,
-    });
+
+    console.log("QQQQ got onUserPublished " + JSON.stringify(uid));
+
+    let ropts = roomOptions[ currentRoomID ];
+    if (ropts.video) {
+        const player = $(`
+        <div id="player-wrapper-${uid}" data-id="${uid}">
+            <div id="player-${uid}" class="player"></div>
+            <p id="player-name-${uid}" class="player-name"></p>
+        </div>
+        `);
+
+        console.log(`QQQQ append html for player-${uid}`);
+
+        $("#playerlist").append(player);
+        $(`#player-name-${uid}`).text(usernames[uid]);
+        HiFiAudio.playVideo(uid, `player-${uid}`);
+        updateVideoPositions();
+    } else {
+        elements.push({
+            icon: 'sourceIcon',
+            radius: 0.02,
+            alpha: 0.5,
+            clickable: false,
+            uid,
+        });
+    }
 
     sendUsername();
     configureRoom()
@@ -292,11 +352,20 @@ function onUserPublished(uid) {
 
 
 function onUserUnpublished(uid) {
+    console.log("QQQQ onUserUnpublished " + JSON.stringify(uid));
+
     $(`#player-wrapper-${uid}`).remove();
 
-    // find and remove this uid
-    let i = elements.findIndex(e => e.uid === uid);
-    elements.splice(i, 1);
+    let ropts = roomOptions[ currentRoomID ];
+    if (ropts.video) {
+        if (sortable) {
+            updateVideoPositions();
+        }
+    } else {
+        // find and remove this uid
+        let i = elements.findIndex(e => e.uid === uid);
+        elements.splice(i, 1);
+    }
 }
 
 
@@ -374,6 +443,7 @@ async function joinRoom() {
     HiFiAudio.on("remote-client-joined", onUserPublished);
     HiFiAudio.on("remote-client-left", onUserUnpublished);
 
+    // XXX fix this -- use test from hifi-audio.ts
     var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
     if (isSafari) {
         HiFiAudio.setAecEnabled(true);
@@ -385,32 +455,48 @@ async function joinRoom() {
         await getCurrentRoom();
     }
 
+    let ropts = roomOptions[ currentRoomID ];
+
     localUid = await HiFiAudio.join(options.appid,
                                     fetchToken,
                                     options.channel + ":" + currentRoomID,
                                     initialPosition,
-                                    threshold.value);
+                                    threshold.value,
+                                    ropts.video);
 
     usernames[ localUid ] = options.username;
 
-    //
-    // canvas GUI
-    //
-    let canvas = document.getElementById('canvas');
+    console.log("QQQQ localUid=" + JSON.stringify(localUid) + " username=" + JSON.stringify(options.username));
 
-    elements.push({
-        icon: 'listenerIcon',
-        x: 0.5 + (initialPosition.x / canvasDimensions.width),
-        y: 0.5 - (initialPosition.y / canvasDimensions.height),
-        o: initialPosition.o,
-        radius: 0.02,
-        alpha: 0.5,
-        clickable: true,
-        uid: localUid
-    });
 
-    canvasControl = new CanvasControl(canvas, elements, usernames, updatePositions);
-    canvasControl.draw();
+    if (ropts.video) {
+        $("#local-player-name").text(options.username);
+        readyVideoSortable();
+        // Play the local video track
+        HiFiAudio.playVideo(localUid, "local-player");
+    } else {
+        sortable = null;
+        resizeObserver = null;
+
+        //
+        // canvas GUI
+        //
+        let canvas = document.getElementById('canvas');
+
+        elements.push({
+            icon: 'listenerIcon',
+            x: 0.5 + (initialPosition.x / canvasDimensions.width),
+            y: 0.5 - (initialPosition.y / canvasDimensions.height),
+            o: initialPosition.o,
+            radius: 0.02,
+            alpha: 0.5,
+            clickable: true,
+            uid: localUid
+        });
+
+        canvasControl = new CanvasControl(canvas, elements, usernames, updatePositions);
+        canvasControl.draw();
+    }
 
     // $("#sound").attr("hidden", false);
 
@@ -427,12 +513,15 @@ async function leaveRoom() {
 
     // remove remote users and player views
     $("#remote-playerlist").html("");
+    // $("#playerlist").html("");
 
     $("#local-player-name").text("");
     $("#join").attr("disabled", false);
     $("#leave").attr("disabled", true);
 
     elements.length = 0;
+
+    localUid = undefined;
 
     // $("#sound").attr("hidden", true);
 
@@ -475,11 +564,11 @@ function configureRoom() {
         return;
     }
 
-    let msg = {
-        type: "room",
-        roomID: currentRoomID
-    };
-    HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(JSON.stringify(msg)));
+    // let msg = {
+    //     type: "room",
+    //     roomID: currentRoomID
+    // };
+    // HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(JSON.stringify(msg)));
 
     let ropts = roomOptions[ currentRoomID ];
     let positions = ropts.positions;

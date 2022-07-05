@@ -1,5 +1,14 @@
 
-import type { IAgoraRTC, IAgoraRTCClient, UID, IMicrophoneAudioTrack, ICameraVideoTrack, IAgoraRTCRemoteUser } from 'agora-rtc-sdk-ng';
+import type {
+    IAgoraRTC,
+    IAgoraRTCClient,
+    UID,
+    IMicrophoneAudioTrack,
+    ICameraVideoTrack,
+    IAgoraRTCRemoteUser,
+    MicrophoneAudioTrackInitConfig,
+    CameraVideoTrackInitConfig
+} from 'agora-rtc-sdk-ng';
 interface IAgoraRTCOpen extends IAgoraRTC {
     setParameter? : any | undefined
 }
@@ -118,6 +127,7 @@ interface HifiOptions {
     uid?: UID | undefined,
     thresholdValue?: number | undefined
     thresholdSet?: boolean | undefined
+    video? : boolean | undefined
 }
 let hifiOptions : HifiOptions = {};
 
@@ -146,7 +156,7 @@ function listenerMetadata(position : MetaData) {
     data.setInt16(2, qy);
     data.setInt8(4, qo);
 
-    if (encodedTransformSupported) {
+    if (encodedTransformSupported && !hifiOptions.video) {
         if (worker) {
             worker.postMessage({
                 operation: 'metadata',
@@ -171,7 +181,7 @@ export function sourceMetadata(buffer : ArrayBuffer, uid : UID) : void {
         hifiSource._x = x;
         hifiSource._y = y;
         hifiSource._o = o;
-        setPosition(hifiSource);
+        setPositionFromMetadata(hifiSource);
     }
 
     if (onUpdateRemotePosition) {
@@ -252,7 +262,16 @@ function angleWrap(angle : number) {
     return angle - 2 * Math.PI * Math.floor((angle + Math.PI) / (2 * Math.PI));
 }
 
-function setPosition(hifiSource : AudioWorkletNodeMeta) {
+
+export function setAzimuth(uid : UID, azimuth : number) {
+    let hifiSource = hifiSources[uid];
+    if (hifiSource !== undefined) {
+        hifiSource.parameters.get('azimuth').value = azimuth;
+    }
+}
+
+
+function setPositionFromMetadata(hifiSource : AudioWorkletNodeMeta) {
     let dx = hifiSource._x - hifiPosition.x;
     let dy = hifiSource._y - hifiPosition.y;
 
@@ -301,13 +320,15 @@ export async function join(appID : string,
                            tokenProvider : Function,
                            channel : string,
                            initialPosition : MetaData,
-                           initialThresholdValue : number) {
+                           initialThresholdValue : number,
+                           video : boolean) {
 
     console.log("hifi-audio: join -- initialThresholdValue=" + initialThresholdValue);
 
     hifiOptions.appid = appID;
     hifiOptions.tokenProvider = tokenProvider;
     hifiOptions.channel = channel;
+    hifiOptions.video = video;
     if (!hifiOptions.thresholdSet) {
         hifiOptions.thresholdValue = initialThresholdValue;
         hifiOptions.thresholdSet = true;
@@ -335,13 +356,8 @@ async function joinAgoraRoom() {
         codec: "vp8"
     });
 
-    client.on("user-published", (user : IAgoraRTCRemoteUser, mediaType : string) => {
-        handleUserPublished(user, mediaType);
-    });
-
-    client.on("user-unpublished", (user : IAgoraRTCRemoteUser) => {
-        handleUserUnpublished(user);
-    });
+    client.on("user-published", (user : IAgoraRTCRemoteUser, mediaType : string) => { handleUserPublished(user, mediaType); });
+    client.on("user-unpublished", (user : IAgoraRTCRemoteUser) => { handleUserUnpublished(user); });
 
     client.on("token-privilege-will-expire", async function () {
         if (hifiOptions.tokenProvider) {
@@ -360,11 +376,7 @@ async function joinAgoraRoom() {
         token = await hifiOptions.tokenProvider(hifiOptions.uid, hifiOptions.channel, 1);
     }
 
-    // join a channel
-    await client.join(hifiOptions.appid, hifiOptions.channel, token || null, hifiOptions.uid);
-
-    // create local tracks
-    let audioConfig = {
+    let audioConfig : MicrophoneAudioTrackInitConfig = {
         AEC: aecEnabled,
         AGC: false,
         ANS: false,
@@ -372,10 +384,34 @@ async function joinAgoraRoom() {
         encoderConfig: {
             sampleRate: 48000,
             bitrate: 64,
-            stereo: false,
-        },
+            stereo: false
+        }
     };
-    localTracks.audioTrack = await AgoraRTC.createMicrophoneAudioTrack(audioConfig);
+
+    if (hifiOptions.video) {
+        let videoConfig : CameraVideoTrackInitConfig = {
+            encoderConfig: "240p_1"
+        };
+
+        console.log("QQQQ creating audio and video tracks...");
+
+        // Join a channel and create local tracks. Best practice is to use Promise.all and run them concurrently.
+        [hifiOptions.uid, localTracks.audioTrack, localTracks.videoTrack] = await Promise.all([
+            client.join(hifiOptions.appid, hifiOptions.channel, token || null, hifiOptions.uid || null),
+            AgoraRTC.createMicrophoneAudioTrack(audioConfig),
+            AgoraRTC.createCameraVideoTrack(videoConfig)
+        ]);
+
+    } else {
+        console.log("QQQQ creating audio track...");
+
+        delete localTracks.videoTrack;
+
+        [hifiOptions.uid, localTracks.audioTrack] = await Promise.all([
+            client.join(hifiOptions.appid, hifiOptions.channel, token || null, hifiOptions.uid || null),
+            AgoraRTC.createMicrophoneAudioTrack(audioConfig)
+        ]);
+    }
 
     //
     // route mic stream through Web Audio noise gate
@@ -396,6 +432,7 @@ async function joinAgoraRoom() {
     await localTracks.audioTrack._updateOriginMediaStreamTrack(destinationTrack, false);
 
     // publish local tracks to channel
+    console.log("QQQQ publishing " + JSON.stringify(Object.keys(localTracks)));
     await client.publish(Object.values(localTracks));
     console.log("publish success");
 
@@ -405,12 +442,10 @@ async function joinAgoraRoom() {
     let senders : Array<RTCRtpSenderIS> = client._p2pChannel.connection.peerConnection.getSenders();
     let sender = senders.find(e => e.track?.kind === 'audio');
 
-    if (encodedTransformSupported) {
-
+    if (encodedTransformSupported && !hifiOptions.video) {
         sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
 
     } else {
-
         const senderStreams = sender.createEncodedStreams();
         const readableStream = senderStreams.readable;
         const writableStream = senderStreams.writable;
@@ -431,7 +466,7 @@ async function joinAgoraRoom() {
         }
     })
 
-    // on broadcast from remote user, set corresponding username
+    // handle broadcast from remote user
     client.on("stream-message", (uid : UID, data : Uint8Array) => {
         if (onReceiveBroadcast) {
             onReceiveBroadcast("" + uid, data);
@@ -450,10 +485,25 @@ export async function leave() {
 
     console.log("hifi-audio: leave()");
 
+    await client.unpublish(Object.values(localTracks));
+
     if (localTracks.audioTrack) {
         localTracks.audioTrack.stop();
         localTracks.audioTrack.close();
         localTracks.audioTrack = undefined;
+    }
+
+    if (localTracks.videoTrack) {
+        localTracks.videoTrack.stop();
+        localTracks.videoTrack.close();
+        delete localTracks.videoTrack;
+    }
+
+    for (var uid in remoteUsers) {
+        console.log("QQQQ leaving, uid=" + JSON.stringify(uid));
+        if (onRemoteUserLeft) {
+            onRemoteUserLeft("" + uid);
+        }
     }
 
     remoteUsers = {};
@@ -474,6 +524,9 @@ export async function leave() {
 
 function handleUserPublished(user : IAgoraRTCRemoteUser, mediaType : string) {
     const id = user.uid;
+
+    console.log("QQQQ HANDLEUSERPUBLISHED id=" + id + " mediaType=" + mediaType);
+
     remoteUsers[id] = user;
     subscribe(user, mediaType);
 }
@@ -489,6 +542,8 @@ function handleUserUnpublished(user : IAgoraRTCRemoteUser) {
 
 async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
     const uid = user.uid;
+
+    console.log("QQQQ subscribe " + uid + " " + mediaType + " hasVideo=" + JSON.stringify(user.hasVideo));
 
     if (mediaType === 'audio') {
 
@@ -513,12 +568,10 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
         let receivers : Array<RTCRtpReceiverIS> = client._p2pChannel.connection.peerConnection.getReceivers();
         let receiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'audio');
 
-        if (encodedTransformSupported) {
-
+        if (encodedTransformSupported && !hifiOptions.video) {
             receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
 
         } else {
-
             const receiverStreams = receiver.createEncodedStreams();
             const readableStream = receiverStreams.readable;
             const writableStream = receiverStreams.writable;
@@ -529,7 +582,33 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
             onRemoteUserJoined("" + uid);
         }
     }
+
+    // XXX
+    if (mediaType === 'video') {
+        console.log(`QQQQ XXX playing video player-${uid}`);
+        user.videoTrack.play(`player-${uid}`);
+    }
+    // XXX
 }
+
+
+export function playVideo(uid : UID, videoEltID : string) {
+    if (uid == hifiOptions.uid) {
+        localTracks.videoTrack.play(videoEltID);
+    } else {
+        for (const user of client.remoteUsers /* [ IAgoraRTCRemoteUser ] */) {
+            if (user.uid == uid) {
+                console.log("QQQQ playVideo for " + uid);
+                if (user.videoTrack) {
+                    user.videoTrack.play(videoEltID);
+                } else {
+                    console.log("QQQQ but no user.videoTrack... " + uid);
+                }
+            }
+        }
+    }
+}
+
 
 async function unsubscribe(user: IAgoraRTCRemoteUser) {
     const uid = user.uid;
@@ -592,7 +671,7 @@ async function startSpatialAudio() {
 
     audioElement = new Audio();
 
-    if (encodedTransformSupported) {
+    if (encodedTransformSupported && !hifiOptions.video) {
         worker = new Worker('worker.js');
         worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
     }
@@ -623,7 +702,10 @@ async function startSpatialAudio() {
         hifiLimiter.connect(audioContext.destination);
     }
 
-    audioElement.play();
+    try {
+        audioElement.play();
+    } catch (e) {
+    }
 }
 
 function stopSpatialAudio() {
