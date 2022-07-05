@@ -457,6 +457,7 @@ async function joinRoom() {
 
     let ropts = roomOptions[ currentRoomID ];
 
+    console.log("QQQQ appid=" + options.appid);
     localUid = await HiFiAudio.join(options.appid,
                                     fetchToken,
                                     options.channel + ":" + currentRoomID,
