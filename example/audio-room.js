@@ -12,30 +12,68 @@
 import * as HiFiAudio from './hifi-audio.js'
 import { CanvasControl } from './canvas-control.js'
 
-let options = {};
-
-let roomIDs = [ "room-conf-table", "room-quad-music", "room-bar" ];
-let currentRoomID = roomIDs[0];
-
 function degToRad(d) {
     return Math.PI * d / 180.0;
 }
 
+let options = {};
 
-let roomPositions = {
-    "room-conf-table": [
-        { x: 0, y: -1, o: degToRad(0) },
-        { x: 1, y: 0, o: degToRad(270) },
-        { x: 0, y: 1, o: degToRad(180) },
-        { x: -1, y: 0, o: degToRad(90) }
-    ]
-};
+let roomOptions = {
+    "room-conf-table": {
+        video: false,
+        metaData: true,
+        positions: [
+            { x: 0, y: -1, o: degToRad(0) },
+            { x: 1, y: 0, o: degToRad(270) },
+            { x: 0, y: 1, o: degToRad(180) },
+            { x: -1, y: 0, o: degToRad(90) }
+        ]
+    },
+
+    "room-quad-music": {
+        video: false,
+        metaData: true,
+        positions: []
+    },
+    
+    "room-bar": {
+        video: false,
+        metaData: true,
+        positions: []
+    },
+
+    "room-video": {
+        video: true,
+        metaData: false,
+        positions: []
+    }
+}
+
+
+let roomIDs = [];
+for (const [key, value] of Object.entries(roomOptions)) {
+    roomIDs.push(key);
+}
+let currentRoomID = roomIDs[0];
 
 
 // assume token server is on same webserver as this app...
 let tokenURL = new URL(window.location.href)
 tokenURL.pathname = "/token-server";
 tokenURL.protocol = "wss";
+
+
+//
+// Sortable layout of video elements
+//
+let sortable = Sortable.create(playerlist, {
+    sort: true,
+    direction: "horizontal",
+    onChange: updatePositions,  // update positions on drag-and-drop
+});
+
+
+
 
 let webSocket = new WebSocket(tokenURL.href);
 webSocket.onmessage = async function (event) {
@@ -436,7 +474,8 @@ function configureRoom() {
     };
     HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(JSON.stringify(msg)));
 
-    let positions = roomPositions[ currentRoomID ];
+    let ropts = roomOptions[ currentRoomID ];
+    let positions = ropts.positions;
     if (positions) {
         for (let i = 0; i < elements.length && i < positions.length; i++) {
             if (elements[ i ].uid == localUid) {
@@ -471,6 +510,18 @@ function updateRoomsUI() {
         } else {
             roomButton.style.background="#6c757d";
         }
+    }
+
+    let canvasContainer = document.getElementById("canvas-container");
+    let videoroomContainer = document.getElementById("playerlist");
+
+    let ropts = roomOptions[ currentRoomID ];
+    if (ropts.video) {
+        canvasContainer.style.display = "none";
+        videoroomContainer.style.display = "block";
+    } else {
+        canvasContainer.style.display = "block";
+        videoroomContainer.style.display = "none";
     }
 }
 

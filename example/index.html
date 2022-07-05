@@ -75,6 +75,7 @@
               <button disabled id="room-conf-table" type="button" class="btn btn-primary btn-sm rooms-button">Conf Table</button>
               <button disabled id="room-quad-music" type="button" class="btn btn-primary btn-sm rooms-button">Quad Music</button>
               <button disabled id="room-bar" type="button" class="rooms-button btn btn-primary btn-sm">Bar</button>
+              <button disabled id="room-video" type="button" class="rooms-button btn btn-primary btn-sm">Video</button>
 
             </div>
 
@@ -83,6 +84,15 @@
           <div class="canvas-group" id="canvas-container" style="height: 100%">
             <canvas id="canvas" oncontextmenu="return false;"></canvas>
           </div>
+
+          <div id="playerlist" class="canvas-group row justify-content-center" style="height: 100%">
+            <div id="player-wrapper-0" data-id="0">
+              <div id="local-player" class="player"></div>
+              <p id="local-player-name" class="player-name"></p>
+            </div>
+          </div>
+
+
         </div>
 
       </div>
@@ -93,6 +103,7 @@
 
     <script src="./vendor/jquery-3.4.1.min.js"></script>
     <script src="./vendor/bootstrap.bundle.min.js"></script>
+    <script src="./vendor/Sortable.min.js"></script>
     <script src="./vendor/AgoraRTC_N-4.12.0.js"></script>
     <script type="module" src="./audio-room.js"></script>
 

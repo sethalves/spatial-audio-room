@@ -160,3 +160,8 @@ input:checked + .slider:before {
 }
 .slider.round { border-radius: 34px; }
 .slider.round:before { border-radius: 50%; }
+
+
+.videoroom-container {
+    display: none;
+}

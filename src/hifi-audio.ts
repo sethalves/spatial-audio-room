@@ -1,5 +1,5 @@
 
-import type { IAgoraRTC, IAgoraRTCClient, UID, IMicrophoneAudioTrack, IAgoraRTCRemoteUser } from 'agora-rtc-sdk-ng';
+import type { IAgoraRTC, IAgoraRTCClient, UID, IMicrophoneAudioTrack, ICameraVideoTrack, IAgoraRTCRemoteUser } from 'agora-rtc-sdk-ng';
 interface IAgoraRTCOpen extends IAgoraRTC {
     setParameter? : any | undefined
 }
@@ -74,6 +74,7 @@ interface IMicrophoneAudioTrackOpen extends IMicrophoneAudioTrack {
     _updateOriginMediaStreamTrack? : Function | undefined
 }
 interface LocalTracks {
+    videoTrack?: ICameraVideoTrack,
     audioTrack: IMicrophoneAudioTrackOpen
 }
 
@@ -84,7 +85,7 @@ let loopback : RTCPeerConnection[];
 let client : IAgoraRTCClientOpen;
 
 let localTracks : LocalTracks = {
-    //videoTrack: null,
+    // videoTrack: null,
     audioTrack: null
 };
 
