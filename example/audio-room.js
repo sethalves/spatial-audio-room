@@ -32,28 +32,32 @@ let roomOptions = {
             { x: 1.4, y: 1.4, o: degToRad(225) },
             { x: 1.4, y: -1.4, o: degToRad(315) }
         ],
-        canvasDimensions: { width: 4, height: 4 }
+        canvasDimensions: { width: 4, height: 4 },
+        background: "table.svg"
     },
 
     "room-quad-music": {
         video: false,
         metaData: true,
         positions: [],
-        canvasDimensions: { width: 8, height: 8 }
+        canvasDimensions: { width: 8, height: 8 },
+        background: null
     },
     
     "room-bar": {
         video: false,
         metaData: true,
         positions: [],
-        canvasDimensions: { width: 16, height: 16 }
+        canvasDimensions: { width: 16, height: 16 },
+        background: null
     },
 
     "room-video": {
         video: true,
         metaData: false,
         positions: [],
-        canvasDimensions: { width: 8, height: 8 }
+        canvasDimensions: { width: 8, height: 8 },
+        background: null
     }
 }
 
@@ -518,7 +522,7 @@ async function joinRoom() {
             uid: localUid
         });
 
-        canvasControl = new CanvasControl(canvas, elements, usernames, updatePositions);
+        canvasControl = new CanvasControl(canvas, elements, usernames, updatePositions, ropts.background);
         canvasControl.draw();
     }
 

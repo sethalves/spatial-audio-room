@@ -25,6 +25,7 @@ module.exports = ({ buildEnv }) => {
                     { from: "assets/High-Fidelity_Imagery_Brand_Logo_Left-Lockup_Black_v01.svg", to: "" },
                     { from: "assets/favicon.ico", to: "" },
                     { from: "assets/safari-pinned-tab.svg", to: "" },
+                    { from: "assets/table.svg", to: "" },
                     { from: "assets/worker.js", to: "" },
                     { from: "example/index.css", to: "" },
                     { from: "example/index.html", to: "" },

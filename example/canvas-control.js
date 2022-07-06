@@ -9,7 +9,7 @@ import { fastAtan2 } from './hifi-audio.js'
  * @param {Object} elements
  * @param {Function} callbackFunc
  */
-export function CanvasControl(canvas, elements, usernames, callbackFunc) {
+export function CanvasControl(canvas, elements, usernames, callbackFunc, background) {
   this._canvas = canvas;
   this._usernames = usernames;
   this._elements = elements;
@@ -27,6 +27,15 @@ export function CanvasControl(canvas, elements, usernames, callbackFunc) {
   this._lastMoveEventTime = 0;
   this._minimumThreshold = 16;
   let that = this;
+
+  if (background) {
+      this._background = new Image();
+      this._background.onload = function() {
+          // ctx.drawImage(img, 0, 0);
+      }
+      this._background.src = background;
+  }
+
   canvas.addEventListener('touchstart', function(event) {
     that._cursorDownFunc(event);
   });
@@ -138,6 +147,10 @@ CanvasControl.prototype.draw = function() {
   this._context.globalAlpha = 1;
   this._context.clearRect(0, 0, this._canvas.width, this._canvas.height);
   this._context.strokeRect(0, 0, canvas.width, canvas.height);
+
+  if (this._background) {
+      this._context.drawImage(this._background, 0, 0, canvas.width, canvas.height);
+  }
 
   for (let i = 0; i < this._elements.length; i++) {
     let icon = document.getElementById(this._elements[i].icon);
