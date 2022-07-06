@@ -27,25 +27,29 @@ let roomOptions = {
             { x: 1, y: 0, o: degToRad(270) },
             { x: 0, y: 1, o: degToRad(180) },
             { x: -1, y: 0, o: degToRad(90) }
-        ]
+        ],
+        canvasDimensions: { width: 8, height: 8 }
     },
 
     "room-quad-music": {
         video: false,
         metaData: true,
-        positions: []
+        positions: [],
+        canvasDimensions: { width: 8, height: 8 }
     },
     
     "room-bar": {
         video: false,
         metaData: true,
-        positions: []
+        positions: [],
+        canvasDimensions: { width: 16, height: 16 }
     },
 
     "room-video": {
         video: true,
         metaData: false,
-        positions: []
+        positions: [],
+        canvasDimensions: { width: 8, height: 8 }
     }
 }
 
@@ -219,7 +223,7 @@ threshold.oninput = () => {
 }
 
 let canvasControl;
-const canvasDimensions = { width: 8, height: 8 };   // in meters
+// const canvasDimensions = { width: 8, height: 8 };   // in meters
 let elements = [];
 let localUid = undefined;
 let usernames = {};
@@ -230,10 +234,11 @@ function updatePositions(elts) {
     // only update the listener
     let e = elts.find(e => e.clickable === true);
     if (e !== undefined) {
+        let ropts = roomOptions[ currentRoomID ];
         // transform canvas to audio coordinates
         HiFiAudio.setLocalMetaData({
-            x: (e.x - 0.5) * canvasDimensions.width,
-            y: -(e.y - 0.5) * canvasDimensions.height,
+            x: (e.x - 0.5) * ropts.canvasDimensions.width,
+            y: -(e.y - 0.5) * ropts.canvasDimensions.height,
             o: e.o
         });
     }
@@ -279,8 +284,9 @@ function updateRemotePosition(uid, x, y, o) {
     // update canvas position
     let e = elements.find(e => e.uid === uid);
     if (e !== undefined) {
-        e.x = 0.5 + (x / canvasDimensions.width);
-        e.y = 0.5 - (y / canvasDimensions.height);
+        let ropts = roomOptions[ currentRoomID ];
+        e.x = 0.5 + (x / ropts.canvasDimensions.width);
+        e.y = 0.5 - (y / ropts.canvasDimensions.height);
         e.o = o;
     }
 }
@@ -476,7 +482,7 @@ async function joinRoom() {
                                     initialPosition,
                                     threshold.value,
                                     ropts.video,
-                                    ropts.metadta);
+                                    ropts.metaData);
 
     usernames[ localUid ] = options.username;
 
@@ -499,8 +505,8 @@ async function joinRoom() {
 
         elements.push({
             icon: 'listenerIcon',
-            x: 0.5 + (initialPosition.x / canvasDimensions.width),
-            y: 0.5 - (initialPosition.y / canvasDimensions.height),
+            x: 0.5 + (initialPosition.x / ropts.canvasDimensions.width),
+            y: 0.5 - (initialPosition.y / ropts.canvasDimensions.height),
             o: initialPosition.o,
             radius: 0.02,
             alpha: 0.5,
@@ -640,8 +646,9 @@ function setOwnPosition(p) {
 
     let e = elements.find(e => e.uid === localUid);
     if (e !== undefined) {
-        e.x = 0.5 + (p.x / canvasDimensions.width);
-        e.y = 0.5 - (p.y / canvasDimensions.height);
+        let ropts = roomOptions[ currentRoomID ];
+        e.x = 0.5 + (p.x / ropts.canvasDimensions.width);
+        e.y = 0.5 - (p.y / ropts.canvasDimensions.height);
         e.o = p.o;
     }
     updatePositions(elements);

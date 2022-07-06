@@ -451,7 +451,11 @@ async function joinAgoraRoom() {
         const senderStreams = sender.createEncodedStreams();
         const readableStream = senderStreams.readable;
         const writableStream = senderStreams.writable;
-        senderTransform(readableStream, writableStream);
+        if (hifiOptions.enableMetadata) {
+            senderTransform(readableStream, writableStream);
+        } else {
+            senderNullTransform(readableStream, writableStream);
+        }
     }
 
     let videoSender = senders.find(e => e.track?.kind === 'video');
@@ -584,7 +588,11 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
                 const receiverStreams = receiver.createEncodedStreams();
                 const readableStream = receiverStreams.readable;
                 const writableStream = receiverStreams.writable;
-                receiverTransform(readableStream, writableStream, uid, sourceMetadata);
+                if (hifiOptions.enableMetadata) {
+                    receiverTransform(readableStream, writableStream, uid, sourceMetadata);
+                } else {
+                    receiverNullTransform(readableStream, writableStream, uid, sourceMetadata);
+                }
             } catch (e) {
             }
         }
