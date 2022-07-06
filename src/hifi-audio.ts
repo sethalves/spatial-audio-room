@@ -17,11 +17,11 @@ declare const AgoraRTC: IAgoraRTCOpen;
 import { checkSupported } from './check-supported.js';
 let [ simdSupported, encodedTransformSupported, isChrome ] = checkSupported();
 
-// import { patchRTCPeerConnection } from './patchRTCPeerConnection.js';
-// let _RTCPeerConnection = RTCPeerConnection;
-// patchRTCPeerConnection(_RTCPeerConnection);
+import { patchRTCPeerConnection } from './patchRTCPeerConnection.js';
+let _RTCPeerConnection = RTCPeerConnection;
+patchRTCPeerConnection(_RTCPeerConnection);
 
-import { metadata, senderTransform, receiverTransform } from './transform.js';
+import { metadata, senderTransform, receiverTransform, senderNullTransform, receiverNullTransform } from './transform.js';
 
 
 interface AudioWorkletNodeMeta extends AudioWorkletNode {
@@ -156,16 +156,16 @@ function listenerMetadata(position : MetaData) {
     data.setInt16(2, qy);
     data.setInt8(4, qo);
 
-    // if (encodedTransformSupported) {
-    //     if (worker) {
-    //         worker.postMessage({
-    //             operation: 'metadata',
-    //             metadata: data.buffer
-    //         }, [data.buffer]);
-    //     }
-    // } else {
-    //     metadata.data = data.buffer;
-    // }
+    if (encodedTransformSupported) {
+        if (worker) {
+            worker.postMessage({
+                operation: 'metadata',
+                metadata: data.buffer
+            }, [data.buffer]);
+        }
+    } else {
+        metadata.data = data.buffer;
+    }
 }
 
 export function sourceMetadata(buffer : ArrayBuffer, uid : UID) : void {
@@ -436,21 +436,29 @@ async function joinAgoraRoom() {
     await client.publish(Object.values(localTracks));
     console.log("publish success");
 
-    // //
-    // // Insertable Streams / Encoded Transform
-    // //
-    // let senders : Array<RTCRtpSenderIS> = client._p2pChannel.connection.peerConnection.getSenders();
-    // let sender = senders.find(e => e.track?.kind === 'audio');
+    //
+    // Insertable Streams / Encoded Transform
+    //
+    let senders : Array<RTCRtpSenderIS> = client._p2pChannel.connection.peerConnection.getSenders();
+    let sender = senders.find(e => e.track?.kind === 'audio');
 
-    // if (encodedTransformSupported) {
-    //     sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
+    if (encodedTransformSupported) {
+        sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
 
-    // } else {
-    //     const senderStreams = sender.createEncodedStreams();
-    //     const readableStream = senderStreams.readable;
-    //     const writableStream = senderStreams.writable;
-    //     senderTransform(readableStream, writableStream);
-    // }
+    } else {
+        const senderStreams = sender.createEncodedStreams();
+        const readableStream = senderStreams.readable;
+        const writableStream = senderStreams.writable;
+        senderTransform(readableStream, writableStream);
+    }
+
+    let videoSender = senders.find(e => e.track?.kind === 'video');
+    if (videoSender) {
+        const videoSenderStreams = videoSender.createEncodedStreams();
+        const videoReadableStream = videoSenderStreams.readable;
+        const videoWritableStream = videoSenderStreams.writable;
+        senderNullTransform(videoReadableStream, videoWritableStream);
+    }
 
     //
     // HACK! set user radius based on volume level
@@ -568,23 +576,29 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
         let receivers : Array<RTCRtpReceiverIS> = client._p2pChannel.connection.peerConnection.getReceivers();
         let receiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'audio');
 
-        // if (encodedTransformSupported) {
-        //     receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
-        //
-        // } else {
-        //     const receiverStreams = receiver.createEncodedStreams();
-        //     const readableStream = receiverStreams.readable;
-        //     const writableStream = receiverStreams.writable;
-        //     receiverTransform(readableStream, writableStream, uid, sourceMetadata);
-        // }
+        if (encodedTransformSupported) {
+            receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
+
+        } else {
+            const receiverStreams = receiver.createEncodedStreams();
+            const readableStream = receiverStreams.readable;
+            const writableStream = receiverStreams.writable;
+            receiverTransform(readableStream, writableStream, uid, sourceMetadata);
+        }
 
         if (onRemoteUserJoined) {
             onRemoteUserJoined("" + uid);
         }
     }
 
-    // XXX
     if (mediaType === 'video') {
+
+        let receivers : Array<RTCRtpReceiverIS> = client._p2pChannel.connection.peerConnection.getReceivers();
+        let videoReceiver : RTCRtpReceiverIS = receivers.find(e => e.track?.kind === 'video');
+        const videoReceiverStreams = videoReceiver.createEncodedStreams();
+        const videoReadableStream = videoReceiverStreams.readable;
+        const videoRritableStream = videoReceiverStreams.writable;
+        receiverNullTransform(videoReadableStream, videoRritableStream, uid, sourceMetadata);
 
         // subscribe to a remote user
         await client.subscribe(user, mediaType);
@@ -593,7 +607,6 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
         console.log(`QQQQ XXX playing video player-${uid}`);
         user.videoTrack.play(`player-${uid}`);
     }
-    // XXX
 }
 
 
@@ -632,8 +645,7 @@ async function unsubscribe(user: IAgoraRTCRemoteUser) {
 async function startEchoCancellation(element : HTMLAudioElement, context : AudioContext) {
     console.log("hifi-audio: startEchoCancellation()");
 
-    // loopback = [new _RTCPeerConnection, new _RTCPeerConnection];
-    loopback = [new RTCPeerConnection, new RTCPeerConnection];
+    loopback = [new _RTCPeerConnection, new _RTCPeerConnection];
 
     // connect Web Audio to destination
     let destination = context.createMediaStreamDestination();
@@ -677,10 +689,10 @@ async function startSpatialAudio() {
 
     audioElement = new Audio();
 
-    // if (encodedTransformSupported) {
-    //     worker = new Worker('worker.js');
-    //     worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
-    // }
+    if (encodedTransformSupported) {
+        worker = new Worker('worker.js');
+        worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
+    }
 
     try {
         audioContext = new AudioContext({ sampleRate: 48000 });

@@ -241,8 +241,10 @@ function updateVideoPositions() {
     let xmax = 0;
     order.forEach((uid, i) => {
         let rect = sortable.el.children[i].getClientRects();
-        xmin = Math.min(xmin, rect[0].left);
-        xmax = Math.max(xmax, rect[0].right);
+        if (rect[0]) {
+            xmin = Math.min(xmin, rect[0].left);
+            xmax = Math.max(xmax, rect[0].right);
+        }
     });
 
     // center the horizontal axis at zero
