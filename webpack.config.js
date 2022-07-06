@@ -22,6 +22,7 @@ module.exports = ({ buildEnv }) => {
                     { from: "assets/hifi.wasm.js", to: "" },
                     { from: "assets/hifi.wasm.simd.js", to: "" },
                     { from: "assets/Logo-HighFidelity-Line-PrimaryBlue.svg", to: "" },
+                    { from: "assets/High-Fidelity_Imagery_Brand_Logo_Left-Lockup_Black_v01.svg", to: "" },
                     { from: "assets/worker.js", to: "" },
                     { from: "example/index.css", to: "" },
                     { from: "example/index.html", to: "" },
