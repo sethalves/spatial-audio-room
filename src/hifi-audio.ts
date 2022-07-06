@@ -535,13 +535,13 @@ function handleUserPublished(user : IAgoraRTCRemoteUser, mediaType : string) {
 
     console.log("QQQQ HANDLEUSERPUBLISHED id=" + id + " mediaType=" + mediaType);
 
-    remoteUsers[id] = user;
+    remoteUsers["" + id] = user;
     subscribe(user, mediaType);
 }
 
 function handleUserUnpublished(user : IAgoraRTCRemoteUser) {
     const uid = user.uid;
-    delete remoteUsers[uid];
+    delete remoteUsers["" + uid];
     if (onRemoteUserLeft) {
         onRemoteUserLeft("" + uid);
     }
@@ -558,8 +558,6 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
         // subscribe to a remote user
         await client.subscribe(user, mediaType);
         console.log("subscribe uid:", uid);
-
-        //user.audioTrack.play();
 
         let mediaStreamTrack = user.audioTrack.getMediaStreamTrack();
         let mediaStream = new MediaStream([mediaStreamTrack]);
@@ -580,32 +578,51 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
             receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
 
         } else {
-            const receiverStreams = receiver.createEncodedStreams();
-            const readableStream = receiverStreams.readable;
-            const writableStream = receiverStreams.writable;
-            receiverTransform(readableStream, writableStream, uid, sourceMetadata);
-        }
-
-        if (onRemoteUserJoined) {
-            onRemoteUserJoined("" + uid);
+            try {
+                const receiverStreams = receiver.createEncodedStreams();
+                const readableStream = receiverStreams.readable;
+                const writableStream = receiverStreams.writable;
+                receiverTransform(readableStream, writableStream, uid, sourceMetadata);
+            } catch (e) {
+            }
         }
     }
 
     if (mediaType === 'video') {
 
+        // let mediaStreamTrack = user.videoTrack.getMediaStreamTrack();
+        // let videoReceiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'video');
+
         let receivers : Array<RTCRtpReceiverIS> = client._p2pChannel.connection.peerConnection.getReceivers();
-        let videoReceiver : RTCRtpReceiverIS = receivers.find(e => e.track?.kind === 'video');
-        const videoReceiverStreams = videoReceiver.createEncodedStreams();
-        const videoReadableStream = videoReceiverStreams.readable;
-        const videoRritableStream = videoReceiverStreams.writable;
-        receiverNullTransform(videoReadableStream, videoRritableStream, uid, sourceMetadata);
+
+        for (let i = 0; i < receivers.length; i++) {
+            let videoReceiver : RTCRtpReceiverIS = receivers[ i ];
+            if (videoReceiver.track?.kind === 'video') {
+                try {
+                    const videoReceiverStreams = videoReceiver.createEncodedStreams();
+                    const videoReadableStream = videoReceiverStreams.readable;
+                    const videoRritableStream = videoReceiverStreams.writable;
+                    receiverNullTransform(videoReadableStream, videoRritableStream, uid, sourceMetadata);
+                } catch (e) {
+                }
+            }
+        }
+
+        // let videoReceiver : RTCRtpReceiverIS = receivers.find(e => e.track?.kind === 'video');
+        // const videoReceiverStreams = videoReceiver.createEncodedStreams();
+        // const videoReadableStream = videoReceiverStreams.readable;
+        // const videoRritableStream = videoReceiverStreams.writable;
+        // receiverNullTransform(videoReadableStream, videoRritableStream, uid, sourceMetadata);
 
         // subscribe to a remote user
         await client.subscribe(user, mediaType);
         console.log("subscribe uid:", uid);
+    }
 
-        console.log(`QQQQ XXX playing video player-${uid}`);
-        user.videoTrack.play(`player-${uid}`);
+    if (hifiOptions.video && mediaType === 'video' && onRemoteUserJoined) {
+        onRemoteUserJoined("" + uid);
+    } else if (!hifiOptions.video && mediaType === 'audio' && onRemoteUserJoined) {
+        onRemoteUserJoined("" + uid);
     }
 }
 
@@ -614,15 +631,12 @@ export function playVideo(uid : UID, videoEltID : string) {
     if (uid == hifiOptions.uid) {
         localTracks.videoTrack.play(videoEltID);
     } else {
-        for (const user of client.remoteUsers /* [ IAgoraRTCRemoteUser ] */) {
-            if (user.uid == uid) {
-                console.log("QQQQ playVideo for " + uid);
-                if (user.videoTrack) {
-                    user.videoTrack.play(videoEltID);
-                } else {
-                    console.log("QQQQ but no user.videoTrack... " + uid);
-                }
-            }
+        let user = remoteUsers[ "" + uid ];
+        console.log("QQQQ playVideo for " + uid);
+        if (user.videoTrack) {
+            user.videoTrack.play(videoEltID);
+        } else {
+            console.log("QQQQ but no user.videoTrack... " + uid);
         }
     }
 }

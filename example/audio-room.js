@@ -54,7 +54,7 @@ let roomIDs = [];
 for (const [key, value] of Object.entries(roomOptions)) {
     roomIDs.push(key);
 }
-let currentRoomID = roomIDs[3];
+let currentRoomID = roomIDs[0];
 
 
 // assume token server is on same webserver as this app...
@@ -172,8 +172,12 @@ $("#leave").click(function(e) {
 
 $("#aec").click(async function(e) {
     // toggle the state
-    HiFiAudio.setAecEnabled(!HiFiAudio.isAecEnabled());
+    await HiFiAudio.setAecEnabled(!HiFiAudio.isAecEnabled());
     updateAudioControlsUI();
+    let ropts = roomOptions[ currentRoomID ];
+    if (ropts.video) {
+        HiFiAudio.playVideo(localUid, "local-player");
+    }
 })
 
 $("#mute").click(function(e) {
@@ -241,7 +245,7 @@ function updateVideoPositions() {
     let xmax = 0;
     order.forEach((uid, i) => {
         let rect = sortable.el.children[i].getClientRects();
-        if (rect[0]) {
+        if (rect && rect[0]) {
             xmin = Math.min(xmin, rect[0].left);
             xmax = Math.max(xmax, rect[0].right);
         }
@@ -255,12 +259,14 @@ function updateVideoPositions() {
     // compute azimuth from center of video element
     order.forEach((uid, i) => {
         let rect = sortable.el.children[i].getClientRects();
-        let x = (rect[0].left + rect[0].right) / 2 - xoff;
-        let azimuth = (Math.PI / 2) * (x / xmax);   // linear, not atan(x)
+        if (rect && rect[0]) {
+            let x = (rect[0].left + rect[0].right) / 2 - xoff;
+            let azimuth = (Math.PI / 2) * (x / xmax);   // linear, not atan(x)
 
-        // update hifiSource
-        HiFiAudio.setAzimuth(uid, azimuth);
-        console.log("Set uid =", uid, "to azimuth =", (azimuth * 180) / Math.PI);
+            // update hifiSource
+            HiFiAudio.setAzimuth(uid, azimuth);
+            console.log("Set uid =", uid, "to azimuth =", (azimuth * 180) / Math.PI);
+        }
     });
 }
 
