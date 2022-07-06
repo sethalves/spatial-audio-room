@@ -111,6 +111,10 @@ webSocket.onmessage = async function (event) {
     }
 }
 
+webSocket.onopen = function (event) {
+    $("#join").attr("disabled", false);
+}
+
 
 // the demo can auto-set channel and user-name with params in url
 $(()=>{
@@ -471,7 +475,8 @@ async function joinRoom() {
                                     options.channel + ":" + currentRoomID,
                                     initialPosition,
                                     threshold.value,
-                                    ropts.video);
+                                    ropts.video,
+                                    ropts.metadta);
 
     usernames[ localUid ] = options.username;
 

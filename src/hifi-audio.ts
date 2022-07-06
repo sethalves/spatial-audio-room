@@ -128,6 +128,7 @@ interface HifiOptions {
     thresholdValue?: number | undefined
     thresholdSet?: boolean | undefined
     video? : boolean | undefined
+    enableMetadata? : boolean | undefined
 }
 let hifiOptions : HifiOptions = {};
 
@@ -156,7 +157,7 @@ function listenerMetadata(position : MetaData) {
     data.setInt16(2, qy);
     data.setInt8(4, qo);
 
-    if (encodedTransformSupported) {
+    if (encodedTransformSupported && hifiOptions.enableMetadata) {
         if (worker) {
             worker.postMessage({
                 operation: 'metadata',
@@ -321,25 +322,26 @@ export async function join(appID : string,
                            channel : string,
                            initialPosition : MetaData,
                            initialThresholdValue : number,
-                           video : boolean) {
+                           video : boolean,
+                           enableMetadata : boolean) {
 
     console.log("hifi-audio: join -- initialThresholdValue=" + initialThresholdValue);
 
+    hifiOptions.uid = (Math.random()*4294967296)>>>0;
     hifiOptions.appid = appID;
     hifiOptions.tokenProvider = tokenProvider;
     hifiOptions.channel = channel;
-    hifiOptions.video = video;
-    if (!hifiOptions.thresholdSet) {
-        hifiOptions.thresholdValue = initialThresholdValue;
-        hifiOptions.thresholdSet = true;
-    }
-    hifiOptions.uid = (Math.random()*4294967296)>>>0;
-
     if (initialPosition) {
         hifiPosition.x = initialPosition.x;
         hifiPosition.y = initialPosition.y;
         hifiPosition.o = initialPosition.o;
     }
+    if (!hifiOptions.thresholdSet) {
+        hifiOptions.thresholdValue = initialThresholdValue;
+        hifiOptions.thresholdSet = true;
+    }
+    hifiOptions.video = video;
+    hifiOptions.enableMetadata = enableMetadata;
 
     return await joinAgoraRoom();
 }
@@ -442,7 +444,7 @@ async function joinAgoraRoom() {
     let senders : Array<RTCRtpSenderIS> = client._p2pChannel.connection.peerConnection.getSenders();
     let sender = senders.find(e => e.track?.kind === 'audio');
 
-    if (encodedTransformSupported) {
+    if (encodedTransformSupported && hifiOptions.enableMetadata) {
         sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
 
     } else {
@@ -574,7 +576,7 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
         let receivers : Array<RTCRtpReceiverIS> = client._p2pChannel.connection.peerConnection.getReceivers();
         let receiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'audio');
 
-        if (encodedTransformSupported) {
+        if (encodedTransformSupported && hifiOptions.enableMetadata) {
             receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
 
         } else {
@@ -703,7 +705,7 @@ async function startSpatialAudio() {
 
     audioElement = new Audio();
 
-    if (encodedTransformSupported) {
+    if (encodedTransformSupported && hifiOptions.enableMetadata) {
         worker = new Worker('worker.js');
         worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
     }
