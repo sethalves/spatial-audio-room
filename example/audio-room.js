@@ -332,7 +332,7 @@ function onUserPublished(uid) {
     let ropts = roomOptions[ currentRoomID ];
     if (ropts.video) {
         const player = $(`
-        <div id="player-wrapper-${uid}" data-id="${uid}">
+        <div id="player-wrapper-${uid}" data-id="${uid}" class="player-wrapper">
             <div id="player-${uid}" class="player"></div>
             <p id="player-name-${uid}" class="player-name"></p>
         </div>
@@ -522,7 +522,6 @@ async function leaveRoom() {
 
     // remove remote users and player views
     $("#remote-playerlist").html("");
-    // $("#playerlist").html("");
 
     $("#local-player-name").text("");
     $("#join").attr("disabled", false);
