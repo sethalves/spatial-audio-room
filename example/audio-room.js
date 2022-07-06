@@ -26,9 +26,13 @@ let roomOptions = {
             { x: 0, y: -1, o: degToRad(0) },
             { x: 1, y: 0, o: degToRad(270) },
             { x: 0, y: 1, o: degToRad(180) },
-            { x: -1, y: 0, o: degToRad(90) }
+            { x: -1, y: 0, o: degToRad(90) },
+            { x: -1.4, y: -1.4, o: degToRad(45) },
+            { x: -1.4, y: 1.4, o: degToRad(135) },
+            { x: 1.4, y: 1.4, o: degToRad(225) },
+            { x: 1.4, y: -1.4, o: degToRad(315) }
         ],
-        canvasDimensions: { width: 8, height: 8 }
+        canvasDimensions: { width: 4, height: 4 }
     },
 
     "room-quad-music": {
