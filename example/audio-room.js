@@ -106,9 +106,10 @@ webSocket.onmessage = async function (event) {
             console.log("switching to room " + msg.room);
             currentRoomID = msg.room;
             if (localUid) {
+                await leaveRoom();
+
                 configureRoom();
                 updateRoomsUI();
-                await leaveRoom();
 
                 $("#join").attr("disabled", true);
                 try {
@@ -192,7 +193,7 @@ $("#aec").click(async function(e) {
     updateAudioControlsUI();
     let ropts = roomOptions[ currentRoomID ];
     if (ropts.video) {
-        HiFiAudio.playVideo(localUid, "local-player");
+        await HiFiAudio.playVideo(localUid, "local-player");
     }
 })
 

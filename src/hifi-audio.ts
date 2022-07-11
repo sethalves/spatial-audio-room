@@ -118,6 +118,9 @@ let audioContext : AudioContext;
 
 let hifiPosition = { x: 0.0, y: 0.0, o: 0.0 };
 
+let subscribedToAudio : { [uid: string] : boolean; } = {};
+let subscribedToVideo : { [uid: string] : boolean; } = {};
+
 
 // Agora client hifiOptions
 interface HifiOptions {
@@ -565,6 +568,8 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
         await client.subscribe(user, mediaType);
         console.log("subscribe uid:", uid);
 
+        subscribedToAudio[ "" + uid ] = true;
+
         let mediaStreamTrack = user.audioTrack.getMediaStreamTrack();
         let mediaStream = new MediaStream([mediaStreamTrack]);
         let sourceNode = audioContext.createMediaStreamSource(mediaStream);
@@ -600,8 +605,14 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
 
     if (mediaType === 'video') {
 
+        // subscribe to a remote user
+        await client.subscribe(user, mediaType);
+        console.log("subscribe uid:", uid);
+
         // let mediaStreamTrack = user.videoTrack.getMediaStreamTrack();
         // let videoReceiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'video');
+
+        subscribedToVideo[ "" + uid ] = true;
 
         let receivers : Array<RTCRtpReceiverIS> = client._p2pChannel.connection.peerConnection.getReceivers();
 
@@ -623,28 +634,32 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
         // const videoReadableStream = videoReceiverStreams.readable;
         // const videoRritableStream = videoReceiverStreams.writable;
         // receiverNullTransform(videoReadableStream, videoRritableStream, uid, sourceMetadata);
-
-        // subscribe to a remote user
-        await client.subscribe(user, mediaType);
-        console.log("subscribe uid:", uid);
     }
 
-    if (hifiOptions.video && mediaType === 'video' && onRemoteUserJoined) {
+    console.log("QQQQ considering calling onRemoteUserJoined -- uid=" + uid +
+        ", hifiOptions.video=" + hifiOptions.video +
+        ", subscribedToAudio=" + subscribedToAudio[ "" + uid ] +
+        ", subscribedToVideo=" + subscribedToVideo[ "" + uid ]);
+
+    if (hifiOptions.video && subscribedToAudio[ "" + uid ] && subscribedToVideo[ "" + uid ]) {
+        console.log("QQQQ A calling onRemoteUserJoined(" + uid + ")");
         onRemoteUserJoined("" + uid);
-    } else if (!hifiOptions.video && mediaType === 'audio' && onRemoteUserJoined) {
+    }
+    if (!hifiOptions.video && subscribedToAudio[ "" + uid ]) {
+        console.log("QQQQ B calling onRemoteUserJoined(" + uid + ")");
         onRemoteUserJoined("" + uid);
     }
 }
 
 
-export function playVideo(uid : UID, videoEltID : string) {
+export async function playVideo(uid : UID, videoEltID : string) {
     if (uid == hifiOptions.uid) {
-        localTracks.videoTrack.play(videoEltID);
+        await localTracks.videoTrack.play(videoEltID);
     } else {
         let user = remoteUsers[ "" + uid ];
         console.log("QQQQ playVideo for " + uid);
         if (user.videoTrack) {
-            user.videoTrack.play(videoEltID);
+            await user.videoTrack.play(videoEltID);
         } else {
             console.log("QQQQ but no user.videoTrack... " + uid);
         }
@@ -655,7 +670,9 @@ export function playVideo(uid : UID, videoEltID : string) {
 async function unsubscribe(user: IAgoraRTCRemoteUser) {
     const uid = user.uid;
 
-    delete hifiSources[uid];
+    delete hifiSources[ uid ];
+    delete subscribedToAudio[ "" + uid ];
+    delete subscribedToVideo[ "" + uid ];
 
     console.log("unsubscribe uid:", uid);
 }
