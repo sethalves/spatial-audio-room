@@ -43,7 +43,7 @@ let roomOptions = {
         canvasDimensions: { width: 8, height: 8 },
         background: null
     },
-    
+
     "room-bar": {
         video: false,
         metaData: true,
@@ -490,8 +490,7 @@ async function joinRoom() {
                                     options.channel + ":" + currentRoomID,
                                     initialPosition,
                                     threshold.value,
-                                    ropts.video,
-                                    ropts.metaData);
+                                    ropts.video);
 
     usernames[ localUid ] = options.username;
 

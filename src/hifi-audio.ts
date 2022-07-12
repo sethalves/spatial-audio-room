@@ -128,10 +128,9 @@ interface HifiOptions {
     channel?: string | undefined,
     tokenProvider?: Function | undefined,
     uid?: UID | undefined,
-    thresholdValue?: number | undefined
-    thresholdSet?: boolean | undefined
+    thresholdValue?: number | undefined,
+    thresholdSet?: boolean | undefined,
     video? : boolean | undefined
-    enableMetadata? : boolean | undefined
 }
 let hifiOptions : HifiOptions = {};
 
@@ -160,7 +159,7 @@ function listenerMetadata(position : MetaData) {
     data.setInt16(2, qy);
     data.setInt8(4, qo);
 
-    if (encodedTransformSupported && hifiOptions.enableMetadata) {
+    if (encodedTransformSupported) {
         if (worker) {
             worker.postMessage({
                 operation: 'metadata',
@@ -325,8 +324,7 @@ export async function join(appID : string,
                            channel : string,
                            initialPosition : MetaData,
                            initialThresholdValue : number,
-                           video : boolean,
-                           enableMetadata : boolean) {
+                           video : boolean) {
 
     console.log("hifi-audio: join -- initialThresholdValue=" + initialThresholdValue);
 
@@ -344,13 +342,16 @@ export async function join(appID : string,
         hifiOptions.thresholdSet = true;
     }
     hifiOptions.video = video;
-    hifiOptions.enableMetadata = enableMetadata;
 
     return await joinAgoraRoom();
 }
 
 
 async function joinAgoraRoom() {
+
+    console.log("joinAgoraRoom options: " + JSON.stringify(hifiOptions) +
+        " simdSupported=" + simdSupported + " encodedTransformSupported=" + encodedTransformSupported +
+        " isChrome=" + isChrome);
 
     await startSpatialAudio();
 
@@ -447,18 +448,14 @@ async function joinAgoraRoom() {
     let senders : Array<RTCRtpSenderIS> = client._p2pChannel.connection.peerConnection.getSenders();
     let sender = senders.find(e => e.track?.kind === 'audio');
 
-    if (encodedTransformSupported && hifiOptions.enableMetadata) {
+    if (encodedTransformSupported) {
         sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
 
     } else {
         const senderStreams = sender.createEncodedStreams();
         const readableStream = senderStreams.readable;
         const writableStream = senderStreams.writable;
-        if (hifiOptions.enableMetadata) {
-            senderTransform(readableStream, writableStream);
-        } else {
-            senderNullTransform(readableStream, writableStream);
-        }
+        senderTransform(readableStream, writableStream);
     }
 
     let videoSender = senders.find(e => e.track?.kind === 'video');
@@ -585,7 +582,7 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
         let receivers : Array<RTCRtpReceiverIS> = client._p2pChannel.connection.peerConnection.getReceivers();
         let receiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'audio');
 
-        if (encodedTransformSupported && hifiOptions.enableMetadata) {
+        if (encodedTransformSupported) {
             receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
 
         } else {
@@ -593,11 +590,7 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
                 const receiverStreams = receiver.createEncodedStreams();
                 const readableStream = receiverStreams.readable;
                 const writableStream = receiverStreams.writable;
-                if (hifiOptions.enableMetadata) {
-                    receiverTransform(readableStream, writableStream, uid, sourceMetadata);
-                } else {
-                    receiverNullTransform(readableStream, writableStream, uid, sourceMetadata);
-                }
+                receiverTransform(readableStream, writableStream, uid, sourceMetadata);
             } catch (e) {
             }
         }
@@ -730,7 +723,7 @@ async function startSpatialAudio() {
 
     audioElement = new Audio();
 
-    if (encodedTransformSupported && hifiOptions.enableMetadata) {
+    if (encodedTransformSupported) {
         worker = new Worker('worker.js');
         worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
     }
