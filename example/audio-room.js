@@ -346,8 +346,6 @@ function receiveBroadcast(uid, data) {
 
 function onUserPublished(uid) {
 
-    console.log("QQQQ got onUserPublished " + JSON.stringify(uid));
-
     let ropts = roomOptions[ currentRoomID ];
     if (ropts.video) {
         const player = $(`
@@ -356,8 +354,6 @@ function onUserPublished(uid) {
             <p id="player-name-${uid}" class="player-name"></p>
         </div>
         `);
-
-        console.log(`QQQQ append html for player-${uid}`);
 
         $("#playerlist").append(player);
         $(`#player-name-${uid}`).text(usernames[uid]);
@@ -379,7 +375,6 @@ function onUserPublished(uid) {
 
 
 function onUserUnpublished(uid) {
-    console.log("QQQQ onUserUnpublished " + JSON.stringify(uid));
 
     $(`#player-wrapper-${uid}`).remove();
 
@@ -484,7 +479,6 @@ async function joinRoom() {
 
     let ropts = roomOptions[ currentRoomID ];
 
-    console.log("QQQQ appid=" + options.appid);
     localUid = await HiFiAudio.join(options.appid,
                                     fetchToken,
                                     options.channel + ":" + currentRoomID,
@@ -494,9 +488,6 @@ async function joinRoom() {
                                     ropts.metaData);
 
     usernames[ localUid ] = options.username;
-
-    console.log("QQQQ localUid=" + JSON.stringify(localUid) + " username=" + JSON.stringify(options.username));
-
 
     if (ropts.video) {
         $("#local-player-name").text(options.username);

@@ -369,15 +369,14 @@ async function joinAgoraRoom() {
         " simdSupported=" + simdSupported + " encodedTransformSupported=" + encodedTransformSupported +
         " isChrome=" + isChrome);
 
-    await startSpatialAudio();
-
-    // add event listener to play remote tracks when remote user publishs.
-
     client = AgoraRTC.createClient({
         mode: "rtc",
         codec: "vp8"
     });
 
+    await startSpatialAudio();
+
+    // add event listener to play remote tracks when remote user publishs.
     client.on("user-published", (user : IAgoraRTCRemoteUser, mediaType : string) => { handleUserPublished(user, mediaType); });
     client.on("user-unpublished", (user : IAgoraRTCRemoteUser) => { handleUserUnpublished(user); });
 
@@ -454,7 +453,6 @@ async function joinAgoraRoom() {
     await localTracks.audioTrack._updateOriginMediaStreamTrack(destinationTrack, false);
 
     // publish local tracks to channel
-    console.log("QQQQ publishing " + JSON.stringify(Object.keys(localTracks)));
     await client.publish(Object.values(localTracks));
     console.log("publish success");
 
@@ -737,11 +735,9 @@ async function startSpatialAudio() {
         hifiLimiter.connect(audioContext.destination);
     }
 
-    try {
-        audioElement.play();
-    } catch (e) {
-    }
+    audioElement.play();
 }
+
 
 function stopSpatialAudio() {
     console.log("hifi-audio: stopSpatialAudio()");
