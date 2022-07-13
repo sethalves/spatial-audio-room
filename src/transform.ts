@@ -86,27 +86,3 @@ export function receiverTransform(readableStream : ReadableStream, writableStrea
     transformStream.uid = uid;
     readableStream.pipeThrough(transformStream).pipeTo(writableStream);
 }
-
-
-export function senderNullTransform(readableStream : ReadableStream, writableStream : WritableStream) : void {
-    const transformStream = new TransformStream({
-        start() { console.log('%cworker set sender transform', 'color:yellow'); },
-        transform(encodedFrame, controller) {
-            controller.enqueue(encodedFrame);
-        },
-    });
-    readableStream.pipeThrough(transformStream).pipeTo(writableStream);
-}
-
-
-export function receiverNullTransform(readableStream : ReadableStream, writableStream : WritableStream, uid : UID,
-                                  sourceMetadata : Function) : void {
-    const transformStream : TransformStreamWithID = new TransformStream({
-        start() { console.log('%cworker set receiver transform for uid:', 'color:yellow', uid); },
-        transform(encodedFrame, controller) {
-            controller.enqueue(encodedFrame);
-        },
-    });
-    transformStream.uid = uid;
-    readableStream.pipeThrough(transformStream).pipeTo(writableStream);
-}

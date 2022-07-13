@@ -490,7 +490,8 @@ async function joinRoom() {
                                     options.channel + ":" + currentRoomID,
                                     initialPosition,
                                     threshold.value,
-                                    ropts.video);
+                                    ropts.video,
+                                    ropts.metaData);
 
     usernames[ localUid ] = options.username;
 

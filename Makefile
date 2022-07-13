@@ -11,7 +11,8 @@ all:
 	cp -r vendor dist/vendor
 	tsc --declaration true
 	cp assets/*.js dist/
-	cp assets/Logo-HighFidelity-Line-PrimaryBlue.svg dist/
+	cp assets/*.svg dist/
+	cp assets/*.ico dist/
 	cp example/* dist/
 	cp dist/transform.js dist/worker-transform.js
 	sed -i 's/export //g' dist/worker-transform.js

@@ -21,7 +21,10 @@ import { patchRTCPeerConnection } from './patchRTCPeerConnection.js';
 let _RTCPeerConnection = RTCPeerConnection;
 patchRTCPeerConnection(_RTCPeerConnection);
 
-import { metadata, senderTransform, receiverTransform, senderNullTransform, receiverNullTransform } from './transform.js';
+let _RTCPeerConnectionWithMetadata = RTCPeerConnection;
+let _RTCPeerConnectionWithoutMetadata = _RTCPeerConnection;
+
+import { metadata, senderTransform, receiverTransform } from './transform.js';
 
 
 interface AudioWorkletNodeMeta extends AudioWorkletNode {
@@ -130,7 +133,8 @@ interface HifiOptions {
     uid?: UID | undefined,
     thresholdValue?: number | undefined,
     thresholdSet?: boolean | undefined,
-    video? : boolean | undefined
+    video? : boolean | undefined,
+    enableMetadata? : boolean | undefined
 }
 let hifiOptions : HifiOptions = {};
 
@@ -160,12 +164,10 @@ function listenerMetadata(position : MetaData) {
     data.setInt8(4, qo);
 
     if (encodedTransformSupported) {
-        if (worker) {
-            worker.postMessage({
-                operation: 'metadata',
-                metadata: data.buffer
-            }, [data.buffer]);
-        }
+        worker.postMessage({
+            operation: 'metadata',
+            metadata: data.buffer
+        }, [data.buffer]);
     } else {
         metadata.data = data.buffer;
     }
@@ -184,7 +186,10 @@ export function sourceMetadata(buffer : ArrayBuffer, uid : UID) : void {
         hifiSource._x = x;
         hifiSource._y = y;
         hifiSource._o = o;
-        setPositionFromMetadata(hifiSource);
+
+        if (hifiOptions.enableMetadata) {
+            setPositionFromMetadata(hifiSource);
+        }
     }
 
     if (onUpdateRemotePosition) {
@@ -293,7 +298,9 @@ export function setLocalMetaData(e : MetaData) : void {
     hifiPosition.x = e.x;
     hifiPosition.y = e.y;
     hifiPosition.o = e.o;
-    listenerMetadata(hifiPosition);
+    if (hifiOptions.enableMetadata) {
+        listenerMetadata(hifiPosition);
+    }
 }
 
 
@@ -324,7 +331,9 @@ export async function join(appID : string,
                            channel : string,
                            initialPosition : MetaData,
                            initialThresholdValue : number,
-                           video : boolean) {
+                           video : boolean,
+                           enableMetadata : boolean
+                          ) {
 
     console.log("hifi-audio: join -- initialThresholdValue=" + initialThresholdValue);
 
@@ -342,6 +351,13 @@ export async function join(appID : string,
         hifiOptions.thresholdSet = true;
     }
     hifiOptions.video = video;
+    hifiOptions.enableMetadata = enableMetadata;
+
+    if (enableMetadata) {
+        RTCPeerConnection = _RTCPeerConnectionWithMetadata;
+    } else {
+        RTCPeerConnection = _RTCPeerConnectionWithoutMetadata;
+    }
 
     return await joinAgoraRoom();
 }
@@ -448,22 +464,18 @@ async function joinAgoraRoom() {
     let senders : Array<RTCRtpSenderIS> = client._p2pChannel.connection.peerConnection.getSenders();
     let sender = senders.find(e => e.track?.kind === 'audio');
 
-    if (encodedTransformSupported) {
-        sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
+    if (hifiOptions.enableMetadata) {
+        if (encodedTransformSupported) {
 
-    } else {
-        const senderStreams = sender.createEncodedStreams();
-        const readableStream = senderStreams.readable;
-        const writableStream = senderStreams.writable;
-        senderTransform(readableStream, writableStream);
-    }
+            sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
 
-    let videoSender = senders.find(e => e.track?.kind === 'video');
-    if (videoSender) {
-        const videoSenderStreams = videoSender.createEncodedStreams();
-        const videoReadableStream = videoSenderStreams.readable;
-        const videoWritableStream = videoSenderStreams.writable;
-        senderNullTransform(videoReadableStream, videoWritableStream);
+        } else {
+
+            const senderStreams = sender.createEncodedStreams();
+            const readableStream = senderStreams.readable;
+            const writableStream = senderStreams.writable;
+            senderTransform(readableStream, writableStream);
+        }
     }
 
     //
@@ -538,9 +550,6 @@ export async function leave() {
 
 function handleUserPublished(user : IAgoraRTCRemoteUser, mediaType : string) {
     const id = user.uid;
-
-    console.log("QQQQ HANDLEUSERPUBLISHED id=" + id + " mediaType=" + mediaType);
-
     remoteUsers["" + id] = user;
     subscribe(user, mediaType);
 }
@@ -582,16 +591,17 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
         let receivers : Array<RTCRtpReceiverIS> = client._p2pChannel.connection.peerConnection.getReceivers();
         let receiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'audio');
 
-        if (encodedTransformSupported) {
-            receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
+        if (hifiOptions.enableMetadata) {
+            if (encodedTransformSupported) {
 
-        } else {
-            try {
+                receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
+
+            } else {
+
                 const receiverStreams = receiver.createEncodedStreams();
                 const readableStream = receiverStreams.readable;
                 const writableStream = receiverStreams.writable;
                 receiverTransform(readableStream, writableStream, uid, sourceMetadata);
-            } catch (e) {
             }
         }
     }
@@ -602,37 +612,8 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
         await client.subscribe(user, mediaType);
         console.log("subscribe uid:", uid);
 
-        // let mediaStreamTrack = user.videoTrack.getMediaStreamTrack();
-        // let videoReceiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'video');
-
         subscribedToVideo[ "" + uid ] = true;
-
-        let receivers : Array<RTCRtpReceiverIS> = client._p2pChannel.connection.peerConnection.getReceivers();
-
-        for (let i = 0; i < receivers.length; i++) {
-            let videoReceiver : RTCRtpReceiverIS = receivers[ i ];
-            if (videoReceiver.track?.kind === 'video') {
-                try {
-                    const videoReceiverStreams = videoReceiver.createEncodedStreams();
-                    const videoReadableStream = videoReceiverStreams.readable;
-                    const videoRritableStream = videoReceiverStreams.writable;
-                    receiverNullTransform(videoReadableStream, videoRritableStream, uid, sourceMetadata);
-                } catch (e) {
-                }
-            }
-        }
-
-        // let videoReceiver : RTCRtpReceiverIS = receivers.find(e => e.track?.kind === 'video');
-        // const videoReceiverStreams = videoReceiver.createEncodedStreams();
-        // const videoReadableStream = videoReceiverStreams.readable;
-        // const videoRritableStream = videoReceiverStreams.writable;
-        // receiverNullTransform(videoReadableStream, videoRritableStream, uid, sourceMetadata);
     }
-
-    console.log("QQQQ considering calling onRemoteUserJoined -- uid=" + uid +
-        ", hifiOptions.video=" + hifiOptions.video +
-        ", subscribedToAudio=" + subscribedToAudio[ "" + uid ] +
-        ", subscribedToVideo=" + subscribedToVideo[ "" + uid ]);
 
     if (hifiOptions.video && subscribedToAudio[ "" + uid ] && subscribedToVideo[ "" + uid ]) {
         console.log("QQQQ A calling onRemoteUserJoined(" + uid + ")");
@@ -723,9 +704,11 @@ async function startSpatialAudio() {
 
     audioElement = new Audio();
 
-    if (encodedTransformSupported) {
-        worker = new Worker('worker.js');
-        worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
+    if (hifiOptions.enableMetadata) {
+        if (encodedTransformSupported) {
+            worker = new Worker('worker.js');
+            worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
+        }
     }
 
     try {

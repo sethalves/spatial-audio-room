@@ -22,7 +22,7 @@ function sourceMetadata(buffer, uid) {
 self.onmessage = function (event) {
     switch (event.data.operation) {
         case 'metadata':
-            metadata = event.data.metadata;
+            metadata.data = event.data.metadata;
             break;
         case 'sender':
             // when using Insertable Streams
