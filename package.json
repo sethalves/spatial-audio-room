@@ -15,6 +15,6 @@
         "webpack-cli": "^4.9.2"
     },
     "dependencies": {
-        "agora-rtc-sdk-ng": "^4.11.0"
+        "agora-rtc-sdk-ng": "^4.12.2"
     }
 }

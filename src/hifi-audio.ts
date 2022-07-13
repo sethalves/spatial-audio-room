@@ -704,7 +704,7 @@ async function startSpatialAudio() {
 
     if (hifiOptions.enableMetadata) {
         if (encodedTransformSupported) {
-            worker = new Worker('worker.js');
+            worker = new Worker('worker.js', { type: "classic" });
             worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
         }
     }
