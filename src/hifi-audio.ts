@@ -15,7 +15,7 @@ interface IAgoraRTCOpen extends IAgoraRTC {
 declare const AgoraRTC: IAgoraRTCOpen;
 
 import { checkSupported } from './check-supported.js';
-let [ simdSupported, encodedTransformSupported, isChrome ] = checkSupported();
+let [ simdSupported, encodedTransformSupported, browserIsChrome ] = checkSupported();
 
 import { patchRTCPeerConnection } from './patchRTCPeerConnection.js';
 let _RTCPeerConnection = RTCPeerConnection;
@@ -198,6 +198,11 @@ export function sourceMetadata(buffer : ArrayBuffer, uid : UID) : void {
 }
 
 
+export function isChrome() {
+    return browserIsChrome;
+}
+
+
 let aecEnabled = false;
 export function isAecEnabled() : boolean {
     return aecEnabled;
@@ -334,6 +339,16 @@ export async function join(appID : string,
                            video : boolean,
                            enableMetadata : boolean
                           ) {
+
+    audioElement = new Audio();
+    audioElement.play();
+
+    try {
+        audioContext = new AudioContext({ sampleRate: 48000 });
+    } catch (e) {
+        console.log('Web Audio API is not supported by this browser.');
+        return;
+    }
 
     console.log("hifi-audio: join -- initialThresholdValue=" + initialThresholdValue);
 
@@ -700,20 +715,13 @@ function stopEchoCancellation() {
 async function startSpatialAudio() {
     console.log("hifi-audio: startSpatialAudio()");
 
-    audioElement = new Audio();
+    // audioElement = new Audio();
 
     if (hifiOptions.enableMetadata) {
         if (encodedTransformSupported) {
             worker = new Worker('worker.js', { type: "classic" });
             worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
         }
-    }
-
-    try {
-        audioContext = new AudioContext({ sampleRate: 48000 });
-    } catch (e) {
-        console.log('Web Audio API is not supported by this browser.');
-        return;
     }
 
     console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
@@ -735,8 +743,23 @@ async function startSpatialAudio() {
         hifiLimiter.connect(audioContext.destination);
     }
 
-    audioElement.play();
+    // audioElement.play();
 }
+
+// export function playAudio() {
+//     console.log("QQQQ B calling audioElement.play()...");
+//     var playPromise = audioElement.play();
+//     if (playPromise !== undefined) {
+//         playPromise.catch(error => {
+//             console.log("QQQQ audioElement.play() failed.");
+//             // Auto-play was prevented
+//             // Show a UI element to let the user manually start playback
+//         }).then(() => {
+//             console.log("QQQQ audioElement.play() succeeded.");
+//             // Auto-play started
+//         });
+//     }
+// }
 
 
 function stopSpatialAudio() {

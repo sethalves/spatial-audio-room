@@ -9,6 +9,21 @@
     <link rel="icon" href="safari-pinned-tab.svg" type="image/svg+xml">
     <link rel="stylesheet" href="./vendor/bootstrap.min.css">
     <link rel="stylesheet" href="./index.css">
+
+    <!--
+    <link rel="preload" href="hifi.wasm.simd.js" as="script">
+    <link rel="preload" href="hifi.wasm.js" as="script">
+    <link rel="preload" href="worker.js" as="script">
+    <link rel="preload" href="worker-transform.js" as="script">
+    -->
+
+    <!--
+    <link rel="prefetch" href="hifi.wasm.simd.js">
+    <link rel="prefetch" href="hifi.wasm.js">
+    <link rel="prefetch" href="worker.js">
+    <link rel="prefetch" href="worker-transform.js">
+    -->
+
   </head>
   <body style="overflow: hidden;">
     <div hidden>
@@ -35,7 +50,7 @@
             <div><input class="text-entry" id="username" type="text" placeholder="username"></div>
             <div>
               <button disabled id="join" type="submit" class="btn btn-primary btn-sm">Join</button>
-              <button disabled id="leave" type="button" class="btn btn-primary btn-sm" disabled>Leave</button>
+              <button disabled id="leave" type="button" class="btn btn-primary btn-sm">Leave</button>
               <!--
               <button id="sound" type="button" class="btn btn-primary btn-sm" style="float: right;" hidden>Sound</button>
               -->
