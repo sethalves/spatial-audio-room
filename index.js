@@ -560,7 +560,7 @@ async function startSpatialAudio() {
     hifiLicense.port.postMessage(token);
 
     hifiListener = new AudioWorkletNode(audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
-    hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter');
+    hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter', {outputChannelCount : [2]});
     hifiListener.connect(hifiLimiter);
 
     if (isAecEnabled && !!window.chrome) {
