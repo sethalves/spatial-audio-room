@@ -99,7 +99,8 @@ $("#leave").click(function(e) {
     $("#success-alert").css("display", "none");
 })
 
-let isAecEnabled = false;
+let isAecEnabled = !window.chrome;
+$("#aec").css("background-color", isAecEnabled ? "purple" : "");
 $("#aec").click(async function(e) {
     // toggle the state
     isAecEnabled = !isAecEnabled;
