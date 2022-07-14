@@ -132,7 +132,7 @@ let subscribedToVideo : { [uid: string] : boolean; } = {};
 interface HifiOptions {
     appid?: string | undefined,
     channel?: string | undefined,
-    tokenProvider?: Function | undefined,
+    tokenProvider?: string /* Function */ | undefined,
     uid?: UID | undefined,
     thresholdValue?: number | undefined,
     thresholdSet?: boolean | undefined,
@@ -217,14 +217,7 @@ export async function setAecEnabled(v : boolean) : Promise<string> {
         aecEnabled = v;
         if (localTracks.audioTrack) {
             await leave();
-            // await joinAgoraRoom();
-            await join(hifiOptions.appid,
-                       hifiOptions.tokenProvider,
-                       hifiOptions.channel,
-                       hifiPosition,
-                       hifiOptions.thresholdValue,
-                       hifiOptions.video,
-                       hifiOptions.enableMetadata);
+            await joinAgoraRoom();
         }
     }
     return "" + hifiOptions.uid;
@@ -342,14 +335,15 @@ export function on(eventName : string, callback : Function) {
 
 
 export async function join(appID : string,
-                           tokenProvider : Function,
+                           uid : string,
+                           tokenProvider : string /* Function */,
                            channel : string,
                            initialPosition : MetaData,
                            initialThresholdValue : number,
                            video : boolean,
                            enableMetadata : boolean) {
-    hifiOptions.uid = (Math.random()*4294967296)>>>0;
     hifiOptions.appid = appID;
+    hifiOptions.uid = uid;
     hifiOptions.tokenProvider = tokenProvider;
     hifiOptions.channel = channel;
     if (initialPosition) {
@@ -370,79 +364,64 @@ export async function join(appID : string,
         RTCPeerConnection = _RTCPeerConnectionWithoutMetadata;
     }
 
-//     return await joinAgoraRoom();
-// }
+    return await joinAgoraRoom();
+}
 
 
-// async function joinAgoraRoom() {
+export async function joinAgoraRoom(/* appID? : string,
+                                       tokenProvider? : Function,
+                                       channel? : string,
+                                       initialPosition? : MetaData,
+                                       initialThresholdValue? : number,
+                                       video? : boolean,
+                                       enableMetadata? : boolean */) {
 
-    console.log("joinAgoraRoom options: " + JSON.stringify(hifiOptions) +
-        " simdSupported=" + simdSupported + " encodedTransformSupported=" + encodedTransformSupported +
-        " isChrome=" + isChrome);
+    client = AgoraRTC.createClient({
+        mode: "rtc",
+        codec: "vp8"
+    });
 
-    // client = AgoraRTC.createClient({
-    //     mode: "rtc",
-    //     codec: "vp8"
-    // });
+    // if (!hifiOptions.uid != null) {
+    //     hifiOptions.uid = (Math.random()*4294967296)>>>0;
+    // }
+    // if (appID !== null) {
+    //     hifiOptions.appid = appID;
+    // }
+    // if (tokenProvider !== null) {
+    //     hifiOptions.tokenProvider = tokenProvider;
+    // }
+    // if (channel !== null) {
+    //     hifiOptions.channel = channel;
+    // }
+    // if (initialPosition !== null) {
+    //     hifiPosition.x = initialPosition.x;
+    //     hifiPosition.y = initialPosition.y;
+    //     hifiPosition.o = initialPosition.o;
+    // }
+    // if (initialThresholdValue !== null) {
+    //     hifiOptions.thresholdValue = initialThresholdValue;
+    //     hifiOptions.thresholdSet = true;
+    // }
+    // if (video !== null) {
+    //     hifiOptions.video = video;
+    // }
+    // if (enableMetadata !== null) {
+    //     hifiOptions.enableMetadata = enableMetadata;
+    // }
 
-    // await startSpatialAudio();
-
-
-    //
-    // audioElement and audioContext are created immediately after a user gesture,
-    // to prevent Safari auto-play policy from breaking the audio pipeline.
-    //
-    audioElement = new Audio();
-    try {
-        audioContext = new AudioContext({ sampleRate: 48000 });
-    } catch (e) {
-        console.log('Web Audio API is not supported by this browser.');
-        return;
-    }
-    console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
-
-    if (hifiOptions.enableMetadata) {
-        if (encodedTransformSupported) {
-            worker = new Worker('worker.js');
-            worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
-        }
-    }
-
-    // audioElement.play();
-
-    await audioContext.audioWorklet.addModule(simdSupported ? 'hifi.wasm.simd.js' : 'hifi.wasm.js');
-
-    // temporary license token that expires 1/1/2023
-    const wasmToken =
-        'aGlmaQAAAAHLuJ9igD2xY0xxPKza+Rcw9gQGOo8T5k+/HJpF/UR1k99pVS6n6QfyWTz1PTHkpt62tta3jn0Ntbdx73ah/LBv14T1HjJULQE=';
-    let hifiLicense = new AudioWorkletNode(audioContext, 'wasm-license');
-    hifiLicense.port.postMessage(wasmToken);
-
-    hifiListener = new AudioWorkletNode(audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
-    hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter', {outputChannelCount : [2]});
-    hifiListener.connect(hifiLimiter);
-
-    if (isAecEnabled() && isChrome) {
-        startEchoCancellation(audioElement, audioContext);
-    } else {
-        hifiLimiter.connect(audioContext.destination);
-    }
-
-    audioElement.play();
-
-
-
+    await startSpatialAudio();
 
     // add event listener to play remote tracks when remote user publishs.
     client.on("user-published", (user : IAgoraRTCRemoteUser, mediaType : string) => { handleUserPublished(user, mediaType); });
     client.on("user-unpublished", (user : IAgoraRTCRemoteUser) => { handleUserUnpublished(user); });
 
     client.on("token-privilege-will-expire", async function () {
-        if (hifiOptions.tokenProvider) {
-            console.log("refreshing token...");
-            let token = await hifiOptions.tokenProvider(hifiOptions.uid, hifiOptions.channel, 1);
-            await client.renewToken(token);
-        }
+        console.log("token will expired...");
+        // if (hifiOptions.tokenProvider) {
+        //     console.log("refreshing token...");
+        //     let token = await hifiOptions.tokenProvider(hifiOptions.uid, hifiOptions.channel, 1);
+        //     await client.renewToken(token);
+        // }
     });
 
     client.on("token-privilege-did-expire", async function () {
@@ -451,7 +430,8 @@ export async function join(appID : string,
 
     let token : string;
     if (hifiOptions.tokenProvider) {
-        token = await hifiOptions.tokenProvider(hifiOptions.uid, hifiOptions.channel, 1);
+        // token = await hifiOptions.tokenProvider(hifiOptions.uid, hifiOptions.channel, 1);
+        token = hifiOptions.tokenProvider;
     }
 
     let audioConfig : MicrophoneAudioTrackInitConfig = {
@@ -471,8 +451,6 @@ export async function join(appID : string,
             encoderConfig: "240p_1"
         };
 
-        console.log("QQQQ creating audio and video tracks...");
-
         // Join a channel and create local tracks. Best practice is to use Promise.all and run them concurrently.
         [hifiOptions.uid, localTracks.audioTrack, localTracks.videoTrack] = await Promise.all([
             client.join(hifiOptions.appid, hifiOptions.channel, token || null, hifiOptions.uid || null),
@@ -481,8 +459,6 @@ export async function join(appID : string,
         ]);
 
     } else {
-        console.log("QQQQ creating audio track...");
-
         delete localTracks.videoTrack;
 
         [hifiOptions.uid, localTracks.audioTrack] = await Promise.all([
@@ -581,7 +557,6 @@ export async function leave() {
     }
 
     for (var uid in remoteUsers) {
-        console.log("QQQQ leaving, uid=" + JSON.stringify(uid));
         if (onRemoteUserLeft) {
             onRemoteUserLeft("" + uid);
         }
@@ -620,8 +595,6 @@ function handleUserUnpublished(user : IAgoraRTCRemoteUser) {
 
 async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
     const uid = user.uid;
-
-    console.log("QQQQ subscribe " + uid + " " + mediaType + " hasVideo=" + JSON.stringify(user.hasVideo));
 
     if (mediaType === 'audio') {
 
@@ -671,11 +644,9 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
     }
 
     if (hifiOptions.video && subscribedToAudio[ "" + uid ] && subscribedToVideo[ "" + uid ]) {
-        console.log("QQQQ A calling onRemoteUserJoined(" + uid + ")");
         onRemoteUserJoined("" + uid);
     }
     if (!hifiOptions.video && subscribedToAudio[ "" + uid ]) {
-        console.log("QQQQ B calling onRemoteUserJoined(" + uid + ")");
         onRemoteUserJoined("" + uid);
     }
 }
@@ -686,11 +657,8 @@ export async function playVideo(uid : UID, videoEltID : string) {
         await localTracks.videoTrack.play(videoEltID);
     } else {
         let user = remoteUsers[ "" + uid ];
-        console.log("QQQQ playVideo for " + uid);
         if (user.videoTrack) {
             await user.videoTrack.play(videoEltID);
-        } else {
-            console.log("QQQQ but no user.videoTrack... " + uid);
         }
     }
 }
@@ -796,22 +764,6 @@ async function startSpatialAudio() {
 
     audioElement.play();
 }
-
-
-// export function playAudio() {
-//     console.log("QQQQ B calling audioElement.play()...");
-//     var playPromise = audioElement.play();
-//     if (playPromise !== undefined) {
-//         playPromise.catch(error => {
-//             console.log("QQQQ audioElement.play() failed.");
-//             // Auto-play was prevented
-//             // Show a UI element to let the user manually start playback
-//         }).then(() => {
-//             console.log("QQQQ audioElement.play() succeeded.");
-//             // Auto-play started
-//         });
-//     }
-// }
 
 
 function stopSpatialAudio() {

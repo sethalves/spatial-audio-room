@@ -17,6 +17,12 @@ function degToRad(d) {
 }
 
 let options = {};
+let canvasControl;
+// const canvasDimensions = { width: 8, height: 8 };   // in meters
+let elements = [];
+let localUid = (Math.random()*4294967296)>>>0;
+let usernames = {};
+let joined = false;
 
 let roomOptions = {
     "room-conf-table": {
@@ -33,7 +39,8 @@ let roomOptions = {
             { x: 1.4, y: -1.4, o: degToRad(315) }
         ],
         canvasDimensions: { width: 4, height: 4 },
-        background: "table.svg"
+        background: "table.svg",
+        token: null
     },
 
     "room-quad-music": {
@@ -41,7 +48,8 @@ let roomOptions = {
         metaData: true,
         positions: [],
         canvasDimensions: { width: 8, height: 8 },
-        background: null
+        background: null,
+        token: null
     },
 
     "room-bar": {
@@ -49,7 +57,8 @@ let roomOptions = {
         metaData: true,
         positions: [],
         canvasDimensions: { width: 16, height: 16 },
-        background: null
+        background: null,
+        token: null
     },
 
     "room-video": {
@@ -57,7 +66,8 @@ let roomOptions = {
         metaData: false,
         positions: [],
         canvasDimensions: { width: 8, height: 8 },
-        background: null
+        background: null,
+        token: null
     }
 }
 
@@ -103,12 +113,15 @@ webSocket.onmessage = async function (event) {
     console.log("got websocket message: ", event.data);
     let msg = JSON.parse(event.data);
     serverCurrentRoomID = msg.room;
-    if (msg["message-type"] == "join-room" && !localUid) {
+    if (msg["message-type"] == "join-room" && !joined) {
         currentRoomID = serverCurrentRoomID;
     }
 }
 
-webSocket.onopen = function (event) {
+webSocket.onopen = async function (event) {
+    for (const rID of roomIDs) {
+        roomOptions[ rID ].token = await fetchToken(localUid, options.channel + ":" + rID, 1);
+    }
     getCurrentRoom();
     updateRoomsUI();
 }
@@ -118,13 +131,16 @@ webSocket.onopen = function (event) {
 $(()=>{
     let urlParams = new URL(location.href).searchParams;
     options.channel = urlParams.get("channel");
+    if (!options.channel) {
+        options.channel = "hifi-demo";
+    }
     options.username = urlParams.get("username");
     if (options.channel) {
         $("#channel").val(options.channel);
         $("#username").val(options.username);
     }
 
-     options.admin = false;
+    options.admin = false;
     if (urlParams.get("admin")) {
         options.admin = true;
     }
@@ -144,9 +160,8 @@ $("#username").change(function (e) {
 })
 
 $("#join-form").submit(async function(e) {
-    console.log("QQQQ join clicked");
     e.preventDefault();
-    joinRoom();
+    await joinRoom();
 })
 
 $("#leave").click(function(e) {
@@ -189,14 +204,15 @@ function tellServerCurrentRoom() {
 
 for (const rID of roomIDs) {
     $("#" + rID).click(async function(e) {
-        if (localUid) {
-            await leaveRoom();
-            localUid = null;
-            currentRoomID = serverCurrentRoomID;
-        }
+        // if (joined) {
+        //     await leaveRoom();
+        //     currentRoomID = serverCurrentRoomID;
+        // }
+
+        if (joined) return;
 
         currentRoomID = rID;
-        joinRoom();
+        await joinRoom();
     })
 }
 
@@ -206,12 +222,6 @@ threshold.oninput = () => {
     HiFiAudio.setThreshold(threshold.value);
     document.getElementById("threshold-value").value = threshold.value;
 }
-
-let canvasControl;
-// const canvasDimensions = { width: 8, height: 8 };   // in meters
-let elements = [];
-let localUid = null;
-let usernames = {};
 
 
 // called when the user drags around their own dot...
@@ -364,7 +374,7 @@ function onUserUnpublished(uid) {
 async function getCurrentRoom() {
     var resolve, reject;
 
-    const tokenPromise = new Promise((setResolve, setReject) => {
+    const crPromise = new Promise((setResolve, setReject) => {
         resolve = setResolve;
         reject = setReject;
     });
@@ -384,7 +394,7 @@ async function getCurrentRoom() {
         "message-type": "get-current-room"
     }));
 
-    return tokenPromise;
+    return crPromise;
 }
 
 
@@ -446,14 +456,18 @@ async function joinRoom() {
 
     let ropts = roomOptions[ currentRoomID ];
 
-    localUid = await HiFiAudio.join(options.appid,
-                                    fetchToken,
-                                    options.channel + ":" + currentRoomID,
-                                    initialPosition,
-                                    threshold.value,
-                                    ropts.video,
-                                    ropts.metaData);
+    console.log("XXXXXXXX token=" + JSON.stringify(ropts.token));
 
+    await HiFiAudio.join(options.appid,
+                         localUid,
+                         ropts.token, // fetchToken,
+                         options.channel + ":" + currentRoomID,
+                         initialPosition,
+                         threshold.value,
+                         ropts.video,
+                         ropts.metaData);
+
+    joined = true;
     usernames[ localUid ] = options.username;
 
     if (ropts.video) {
@@ -504,7 +518,7 @@ async function leaveRoom() {
     $("#local-player-name").text("");
 
     elements.length = 0;
-    localUid = null;
+    joined = false;
     currentRoomID = serverCurrentRoomID;
     updateRoomsUI();
     console.log("client leaves channel success");
@@ -526,8 +540,8 @@ function sendUsername() {
 
 
 function setUsername(username) {
-    if (localUid) {
-        usernames[localUid] = username;
+    usernames[localUid] = username;
+    if (joined) {
         sendUsername();
     }
 }
@@ -575,7 +589,7 @@ function updateAudioControlsUI() {
 function updateRoomsUI() {
     for (const rID of roomIDs) {
         let roomButton = document.getElementById(rID);
-        if (rID == currentRoomID && localUid) {
+        if (rID == currentRoomID && joined) {
             roomButton.style.background="#007bff";
         } else {
             roomButton.style.background="#6c757d";
@@ -596,15 +610,15 @@ function updateRoomsUI() {
         }
     }
 
-    if (localUid) {
+    if (joined) {
         $("#leave").attr("disabled", false);
     } else {
         $("#leave").attr("disabled", true);
     }
 
     if (webSocket.readyState === WebSocket.OPEN) {
-        setRoomButtonsEnabled(true);
-        if (localUid) {
+        setRoomButtonsEnabled(!joined);
+        if (joined) {
             $("#join").attr("disabled", true);
         } else {
             $("#join").attr("disabled", false);
