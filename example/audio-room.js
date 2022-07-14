@@ -146,14 +146,7 @@ $("#username").change(function (e) {
 $("#join-form").submit(async function(e) {
     console.log("QQQQ join clicked");
     e.preventDefault();
-    try {
-        await joinRoom();
-    } catch (error) {
-        console.error(error);
-    } finally {
-        configureRoom();
-        updateRoomsUI();
-    }
+    joinRoom();
 })
 
 $("#leave").click(function(e) {
@@ -203,9 +196,7 @@ for (const rID of roomIDs) {
         }
 
         currentRoomID = rID;
-        await joinRoom();
-        configureRoom();
-        updateRoomsUI();
+        joinRoom();
     })
 }
 
@@ -495,6 +486,7 @@ async function joinRoom() {
     }
 
     updateAudioControlsUI();
+    configureRoom();
     updateRoomsUI();
     sendUsername();
 

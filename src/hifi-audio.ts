@@ -94,7 +94,10 @@ interface LocalTracks {
 let loopback : RTCPeerConnection[];
 
 // create Agora client
-let client : IAgoraRTCClientOpen;
+let client : IAgoraRTCClientOpen = AgoraRTC.createClient({
+    mode: "rtc",
+    codec: "vp8"
+});
 
 let localTracks : LocalTracks = {
     // videoTrack: null,
@@ -214,7 +217,14 @@ export async function setAecEnabled(v : boolean) : Promise<string> {
         aecEnabled = v;
         if (localTracks.audioTrack) {
             await leave();
-            await joinAgoraRoom();
+            // await joinAgoraRoom();
+            await join(hifiOptions.appid,
+                       hifiOptions.tokenProvider,
+                       hifiOptions.channel,
+                       hifiPosition,
+                       hifiOptions.thresholdValue,
+                       hifiOptions.video,
+                       hifiOptions.enableMetadata);
         }
     }
     return "" + hifiOptions.uid;
@@ -337,21 +347,7 @@ export async function join(appID : string,
                            initialPosition : MetaData,
                            initialThresholdValue : number,
                            video : boolean,
-                           enableMetadata : boolean
-                          ) {
-
-    audioElement = new Audio();
-    audioElement.play();
-
-    try {
-        audioContext = new AudioContext({ sampleRate: 48000 });
-    } catch (e) {
-        console.log('Web Audio API is not supported by this browser.');
-        return;
-    }
-
-    console.log("hifi-audio: join -- initialThresholdValue=" + initialThresholdValue);
-
+                           enableMetadata : boolean) {
     hifiOptions.uid = (Math.random()*4294967296)>>>0;
     hifiOptions.appid = appID;
     hifiOptions.tokenProvider = tokenProvider;
@@ -374,22 +370,68 @@ export async function join(appID : string,
         RTCPeerConnection = _RTCPeerConnectionWithoutMetadata;
     }
 
-    return await joinAgoraRoom();
-}
+//     return await joinAgoraRoom();
+// }
 
 
-async function joinAgoraRoom() {
+// async function joinAgoraRoom() {
 
     console.log("joinAgoraRoom options: " + JSON.stringify(hifiOptions) +
         " simdSupported=" + simdSupported + " encodedTransformSupported=" + encodedTransformSupported +
         " isChrome=" + isChrome);
 
-    client = AgoraRTC.createClient({
-        mode: "rtc",
-        codec: "vp8"
-    });
+    // client = AgoraRTC.createClient({
+    //     mode: "rtc",
+    //     codec: "vp8"
+    // });
 
-    await startSpatialAudio();
+    // await startSpatialAudio();
+
+
+    //
+    // audioElement and audioContext are created immediately after a user gesture,
+    // to prevent Safari auto-play policy from breaking the audio pipeline.
+    //
+    audioElement = new Audio();
+    try {
+        audioContext = new AudioContext({ sampleRate: 48000 });
+    } catch (e) {
+        console.log('Web Audio API is not supported by this browser.');
+        return;
+    }
+    console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
+
+    if (hifiOptions.enableMetadata) {
+        if (encodedTransformSupported) {
+            worker = new Worker('worker.js');
+            worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
+        }
+    }
+
+    // audioElement.play();
+
+    await audioContext.audioWorklet.addModule(simdSupported ? 'hifi.wasm.simd.js' : 'hifi.wasm.js');
+
+    // temporary license token that expires 1/1/2023
+    const wasmToken =
+        'aGlmaQAAAAHLuJ9igD2xY0xxPKza+Rcw9gQGOo8T5k+/HJpF/UR1k99pVS6n6QfyWTz1PTHkpt62tta3jn0Ntbdx73ah/LBv14T1HjJULQE=';
+    let hifiLicense = new AudioWorkletNode(audioContext, 'wasm-license');
+    hifiLicense.port.postMessage(wasmToken);
+
+    hifiListener = new AudioWorkletNode(audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
+    hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter', {outputChannelCount : [2]});
+    hifiListener.connect(hifiLimiter);
+
+    if (isAecEnabled() && isChrome) {
+        startEchoCancellation(audioElement, audioContext);
+    } else {
+        hifiLimiter.connect(audioContext.destination);
+    }
+
+    audioElement.play();
+
+
+
 
     // add event listener to play remote tracks when remote user publishs.
     client.on("user-published", (user : IAgoraRTCRemoteUser, mediaType : string) => { handleUserPublished(user, mediaType); });
@@ -712,19 +754,28 @@ function stopEchoCancellation() {
     console.log('Stopped AEC.')
 }
 
-async function startSpatialAudio() {
-    console.log("hifi-audio: startSpatialAudio()");
 
-    // audioElement = new Audio();
+async function startSpatialAudio() {
+
+    //
+    // audioElement and audioContext are created immediately after a user gesture,
+    // to prevent Safari auto-play policy from breaking the audio pipeline.
+    //
+    audioElement = new Audio();
+    try {
+        audioContext = new AudioContext({ sampleRate: 48000 });
+    } catch (e) {
+        console.log('Web Audio API is not supported by this browser.');
+        return;
+    }
+    console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
 
     if (hifiOptions.enableMetadata) {
         if (encodedTransformSupported) {
-            worker = new Worker('worker.js', { type: "classic" });
+            worker = new Worker('worker.js');
             worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
         }
     }
-
-    console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
 
     await audioContext.audioWorklet.addModule(simdSupported ? 'hifi.wasm.simd.js' : 'hifi.wasm.js');
 
@@ -734,7 +785,7 @@ async function startSpatialAudio() {
     hifiLicense.port.postMessage(token);
 
     hifiListener = new AudioWorkletNode(audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
-    hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter');
+    hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter', {outputChannelCount : [2]});
     hifiListener.connect(hifiLimiter);
 
     if (isAecEnabled() && isChrome) {
@@ -743,8 +794,9 @@ async function startSpatialAudio() {
         hifiLimiter.connect(audioContext.destination);
     }
 
-    // audioElement.play();
+    audioElement.play();
 }
+
 
 // export function playAudio() {
 //     console.log("QQQQ B calling audioElement.play()...");
