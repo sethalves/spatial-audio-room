@@ -18,9 +18,8 @@ function degToRad(d) {
 
 let options = {};
 let canvasControl;
-// const canvasDimensions = { width: 8, height: 8 };   // in meters
 let elements = [];
-let localUid = "" + ((Math.random()*4294967296)>>>0);
+let localUid = "" + (((Math.random()*4294967296)>>>0));
 let usernames = {};
 let joined = false;
 
@@ -461,7 +460,7 @@ async function joinRoom() {
     let ropts = roomOptions[ currentRoomID ];
 
     await HiFiAudio.join(options.appid,
-                         localUid,
+                         parseInt(localUid),
                          ropts.token, // fetchToken,
                          options.channel + ":" + currentRoomID,
                          initialPosition,

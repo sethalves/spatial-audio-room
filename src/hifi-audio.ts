@@ -122,10 +122,6 @@ let hifiLimiter : AudioWorkletNode;    // additional sounds connect here
 let audioElement : HTMLAudioElement;
 let audioContext : AudioContext;
 
-let nextAudioElement : HTMLAudioElement;
-let nextAudioContext : AudioContext;
-
-
 let hifiPosition = { x: 0.0, y: 0.0, o: 0.0 };
 
 let subscribedToAudio : { [uid: string] : boolean; } = {};
@@ -339,7 +335,7 @@ export function on(eventName : string, callback : Function) {
 
 
 export async function join(appID : string,
-                           uid : string,
+                           uid : number,
                            tokenProvider : string /* Function */,
                            channel : string,
                            initialPosition : MetaData,
