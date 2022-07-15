@@ -490,8 +490,6 @@ export async function joinAgoraRoom() {
             volumes.forEach((volume, index) => {
                 onUpdateVolumeIndicator("" + volume.uid, volume.level);
             });
-        } else {
-            console.log("NOOO");
         }
     })
 
