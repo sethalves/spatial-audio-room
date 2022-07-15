@@ -122,6 +122,10 @@ let hifiLimiter : AudioWorkletNode;    // additional sounds connect here
 let audioElement : HTMLAudioElement;
 let audioContext : AudioContext;
 
+let nextAudioElement : HTMLAudioElement;
+let nextAudioContext : AudioContext;
+
+
 let hifiPosition = { x: 0.0, y: 0.0, o: 0.0 };
 
 let subscribedToAudio : { [uid: string] : boolean; } = {};
@@ -368,46 +372,12 @@ export async function join(appID : string,
 }
 
 
-export async function joinAgoraRoom(/* appID? : string,
-                                       tokenProvider? : Function,
-                                       channel? : string,
-                                       initialPosition? : MetaData,
-                                       initialThresholdValue? : number,
-                                       video? : boolean,
-                                       enableMetadata? : boolean */) {
+export async function joinAgoraRoom() {
 
     client = AgoraRTC.createClient({
         mode: "rtc",
         codec: "vp8"
     });
-
-    // if (!hifiOptions.uid != null) {
-    //     hifiOptions.uid = (Math.random()*4294967296)>>>0;
-    // }
-    // if (appID !== null) {
-    //     hifiOptions.appid = appID;
-    // }
-    // if (tokenProvider !== null) {
-    //     hifiOptions.tokenProvider = tokenProvider;
-    // }
-    // if (channel !== null) {
-    //     hifiOptions.channel = channel;
-    // }
-    // if (initialPosition !== null) {
-    //     hifiPosition.x = initialPosition.x;
-    //     hifiPosition.y = initialPosition.y;
-    //     hifiPosition.o = initialPosition.o;
-    // }
-    // if (initialThresholdValue !== null) {
-    //     hifiOptions.thresholdValue = initialThresholdValue;
-    //     hifiOptions.thresholdSet = true;
-    // }
-    // if (video !== null) {
-    //     hifiOptions.video = video;
-    // }
-    // if (enableMetadata !== null) {
-    //     hifiOptions.enableMetadata = enableMetadata;
-    // }
 
     await startSpatialAudio();
 
@@ -520,6 +490,8 @@ export async function joinAgoraRoom(/* appID? : string,
             volumes.forEach((volume, index) => {
                 onUpdateVolumeIndicator("" + volume.uid, volume.level);
             });
+        } else {
+            console.log("NOOO");
         }
     })
 
@@ -725,10 +697,9 @@ function stopEchoCancellation() {
 
 async function startSpatialAudio() {
 
-    //
     // audioElement and audioContext are created immediately after a user gesture,
     // to prevent Safari auto-play policy from breaking the audio pipeline.
-    //
+
     audioElement = new Audio();
     try {
         audioContext = new AudioContext({ sampleRate: 48000 });
@@ -736,6 +707,7 @@ async function startSpatialAudio() {
         console.log('Web Audio API is not supported by this browser.');
         return;
     }
+
     console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
 
     if (hifiOptions.enableMetadata) {

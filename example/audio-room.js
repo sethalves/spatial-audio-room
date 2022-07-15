@@ -20,7 +20,7 @@ let options = {};
 let canvasControl;
 // const canvasDimensions = { width: 8, height: 8 };   // in meters
 let elements = [];
-let localUid = (Math.random()*4294967296)>>>0;
+let localUid = "" + ((Math.random()*4294967296)>>>0);
 let usernames = {};
 let joined = false;
 
@@ -120,7 +120,7 @@ webSocket.onmessage = async function (event) {
 
 webSocket.onopen = async function (event) {
     for (const rID of roomIDs) {
-        roomOptions[ rID ].token = await fetchToken(localUid, options.channel + ":" + rID, 1);
+        roomOptions[ rID ].token = await fetchToken(parseInt(localUid), options.channel + ":" + rID, 1);
     }
     getCurrentRoom();
     updateRoomsUI();
@@ -204,12 +204,16 @@ function tellServerCurrentRoom() {
 
 for (const rID of roomIDs) {
     $("#" + rID).click(async function(e) {
-        // if (joined) {
-        //     await leaveRoom();
-        //     currentRoomID = serverCurrentRoomID;
-        // }
-
-        if (joined) return;
+        if (HiFiAudio.isChrome()) {
+            if (joined) {
+                await leaveRoom();
+                currentRoomID = serverCurrentRoomID;
+            }
+        } else {
+            if (joined) {
+                return;
+            }
+        }
 
         currentRoomID = rID;
         await joinRoom();
@@ -456,8 +460,6 @@ async function joinRoom() {
 
     let ropts = roomOptions[ currentRoomID ];
 
-    console.log("XXXXXXXX token=" + JSON.stringify(ropts.token));
-
     await HiFiAudio.join(options.appid,
                          localUid,
                          ropts.token, // fetchToken,
@@ -617,7 +619,11 @@ function updateRoomsUI() {
     }
 
     if (webSocket.readyState === WebSocket.OPEN) {
-        setRoomButtonsEnabled(!joined);
+        if (HiFiAudio.isChrome()) {
+            setRoomButtonsEnabled(true);
+        } else {
+            setRoomButtonsEnabled(!joined);
+        }
         if (joined) {
             $("#join").attr("disabled", true);
         } else {
