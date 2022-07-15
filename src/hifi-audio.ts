@@ -386,7 +386,7 @@ export async function joinAgoraRoom() {
     client.on("user-unpublished", (user : IAgoraRTCRemoteUser) => { handleUserUnpublished(user); });
 
     client.on("token-privilege-will-expire", async function () {
-        console.log("token will expired...");
+        console.log("token will expire...");
         // if (hifiOptions.tokenProvider) {
         //     console.log("refreshing token...");
         //     let token = await hifiOptions.tokenProvider(hifiOptions.uid, hifiOptions.channel, 1);
