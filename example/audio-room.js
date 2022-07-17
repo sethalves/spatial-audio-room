@@ -164,7 +164,7 @@ $("#join-form").submit(async function(e) {
 })
 
 $("#leave").click(function(e) {
-    leaveRoom();
+    leaveRoom(false);
 })
 
 
@@ -203,16 +203,16 @@ function tellServerCurrentRoom() {
 
 for (const rID of roomIDs) {
     $("#" + rID).click(async function(e) {
-        if (HiFiAudio.isChrome()) {
+        // if (HiFiAudio.isChrome()) {
             if (joined) {
-                await leaveRoom();
+                await leaveRoom(true);
                 currentRoomID = serverCurrentRoomID;
             }
-        } else {
-            if (joined) {
-                return;
-            }
-        }
+        // } else {
+        //     if (joined) {
+        //         return;
+        //     }
+        // }
 
         currentRoomID = rID;
         await joinRoom();
@@ -511,8 +511,8 @@ async function joinRoom() {
 }
 
 
-async function leaveRoom() {
-    await HiFiAudio.leave();
+async function leaveRoom(willRestart) {
+    await HiFiAudio.leave(willRestart);
 
     // remove remote users and player views
     $("#remote-playerlist").html("");
@@ -618,11 +618,11 @@ function updateRoomsUI() {
     }
 
     if (webSocket.readyState === WebSocket.OPEN) {
-        if (HiFiAudio.isChrome()) {
+        // if (HiFiAudio.isChrome()) {
             setRoomButtonsEnabled(true);
-        } else {
-            setRoomButtonsEnabled(!joined);
-        }
+        // } else {
+        //     setRoomButtonsEnabled(!joined);
+        // }
         if (joined) {
             $("#join").attr("disabled", true);
         } else {

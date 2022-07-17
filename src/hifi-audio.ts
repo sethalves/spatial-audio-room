@@ -216,7 +216,7 @@ export async function setAecEnabled(v : boolean) : Promise<string> {
     if (aecEnabled != v) {
         aecEnabled = v;
         if (localTracks.audioTrack) {
-            await leave();
+            await leave(true);
             await joinAgoraRoom();
         }
     }
@@ -342,6 +342,7 @@ export async function join(appID : string,
                            initialThresholdValue : number,
                            video : boolean,
                            enableMetadata : boolean) {
+
     hifiOptions.appid = appID;
     hifiOptions.uid = uid;
     hifiOptions.tokenProvider = tokenProvider;
@@ -500,7 +501,7 @@ export async function joinAgoraRoom() {
 }
 
 
-export async function leave() {
+export async function leave(willRestart : boolean) {
 
     if (!client) {
         return;
@@ -537,10 +538,10 @@ export async function leave() {
     hifiNoiseGate = undefined;
     hifiListener = undefined;
     hifiLimiter = undefined;
-    audioElement = undefined;
+    // audioElement = undefined;
     loopback = [];
 
-    stopSpatialAudio();
+    stopSpatialAudio(willRestart);
     // client = undefined;
 }
 
@@ -694,13 +695,16 @@ async function startSpatialAudio() {
     // audioElement and audioContext are created immediately after a user gesture,
     // to prevent Safari auto-play policy from breaking the audio pipeline.
 
-    audioElement = new Audio();
-    try {
-        audioContext = new AudioContext({ sampleRate: 48000 });
-    } catch (e) {
-        console.log('Web Audio API is not supported by this browser.');
-        return;
-    }
+    if (!audioElement) audioElement = new Audio();
+    if (!audioContext) audioContext = new AudioContext({ sampleRate: 48000 });
+
+    // audioElement = new Audio();
+    // try {
+    //     audioContext = new AudioContext({ sampleRate: 48000 });
+    // } catch (e) {
+    //     console.log('Web Audio API is not supported by this browser.');
+    //     return;
+    // }
 
     console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
 
@@ -732,13 +736,15 @@ async function startSpatialAudio() {
 }
 
 
-function stopSpatialAudio() {
+function stopSpatialAudio(willRestart : boolean) {
     console.log("hifi-audio: stopSpatialAudio()");
 
     stopEchoCancellation();
 
     audioContext.close();
     audioContext = undefined;
+
+    if (willRestart) audioContext = new AudioContext({ sampleRate: 48000 });
 
     worker && worker.terminate();
     worker = undefined;
