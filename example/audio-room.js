@@ -148,6 +148,10 @@ $(()=>{
         let roomButton = document.getElementById(rID);
         roomButton.style.background="#6c757d";
     }
+
+    if (!HiFiAudio.isChrome()) {
+        HiFiAudio.setAecEnabled(true);
+    }
 }
 )
 
@@ -160,16 +164,31 @@ $("#username").change(function (e) {
 
 $("#join-form").submit(async function(e) {
     e.preventDefault();
-    await joinRoom();
+    await joinRoom(false);
 })
 
 $("#leave").click(function(e) {
-    leaveRoom(false);
+    leaveRoom();
+    currentRoomID = serverCurrentRoomID;
+    updateRoomsUI();
+})
+
+$("#continue").submit(async function(e) {
+    e.preventDefault();
+    $("#continue").attr("disabled", true);
+    await joinRoom(false);
 })
 
 
 $("#aec").click(async function(e) {
     // toggle the state
+    if (!HiFiAudio.isChrome() && joined) {
+        await leaveRoom();
+        await HiFiAudio.setAecEnabled(!HiFiAudio.isAecEnabled());
+        showContinue();
+        return;
+    }
+
     await HiFiAudio.setAecEnabled(!HiFiAudio.isAecEnabled());
     updateAudioControlsUI();
     let ropts = roomOptions[ currentRoomID ];
@@ -203,19 +222,13 @@ function tellServerCurrentRoom() {
 
 for (const rID of roomIDs) {
     $("#" + rID).click(async function(e) {
-        // if (HiFiAudio.isChrome()) {
-            if (joined) {
-                await leaveRoom(true);
-                currentRoomID = serverCurrentRoomID;
-            }
-        // } else {
-        //     if (joined) {
-        //         return;
-        //     }
-        // }
-
+        let switchingRooms = joined;
+        if (joined) {
+            await leaveRoom();
+            currentRoomID = serverCurrentRoomID;
+        }
         currentRoomID = rID;
-        await joinRoom();
+        await joinRoom(switchingRooms);
     })
 }
 
@@ -434,7 +447,12 @@ async function fetchToken(uid /*: UID*/, channelName /*: string*/, tokenRole /*:
 }
 
 
-async function joinRoom() {
+async function joinRoom(isRejoin) {
+
+    if (!HiFiAudio.isChrome() && isRejoin) {
+        showContinue();
+        return;
+    }
 
     options.appid = $("#appid").val();
     options.token = $("#token").val();
@@ -452,10 +470,6 @@ async function joinRoom() {
     HiFiAudio.on("remote-volume-updated", updateVolumeIndicator);
     HiFiAudio.on("remote-client-joined", onUserPublished);
     HiFiAudio.on("remote-client-left", onUserUnpublished);
-
-    if (!HiFiAudio.isChrome()) {
-        HiFiAudio.setAecEnabled(true);
-    }
 
     let ropts = roomOptions[ currentRoomID ];
 
@@ -511,8 +525,8 @@ async function joinRoom() {
 }
 
 
-async function leaveRoom(willRestart) {
-    await HiFiAudio.leave(willRestart);
+async function leaveRoom() {
+    await HiFiAudio.leave();
 
     // remove remote users and player views
     $("#remote-playerlist").html("");
@@ -520,8 +534,6 @@ async function leaveRoom(willRestart) {
 
     elements.length = 0;
     joined = false;
-    currentRoomID = serverCurrentRoomID;
-    updateRoomsUI();
     console.log("client leaves channel success");
 }
 
@@ -599,8 +611,10 @@ function updateRoomsUI() {
 
     let canvasContainer = document.getElementById("canvas-container");
     let videoroomContainer = document.getElementById("playerlist");
+    let continueDialog = document.getElementById("continue-dialog");
 
     if (currentRoomID) {
+        continueDialog.style.display = "none";
         let ropts = roomOptions[ currentRoomID ];
         if (ropts.video) {
             canvasContainer.style.display = "none";
@@ -654,4 +668,19 @@ function setOwnPosition(p) {
         e.o = p.o;
     }
     updatePositions(elements);
+}
+
+
+function showContinue() {
+    setRoomButtonsEnabled(false);
+    $("#join").attr("disabled", true);
+    $("#leave").attr("disabled", true);
+    $("#continue").attr("disabled", false);
+
+    let canvasContainer = document.getElementById("canvas-container");
+    let videoroomContainer = document.getElementById("playerlist");
+    let continueDialog = document.getElementById("continue-dialog");
+    canvasContainer.style.display = "none";
+    videoroomContainer.style.display = "none";
+    continueDialog.style.display = "block";
 }
