@@ -364,7 +364,141 @@ export async function join(appID : string,
         RTCPeerConnection = _RTCPeerConnectionWithoutMetadata;
     }
 
-    return await joinAgoraRoom();
+    // return await joinAgoraRoom();
+
+
+
+
+
+    client = AgoraRTC.createClient({
+        mode: "rtc",
+        codec: "vp8"
+    });
+
+    await startSpatialAudio();
+
+    // add event listener to play remote tracks when remote user publishs.
+    client.on("user-published", (user : IAgoraRTCRemoteUser, mediaType : string) => { handleUserPublished(user, mediaType); });
+    client.on("user-unpublished", (user : IAgoraRTCRemoteUser) => { handleUserUnpublished(user); });
+
+    client.on("token-privilege-will-expire", async function () {
+        console.log("token will expire...");
+        // if (hifiOptions.tokenProvider) {
+        //     console.log("refreshing token...");
+        //     let token = await hifiOptions.tokenProvider(hifiOptions.uid, hifiOptions.channel, 1);
+        //     await client.renewToken(token);
+        // }
+    });
+
+    client.on("token-privilege-did-expire", async function () {
+        console.log("token expired...");
+    });
+
+    let token : string;
+    if (hifiOptions.tokenProvider) {
+        // token = await hifiOptions.tokenProvider(hifiOptions.uid, hifiOptions.channel, 1);
+        token = hifiOptions.tokenProvider;
+    }
+
+    let audioConfig : MicrophoneAudioTrackInitConfig = {
+        AEC: aecEnabled,
+        AGC: false,
+        ANS: false,
+        bypassWebAudio: true,
+        encoderConfig: {
+            sampleRate: 48000,
+            bitrate: 64,
+            stereo: false
+        }
+    };
+
+    if (hifiOptions.video) {
+        let videoConfig : CameraVideoTrackInitConfig = {
+            encoderConfig: "240p_1"
+        };
+
+        // Join a channel and create local tracks. Best practice is to use Promise.all and run them concurrently.
+        let uidReturn : any;
+        [uidReturn, localTracks.audioTrack, localTracks.videoTrack] = await Promise.all([
+            client.join(hifiOptions.appid, hifiOptions.channel, token || null, hifiOptions.uid || null),
+            AgoraRTC.createMicrophoneAudioTrack(audioConfig),
+            AgoraRTC.createCameraVideoTrack(videoConfig)
+        ]);
+
+    } else {
+        delete localTracks.videoTrack;
+
+        let uidReturn : any;
+        [uidReturn, localTracks.audioTrack] = await Promise.all([
+            client.join(hifiOptions.appid, hifiOptions.channel, token || null, hifiOptions.uid || null),
+            AgoraRTC.createMicrophoneAudioTrack(audioConfig)
+        ]);
+    }
+
+    //
+    // route mic stream through Web Audio noise gate
+    //
+    let mediaStreamTrack = localTracks.audioTrack.getMediaStreamTrack();
+    let mediaStream = new MediaStream([mediaStreamTrack]);
+
+    let sourceNode = audioContext.createMediaStreamSource(mediaStream);
+    let destinationNode = audioContext.createMediaStreamDestination();
+
+    hifiNoiseGate = new AudioWorkletNode(audioContext, 'wasm-noise-gate');
+    console.log("hifi-audio: setting initial threshold to " + hifiOptions.thresholdValue);
+    setThreshold(hifiOptions.thresholdValue);
+
+    sourceNode.connect(hifiNoiseGate).connect(destinationNode);
+
+    let destinationTrack = destinationNode.stream.getAudioTracks()[0];
+    await localTracks.audioTrack._updateOriginMediaStreamTrack(destinationTrack, false);
+
+    // publish local tracks to channel
+    await client.publish(Object.values(localTracks));
+    console.log("publish success");
+
+    //
+    // Insertable Streams / Encoded Transform
+    //
+    let senders : Array<RTCRtpSenderIS> = client._p2pChannel.connection.peerConnection.getSenders();
+    let sender = senders.find(e => e.track?.kind === 'audio');
+
+    if (hifiOptions.enableMetadata) {
+        if (encodedTransformSupported) {
+
+            sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
+
+        } else {
+
+            const senderStreams = sender.createEncodedStreams();
+            const readableStream = senderStreams.readable;
+            const writableStream = senderStreams.writable;
+            senderTransform(readableStream, writableStream);
+        }
+    }
+
+    //
+    // HACK! set user radius based on volume level
+    // TODO: reimplement in a performant way...
+    //
+    AgoraRTC.setParameter("AUDIO_VOLUME_INDICATION_INTERVAL", 20);
+    client.enableAudioVolumeIndicator();
+    client.on("volume-indicator", volumes => {
+        if (onUpdateVolumeIndicator) {
+            volumes.forEach((volume, index) => {
+                onUpdateVolumeIndicator("" + volume.uid, volume.level);
+            });
+        }
+    })
+
+    // handle broadcast from remote user
+    client.on("stream-message", (uid : UID, data : Uint8Array) => {
+        if (onReceiveBroadcast) {
+            onReceiveBroadcast("" + uid, data);
+        }
+    });
+
+    return "" + hifiOptions.uid;
 }
 
 
@@ -418,7 +552,8 @@ export async function joinAgoraRoom() {
         };
 
         // Join a channel and create local tracks. Best practice is to use Promise.all and run them concurrently.
-        [hifiOptions.uid, localTracks.audioTrack, localTracks.videoTrack] = await Promise.all([
+        let uidReturn : any;
+        [uidReturn, localTracks.audioTrack, localTracks.videoTrack] = await Promise.all([
             client.join(hifiOptions.appid, hifiOptions.channel, token || null, hifiOptions.uid || null),
             AgoraRTC.createMicrophoneAudioTrack(audioConfig),
             AgoraRTC.createCameraVideoTrack(videoConfig)
@@ -427,7 +562,8 @@ export async function joinAgoraRoom() {
     } else {
         delete localTracks.videoTrack;
 
-        [hifiOptions.uid, localTracks.audioTrack] = await Promise.all([
+        let uidReturn : any;
+        [uidReturn, localTracks.audioTrack] = await Promise.all([
             client.join(hifiOptions.appid, hifiOptions.channel, token || null, hifiOptions.uid || null),
             AgoraRTC.createMicrophoneAudioTrack(audioConfig)
         ]);
@@ -722,7 +858,7 @@ async function startSpatialAudio() {
     hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter', {outputChannelCount : [2]});
     hifiListener.connect(hifiLimiter);
 
-    if (isAecEnabled() && isChrome) {
+    if (isAecEnabled() && isChrome()) {
         startEchoCancellation(audioElement, audioContext);
     } else {
         hifiLimiter.connect(audioContext.destination);
