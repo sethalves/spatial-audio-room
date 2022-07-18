@@ -682,5 +682,5 @@ function showContinue() {
     let continueDialog = document.getElementById("continue-dialog");
     canvasContainer.style.display = "none";
     videoroomContainer.style.display = "none";
-    continueDialog.style.display = "block";
+    continueDialog.style.display = "flex";
 }
