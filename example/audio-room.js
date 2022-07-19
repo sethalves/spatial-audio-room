@@ -23,6 +23,14 @@ let localUid = "" + (((Math.random()*4294967296)>>>0));
 let usernames = {};
 let joined = false;
 
+let characterPosition = {
+    x: 2.0 * Math.random() - 1.0,
+    y: 2.0 * Math.random() - 1.0,
+    o: 0.0
+};
+let characterPositionSet = false;
+
+
 let roomOptions = {
     "room-conf-table": {
         video: false,
@@ -32,10 +40,10 @@ let roomOptions = {
             { x: 1, y: 0, o: degToRad(270) },
             { x: 0, y: 1, o: degToRad(180) },
             { x: -1, y: 0, o: degToRad(90) },
-            { x: -1.4, y: -1.4, o: degToRad(45) },
-            { x: -1.4, y: 1.4, o: degToRad(135) },
-            { x: 1.4, y: 1.4, o: degToRad(225) },
-            { x: 1.4, y: -1.4, o: degToRad(315) }
+            { x: -0.707, y: -0.707, o: degToRad(45) },
+            { x: -0.707, y: 0.707, o: degToRad(135) },
+            { x: 0.707, y: 0.707, o: degToRad(225) },
+            { x: 0.707, y: -0.707, o: degToRad(315) }
         ],
         canvasDimensions: { width: 4, height: 4 },
         background: "table.svg",
@@ -111,9 +119,22 @@ let webSocket = new WebSocket(tokenURL.href);
 webSocket.onmessage = async function (event) {
     console.log("got websocket message: ", event.data);
     let msg = JSON.parse(event.data);
-    serverCurrentRoomID = msg.room;
+    if (msg.room) {
+        serverCurrentRoomID = msg.room;
+    } else {
+        serverCurrentRoomID = currentRoomID;
+    }
     if (msg["message-type"] == "join-room" && !joined) {
         currentRoomID = serverCurrentRoomID;
+        if (!characterPositionSet) {
+            let nth = msg["nth"];
+            let ropts = roomOptions[ currentRoomID ];
+            let positions = ropts.positions;
+            if (nth < positions.length) {
+                setOwnPosition(positions[ nth ]);
+                characterPositionSet = true;
+            }
+        }
     }
 }
 
@@ -234,11 +255,12 @@ function updatePositions(elts) {
     if (e !== undefined) {
         let ropts = roomOptions[ currentRoomID ];
         // transform canvas to audio coordinates
-        HiFiAudio.setLocalMetaData({
+        characterPosition = {
             x: (e.x - 0.5) * ropts.canvasDimensions.width,
             y: -(e.y - 0.5) * ropts.canvasDimensions.height,
             o: e.o
-        });
+        }
+        HiFiAudio.setLocalMetaData(characterPosition);
     }
 }
 
@@ -314,13 +336,6 @@ function receiveBroadcast(uid, data) {
         break;
     }
 
-    case "position": {
-        if (msg.uid == localUid) {
-            setOwnPosition(msg.position);
-        }
-        break;
-    }
-
     default:
         console.log("WARNING -- unknown broadcast message type: " + txt);
     }
@@ -353,7 +368,6 @@ function onUserPublished(uid) {
     }
 
     sendUsername();
-    configureRoom()
 }
 
 
@@ -441,12 +455,6 @@ async function joinRoom() {
     options.channel = $("#channel").val();
     options.username = $("#username").val();
 
-    let initialPosition = {
-        x: 2.0 * Math.random() - 1.0,
-        y: 2.0 * Math.random() - 1.0,
-        o: 0.0
-    };
-
     HiFiAudio.on("remote-position-updated", updateRemotePosition);
     HiFiAudio.on("broadcast-received", receiveBroadcast);
     HiFiAudio.on("remote-volume-updated", updateVolumeIndicator);
@@ -463,7 +471,7 @@ async function joinRoom() {
                          parseInt(localUid),
                          ropts.token, // fetchToken,
                          options.channel + ":" + currentRoomID,
-                         initialPosition,
+                         characterPosition,
                          threshold.value,
                          ropts.video,
                          ropts.metaData);
@@ -487,9 +495,9 @@ async function joinRoom() {
 
         elements.push({
             icon: 'listenerIcon',
-            x: 0.5 + (initialPosition.x / ropts.canvasDimensions.width),
-            y: 0.5 - (initialPosition.y / ropts.canvasDimensions.height),
-            o: initialPosition.o,
+            x: 0.5 + (characterPosition.x / ropts.canvasDimensions.width),
+            y: 0.5 - (characterPosition.y / ropts.canvasDimensions.height),
+            o: characterPosition.o,
             radius: 0.02,
             alpha: 0.5,
             clickable: true,
@@ -501,7 +509,6 @@ async function joinRoom() {
     }
 
     updateAudioControlsUI();
-    configureRoom();
     updateRoomsUI();
     sendUsername();
 
@@ -544,36 +551,6 @@ function setUsername(username) {
     usernames[localUid] = username;
     if (joined) {
         sendUsername();
-    }
-}
-
-
-function configureRoom() {
-    if (!options.admin) {
-        return;
-    }
-
-    // let msg = {
-    //     type: "room",
-    //     roomID: currentRoomID
-    // };
-    // HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(JSON.stringify(msg)));
-
-    let ropts = roomOptions[ currentRoomID ];
-    let positions = ropts.positions;
-    if (positions) {
-        for (let i = 0; i < elements.length && i < positions.length; i++) {
-            if (elements[ i ].uid == localUid) {
-                setOwnPosition(positions[ i ]);
-            } else {
-                let msg = {
-                    type: "position",
-                    uid: elements[ i ].uid,
-                    position: positions[ i ]
-                };
-                HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(JSON.stringify(msg)));
-            }
-        }
     }
 }
 
@@ -645,6 +622,7 @@ function setRoomButtonsEnabled(v) {
 
 function setOwnPosition(p) {
     console.log("SET OWN POSITION: " + JSON.stringify(p));
+    characterPosition = p;
 
     let e = elements.find(e => e.uid === localUid);
     if (e !== undefined) {

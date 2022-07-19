@@ -98,8 +98,9 @@ func handleTokenRequest(dat map[string]interface{}) map[string]interface{} {
 
 
 
-var websockets map[*websocket.Conn]bool = make(map[*websocket.Conn]bool)
+var websockets map[*websocket.Conn]uint32 = make(map[*websocket.Conn]uint32)
 var currentRoomID string
+var nthConnect uint32
 
 
 var upgrader = websocket.Upgrader{
@@ -112,7 +113,9 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	keepAlive(c, 30 * time.Second)
 	defer c.Close()
 
-	websockets[c] = true
+	websockets[c] = nthConnect
+	nthConnect++;
+	nthConnect = nthConnect % 8;
 
 	for {
 		_, message, err := c.ReadMessage()
@@ -165,6 +168,7 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			var response map[string]interface{} = make(map[string]interface{})
 			response["message-type"] = "join-room"
 			response["room"] = currentRoomID
+			response["nth"] = websockets[c]
 			data, _ := json.Marshal(response)
 			for ws, _ := range websockets {
 				ws.WriteMessage(websocket.TextMessage, data)

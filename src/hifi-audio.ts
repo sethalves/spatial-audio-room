@@ -726,7 +726,7 @@ async function startSpatialAudio() {
     hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter', {outputChannelCount : [2]});
     hifiListener.connect(hifiLimiter);
 
-    if (isAecEnabled() && isChrome) {
+    if (isAecEnabled() && isChrome()) {
         startEchoCancellation(audioElement, audioContext);
     } else {
         hifiLimiter.connect(audioContext.destination);
