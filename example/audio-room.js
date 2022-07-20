@@ -465,6 +465,14 @@ async function joinRoom() {
         HiFiAudio.setAecEnabled(true);
     }
 
+    if (!serverCurrentRoomID) {
+        serverCurrentRoomID = roomIDs[0];
+    }
+
+    if (!currentRoomID) {
+        currentRoomID = serverCurrentRoomID;
+    }
+
     let ropts = roomOptions[ currentRoomID ];
 
     await HiFiAudio.join(options.appid,
