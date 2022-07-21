@@ -94,10 +94,10 @@ interface LocalTracks {
 let loopback : RTCPeerConnection[];
 
 // create Agora client
-let client : IAgoraRTCClientOpen = AgoraRTC.createClient({
+let client : IAgoraRTCClientOpen /* = AgoraRTC.createClient({
     mode: "rtc",
     codec: "vp8"
-});
+}) */ ;
 
 let localTracks : LocalTracks = {
     // videoTrack: null,
@@ -523,14 +523,6 @@ export async function leave(willRestart : boolean) {
         delete localTracks.videoTrack;
     }
 
-    for (var uid in remoteUsers) {
-        if (onRemoteUserLeft) {
-            onRemoteUserLeft("" + uid);
-        }
-    }
-
-    remoteUsers = {};
-
     // leave the channel
     await client.leave();
 
@@ -542,7 +534,17 @@ export async function leave(willRestart : boolean) {
     loopback = [];
 
     stopSpatialAudio(willRestart);
-    // client = undefined;
+    client = undefined;
+
+    for (var uid in remoteUsers) {
+        if (onRemoteUserLeft) {
+            onRemoteUserLeft("" + uid);
+        }
+        delete subscribedToAudio[ "" + uid ];
+        delete subscribedToVideo[ "" + uid ];
+    }
+
+    remoteUsers = {};
 }
 
 function handleUserPublished(user : IAgoraRTCRemoteUser, mediaType : string) {
