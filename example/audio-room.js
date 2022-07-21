@@ -247,6 +247,20 @@ threshold.oninput = () => {
     document.getElementById("threshold-value").value = threshold.value;
 }
 
+function clampCharacterPosition() {
+    let ropts = roomOptions[ currentRoomID ];
+    let canvasDimensions = ropts.canvasDimensions;
+    let minX = -canvasDimensions.width / 2;
+    let minY = -canvasDimensions.height / 2;
+    let maxX = canvasDimensions.width / 2;
+    let maxY = canvasDimensions.height / 2;
+
+    if (characterPosition.x < minX) characterPosition.x = minX;
+    if (characterPosition.y < minY) characterPosition.y = minY;
+    if (characterPosition.x > maxX) characterPosition.x = maxX;
+    if (characterPosition.y > maxY) characterPosition.y = maxY;
+}
+
 
 // called when the user drags around their own dot...
 function updatePositions(elts) {
@@ -260,6 +274,7 @@ function updatePositions(elts) {
             y: -(e.y - 0.5) * ropts.canvasDimensions.height,
             o: e.o
         }
+        clampCharacterPosition();
         HiFiAudio.setLocalMetaData(characterPosition);
     }
 }
@@ -474,6 +489,8 @@ async function joinRoom() {
     }
 
     let ropts = roomOptions[ currentRoomID ];
+
+    clampCharacterPosition();
 
     await HiFiAudio.join(options.appid,
                          parseInt(localUid),
