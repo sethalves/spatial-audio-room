@@ -434,6 +434,8 @@ export async function joinAgoraRoom() {
         ]);
     }
 
+    audioElement.play();
+
     //
     // route mic stream through Web Audio noise gate
     //
@@ -734,7 +736,7 @@ async function startSpatialAudio() {
         hifiLimiter.connect(audioContext.destination);
     }
 
-    audioElement.play();
+    // audioElement.play();
 }
 
 
