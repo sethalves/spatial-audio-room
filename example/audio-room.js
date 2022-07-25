@@ -156,7 +156,7 @@ $(()=>{
     }
     options.username = urlParams.get("username");
     if (options.channel) {
-        $("#channel").val(options.channel);
+        // $("#channel").val(options.channel);
         $("#username").val(options.username);
     }
 
@@ -467,7 +467,7 @@ async function joinRoom() {
 
     options.appid = $("#appid").val();
     options.token = $("#token").val();
-    options.channel = $("#channel").val();
+    // options.channel = $("#channel").val();
     options.username = $("#username").val();
 
     HiFiAudio.on("remote-position-updated", updateRemotePosition);

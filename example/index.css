@@ -27,23 +27,17 @@
 }
 
 
-.room-user-join-grid {
-    display: inline-grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(2, 1fr);
-    column-gap: 50px;
-}
-
-.entry-label {
-    display: flex;
-    font-size: 65%;
-    align-self: flex-end;
-    margin: 0;
-}
+/* .room-user-join-grid { */
+/*     display: inline-grid; */
+/*     grid-template-columns: repeat(4, 1fr); */
+/*     grid-template-rows: repeat(2, 1fr); */
+/*     column-gap: 50px; */
+/* } */
 
 .text-entry {
-    display:inline-block;
-    line-height:100%;
+    display: inline-block;
+    line-height: 100%;
+    width: 100%;
 }
 
 .lower-page {
@@ -56,7 +50,7 @@
 .controls-and-rooms {
     display: inline-grid;
     grid-template-columns: repeat(1, 1fr);
-    grid-template-rows: repeat(3, min-content);
+    grid-template-rows: repeat(4, min-content);
     height: min-content;
 }
 
@@ -66,6 +60,41 @@
     margin-right: 0px;
     margin-bottom: 0px;
     height: min-content;
+}
+
+.user-name-and-label {
+    display: inline-grid;
+    width: 100%;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, min-content);
+}
+
+.user-name-and-label > * {
+    margin-right: 20px;
+}
+
+.entry-label {
+    display: flex;
+    font-size: 65%;
+    align-self: flex-end;
+    margin: 0;
+    border: 0;
+}
+
+.join-leave-buttons {
+    display: inline-grid;
+    width: 100%;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: 1fr;
+}
+
+.join-leave-buttons > * {
+    margin-top: 0px;
+    margin-left: 0px;
+    margin-right: 20px;
+    margin-bottom: 0px;
+    /* width: min-content; */
+    /* height: min-content; */
 }
 
 .controls {

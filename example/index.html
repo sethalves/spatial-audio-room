@@ -34,7 +34,6 @@
       <div class="main-page" id="main-page">
         <div class="top-bar" id="top-bar">
 
-          <div class="room-user-join-grid">
             <div class="logo-div">
               <!-- <img class="logo" src="Logo-HighFidelity-Line-PrimaryBlue.svg" alt="High Fidelity"> -->
               <!-- <img class="logo" src="High-Fidelity_Imagery_Brand_Logo_Left-Lockup_Black_v01.svg" alt="High Fidelity"> -->
@@ -42,27 +41,23 @@
               <br>
               <div class="logo-label"><p>Spatial Audio Demo</p></div>
             </div>
-
-            <p class="entry-label">Room Name</p>
-            <p class="entry-label">User Name</p>
-            <p class="entry-label"></p>
-            <div><input class="text-entry" id="channel" type="text" value="hifi-demo" required readonly></div>
-            <div><input class="text-entry" id="username" type="text" placeholder="username"></div>
-            <div>
-              <button disabled id="join" type="submit" class="btn btn-primary btn-sm">Join</button>
-              <button disabled id="leave" type="button" class="btn btn-primary btn-sm">Leave</button>
-              <!--
-              <button id="sound" type="button" class="btn btn-primary btn-sm" style="float: right;" hidden>Sound</button>
-              -->
-            </div>
-          </div>
-
         </div>
 
 
         <div class="lower-page" id="lower-page">
 
           <div class="controls-and-rooms" id="controls-and-rooms">
+
+            <div class="user-name-and-label" id="user-name-and-label">
+              <div><p class="entry-label">User Name</p></div>
+              <div><input class="text-entry" id="username" type="text" placeholder="username"></div>
+            </div>
+
+            <div class="join-leave-buttons" id="join-leave-buttons">
+              <button disabled id="join" type="submit" class="btn btn-primary btn-sm">Join</button>
+              <button disabled id="leave" type="button" class="btn btn-primary btn-sm">Leave</button>
+            </div>
+
             <div class="controls">
               <p class="controls-all-cols">Audio Controls</p>
 
