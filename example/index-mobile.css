@@ -1,0 +1,242 @@
+
+
+.main-page {
+    display: inline-grid;
+    width: 100%;
+    min-height: 95vh;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, min-content)
+}
+
+
+.top-bar {
+    /* background-color: lightgray; */
+    width: 100%;
+    display: inline-grid;
+    grid-template-columns: repeat(3, min-content);
+    grid-template-rows: 1fr;
+}
+.top-bar > * {
+    display: inline-block;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.logo-name-joinleave {
+    display: inline-grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(3, min-content);
+    background-color: lightgray;
+}
+
+.logo-div {
+    grid-row-start: 1;
+    grid-row-end: 3;
+    margin-left: 10px;
+    margin-top: 10px;
+}
+.logo-div > * { display: inline; }
+.logo {
+    height: 60px;
+}
+.logo-label {
+    font-size: 100%;
+    text-align: right;
+}
+
+/* .room-user-join-grid { */
+/*     display: inline-grid; */
+/*     grid-template-columns: repeat(4, 1fr); */
+/*     grid-template-rows: repeat(2, 1fr); */
+/*     column-gap: 50px; */
+/* } */
+
+.text-entry {
+    display: inline-block;
+    line-height: 100%;
+    /* width: 100%; */
+}
+
+.lower-page {
+    display: inline-grid;
+    width: 100%;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+}
+
+.user-name-and-label {
+    display: inline-grid;
+    /* width: 100%; */
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, min-content);
+}
+
+.user-name-and-label > * {
+    margin-right: 20px;
+}
+
+.entry-label {
+    display: flex;
+    font-size: 65%;
+    align-self: flex-end;
+    margin: 0;
+    border: 0;
+}
+
+.join-leave-buttons {
+    display: inline-grid;
+    /* width: 100%; */
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: 1fr;
+}
+
+.join-leave-buttons > * {
+    margin-top: 10px;
+    margin-left: 0px;
+    margin-right: 20px;
+    margin-bottom: 0px;
+    /* width: min-content; */
+    height: min-content;
+}
+
+.controls {
+    background-color: lightgray;
+    display: inline-grid;
+    grid-template-columns: min-content auto;
+    grid-template-rows: repeat(5, 1fr);
+}
+
+.controls > * {
+    margin-left: 10px;
+}
+
+.controls-all-cols {
+    grid-column-start: 1;
+    grid-column-end: 3;
+}
+
+.control-label {
+    color: white;
+    width: max-content;
+    margin-right: 10px;
+}
+
+.rooms {
+    background-color: lightgray;
+    display: inline-grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, min-content);
+    /* height: min-content; */
+}
+
+.rooms-label {
+    margin-left: 10px;
+    margin-right: 0px;
+    margin-top: 0px;
+    margin-bottom: 0px;
+}
+
+.room-buttons {
+    background-color: lightgray;
+    display: inline-grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    margin-left: 5px;
+    margin-right: 5px;
+    margin-top: 0px;
+    margin-bottom: 5px;
+}
+
+.rooms-button {
+    margin-left: 5px;
+    margin-right: 5px;
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
+
+.canvas-group {
+    margin-top: 20px;
+    margin-left: 20px;
+    margin-right: 0px;
+    margin-bottom: 0px;
+    height: min-content;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    -webkit-transition: .4s;
+    transition: .4s;
+}
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    -webkit-transition: .4s;
+    transition: .4s;
+}
+input:checked + .slider { background-color: #2196F3; }
+input:focus + .slider { box-shadow: 0 0 1px #2196F3; }
+input:checked + .slider:before {
+    -webkit-transform: translateX(26px);
+    -ms-transform: translateX(26px);
+    transform: translateX(26px);
+}
+.slider.round { border-radius: 34px; }
+.slider.round:before { border-radius: 50%; }
+
+
+.player-list {
+    display: none;
+    margin-top: 20px;
+    margin-left: 20px;
+    margin-right: 0px;
+    margin-bottom: 0px;
+    width: 100%;
+    height: 100%;
+}
+
+.player-wrapper {
+    display: inline-block;
+    width: 330px;
+    margin: 0px;
+    border: 0px;
+}
+
+.player {
+    width: 320px;
+    height: 240px;
+    margin: 4px;
+    border: 1px solid gray;
+}
+
+.player-name {
+    width: 320px;
+}
+
+.continue-dialog {
+    display: none;
+    margin-top: 20px;
+    margin-left: 20px;
+    margin-right: 0px;
+    margin-bottom: 0px;
+    width: 100%;
+    height: 100%;
+}

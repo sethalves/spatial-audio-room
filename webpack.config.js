@@ -30,6 +30,8 @@ module.exports = ({ buildEnv }) => {
                     { from: "assets/worker.js", to: "" },
                     { from: "example/index.css", to: "" },
                     { from: "example/index.html", to: "" },
+                    { from: "example/index-mobile.css", to: "" },
+                    { from: "example/index-mobile.html", to: "" },
                     { from: "example/listener.svg", to: "" },
                     { from: "example/sound.wav", to: "" },
                     { from: "example/source.svg", to: "" },
