@@ -50,6 +50,10 @@ body {
     font-size: 16px;
 }
 
+.btn-white {
+    background: #D9E8EF;
+    color: #0429E1;
+}
 
 .btn.disabled, .btn:disabled {
     opacity: 1;
@@ -94,6 +98,12 @@ input#username {
     padding: 2rem;
     scroll-snap-align: center;
 
+}
+
+.controls-and-rooms>div:not(:last-child) {
+    border-bottom: 2px solid rgba(217, 217, 217, 0.5);
+    padding-bottom: 25px;
+    margin-bottom: 25px;
 }
 
 .user-name-and-label {
