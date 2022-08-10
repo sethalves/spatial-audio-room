@@ -167,7 +167,7 @@ $(()=>{
 
     for (const rID of roomIDs) {
         let roomButton = document.getElementById(rID);
-        roomButton.style.background="#6c757d";
+        roomButton.style.background="#D9E8EF";
     }
 }
 )
@@ -595,7 +595,7 @@ function updateRoomsUI() {
         if (rID == currentRoomID && joined) {
             roomButton.style.background="#007bff";
         } else {
-            roomButton.style.background="#6c757d";
+            roomButton.style.background="#D9E8EF";
         }
     }
 
