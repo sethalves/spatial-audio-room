@@ -105,41 +105,26 @@ function getAbsoluteWidth(eltID) {
 
 
 CanvasControl.prototype.resize = function() {
-    // let canvasWidth = this._canvas.parentNode.clientWidth;
-    // let canvasHeight = this._canvas.parentNode.clientHeight;
 
     let dpr = window.devicePixelRatio || 1;
-
-    // console.log("dpr -- dpr=" + JSON.stringify(dpr));
 
     let screenSize = window.innerWidth * dpr;
     if (screenSize > window.innerHeight * dpr) {
         screenSize = window.innerHeight * dpr;
     }
 
-    // console.log("dpr -- screenSize=" + JSON.stringify(screenSize));
-
     let windowWidth = Math.floor(window.innerWidth * dpr);
     let windowHeight = Math.floor(window.innerHeight * dpr);
 
-    // console.log("dpr -- window-size=" + JSON.stringify([windowWidth, windowHeight]));
-
-    // console.log("dpr -- controls-width=" + JSON.stringify(getAbsoluteWidth('controls-and-rooms')));
-    // console.log("dpr -- top-bar-height=" + JSON.stringify(getAbsoluteHeight('top-bar')));
-
-    let canvasWidth = windowWidth - getAbsoluteWidth('controls-and-rooms') * dpr - 40 * dpr;
-    let canvasHeight = windowHeight - getAbsoluteHeight('top-bar') * dpr - 40 * dpr;
-
-    // console.log("dpr -- canvas-size=" + JSON.stringify([canvasWidth, canvasHeight]));
+    let canvasWidth = windowWidth - getAbsoluteWidth("left-bar") * dpr - 40 * dpr;
+    let canvasHeight = windowHeight - getAbsoluteHeight("top-bar") * dpr - 40 * dpr;
 
     if (canvasWidth < canvasHeight) {
         this._canvas.width = canvasWidth / dpr;
         this._canvas.height = canvasWidth / dpr;
-        // console.log("dpr -- setting canvas square: " + JSON.stringify([canvasWidth, canvasWidth]));
     } else {
         this._canvas.width = canvasHeight / dpr;
         this._canvas.height = canvasHeight / dpr;
-        // console.log("dpr -- setting canvas square: " + JSON.stringify([canvasHeight, canvasHeight]));
     }
 };
 

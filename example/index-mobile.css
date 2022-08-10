@@ -29,27 +29,26 @@
     background-color: lightgray;
 }
 
-.logo-div {
-    grid-row-start: 1;
-    grid-row-end: 3;
+.logo-name-joinleave > * {
     margin-left: 10px;
-    margin-top: 10px;
+    margin-right: 10px;
 }
-.logo-div > * { display: inline; }
+
+.logo-div {
+    margin-top: 10px;
+    display: inline-grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, min-content);
+}
 .logo {
-    height: 60px;
+    height: 40px;
+    justify-self: end;
 }
 .logo-label {
-    font-size: 100%;
+    font-size: 65%;
     text-align: right;
 }
 
-/* .room-user-join-grid { */
-/*     display: inline-grid; */
-/*     grid-template-columns: repeat(4, 1fr); */
-/*     grid-template-rows: repeat(2, 1fr); */
-/*     column-gap: 50px; */
-/* } */
 
 .text-entry {
     display: inline-block;
@@ -60,7 +59,7 @@
 .lower-page {
     display: inline-grid;
     width: 100%;
-    grid-template-columns: 1fr;
+    grid-template-columns: min-content auto;
     grid-template-rows: 1fr;
 }
 
@@ -72,7 +71,7 @@
 }
 
 .user-name-and-label > * {
-    margin-right: 20px;
+    margin-right: 0px;
 }
 
 .entry-label {
@@ -85,40 +84,54 @@
 
 .join-leave-buttons {
     display: inline-grid;
-    /* width: 100%; */
     grid-template-columns: repeat(2, 1fr);
     grid-template-rows: 1fr;
+    margin-bottom: 10px;
 }
 
 .join-leave-buttons > * {
     margin-top: 10px;
     margin-left: 0px;
-    margin-right: 20px;
+    margin-right: 0px;
     margin-bottom: 0px;
     /* width: min-content; */
     height: min-content;
 }
 
-.controls {
+.controls-and-label {
     background-color: lightgray;
     display: inline-grid;
-    grid-template-columns: min-content auto;
-    grid-template-rows: repeat(5, 1fr);
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, min-content);
+}
+
+.controls {
+    display: inline-grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(3, min-content);
 }
 
 .controls > * {
     margin-left: 10px;
 }
 
-.controls-all-cols {
-    grid-column-start: 1;
-    grid-column-end: 3;
+.mute-and-echo {
+    display: inline-grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, min-content);
+}
+
+.thresh-and-label {
+    display: inline-grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(2, min-content);
 }
 
 .control-label {
-    color: white;
+    font-size: 65%;
     width: max-content;
-    margin-right: 10px;
+    margin: 0;
+    border: 0;
 }
 
 .rooms {
@@ -129,7 +142,7 @@
     /* height: min-content; */
 }
 
-.rooms-label {
+.box-label {
     margin-left: 10px;
     margin-right: 0px;
     margin-top: 0px;
