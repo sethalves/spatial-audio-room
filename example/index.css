@@ -100,12 +100,6 @@ input#username {
 
 }
 
-.controls-and-rooms>div:not(:last-child) {
-    border-bottom: 2px solid rgba(217, 217, 217, 0.5);
-    padding-bottom: 25px;
-    margin-bottom: 25px;
-}
-
 .user-name-and-label {
     display: inline-grid;
     width: 100%;
@@ -326,9 +320,6 @@ input[type=range]::-ms-fill-upper {
     .controls {
         gap: 25px;
     }
-    .controls-and-rooms>div:not(:last-child) {
-        border-right: 2px solid rgba(217, 217, 217, 0.5);
-    }
     .controls-and-rooms {
         background: #000;
         background-image: url(/assets/controls-bg-m.jpg);
@@ -337,6 +328,9 @@ input[type=range]::-ms-fill-upper {
         display: flex;
         scroll-snap-type: none;
         overflow-x: visible;
+    }
+    .controls-and-rooms>div:not(:last-child) {
+        border-right: 2px solid rgba(217, 217, 217, 0.5);
     }
     .controls-and-rooms>div {
         min-width: 0;
