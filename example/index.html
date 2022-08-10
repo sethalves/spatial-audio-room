@@ -1,55 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Spatial Audio Room</title>
-    <link rel="icon" href="favicon.ico" sizes="any">
-    <link rel="icon" href="safari-pinned-tab.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="./vendor/bootstrap.min.css">
-    <link rel="stylesheet" href="./index.css">
 
-    <!--
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Spatial Audio Room</title>
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" href="safari-pinned-tab.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./vendor/bootstrap.min.css">
+  <link rel="stylesheet" href="./index.css">
+
+  <!--
     <link rel="preload" href="hifi.wasm.simd.js" as="script">
     <link rel="preload" href="hifi.wasm.js" as="script">
     <link rel="preload" href="worker.js" as="script">
     <link rel="preload" href="worker-transform.js" as="script">
     -->
 
-    <!--
+  <!--
     <link rel="prefetch" href="hifi.wasm.simd.js">
     <link rel="prefetch" href="hifi.wasm.js">
     <link rel="prefetch" href="worker.js">
     <link rel="prefetch" href="worker-transform.js">
     -->
 
-  </head>
-  <body style="overflow: hidden;">
-    <div hidden>
-      <input id="appid" type="text" value="aee8658414ec41a4a5d97a79ddf86bd7" required>
-    </div>
+</head>
 
-    <form id="join-form">
-      <div class="main-page" id="main-page">
-        <div class="top-bar" id="top-bar">
+<body>
+  <div hidden>
+    <input id="appid" type="text" value="aee8658414ec41a4a5d97a79ddf86bd7" required>
+  </div>
 
-            <div class="logo-div">
-              <!-- <img class="logo" src="Logo-HighFidelity-Line-PrimaryBlue.svg" alt="High Fidelity"> -->
-              <!-- <img class="logo" src="High-Fidelity_Imagery_Brand_Logo_Left-Lockup_Black_v01.svg" alt="High Fidelity"> -->
-              <img class="logo" src="High-Fidelity_Imagery_Brand_Logo_Top-Right-Lockup_Black_v01-01.svg" alt="High Fidelity">
-              <br>
-              <div class="logo-label"><p>Spatial Audio Demo</p></div>
+  <form id="join-form">
+    <div class="main-page" id="main-page">
+
+
+      <div class="lower-page" id="lower-page">
+
+        <div class="controls-and-rooms" id="controls-and-rooms">
+
+          <div>
+            <div class="logo-div mb-5">
+              <img class="logo" src="/assets/logo-white.svg" alt="High Fidelity" height="60" width="148">
             </div>
-        </div>
-
-
-        <div class="lower-page" id="lower-page">
-
-          <div class="controls-and-rooms" id="controls-and-rooms">
 
             <div class="user-name-and-label" id="user-name-and-label">
-              <div><p class="entry-label">User Name</p></div>
+              <p class="lead">
+                User Info
+              </p>
               <div><input class="text-entry" id="username" type="text" placeholder="username"></div>
             </div>
 
@@ -57,73 +56,84 @@
               <button disabled id="join" type="submit" class="btn btn-primary btn-sm">Join</button>
               <button disabled id="leave" type="button" class="btn btn-primary btn-sm">Leave</button>
             </div>
+          </div>
 
-            <div class="controls">
-              <p class="controls-all-cols">Audio Controls</p>
 
+          <div class="controls">
+            <p class="controls-all-cols lead">
+              Audio Controls
+            </p>
+
+            <div class="d-flex align-items-center">
               <label class="switch">
                 <input id="mute" type="checkbox">
                 <span class="slider round"></span>
               </label>
-              <p class="control-label">Mute</p>
+              <p class="control-label mb-0">Mute</p>
+            </div>
 
+            <div class="d-flex align-items-center">
               <label class="switch">
                 <input id="aec" type="checkbox">
                 <span class="slider round"></span>
               </label>
-              <p class="control-label">Cancel Echo</p>
+              <p class="control-label mb-0">Cancel Echo</p>
+            </div>
 
-              <div class="controls-all-cols" style="display: flex;">
+
+            <div>
+              <div class="controls-all-cols d-flex">
                 <p class="control-label">Noise Threshold:</p>
-                <output class="controls-all-cols control-label" id="threshold-value">-40</output>
+                <output class="controls-all-cols control-label mb-0 ml-2" id="threshold-value">-40</output>
               </div>
-
-              <div class="controls-all-cols" style="display: flex; align-self: flex-start; margin: 0;">
-                <input id="threshold" style="margin-left: 10px; margin-right: 10px; width: 185px;" type="range"
-                       min=-96 max=0 value=-40 step=1>
+              <div class="controls-all-cols">
+                <input id="threshold" style="width: 100%;" type="range" min=-96
+                  max=0 value=-40 step=1>
               </div>
             </div>
 
-            <div class="rooms">
-              <p style="margin-left: 10px;">Demo Rooms</p>
-
-              <button disabled id="room-conf-table" type="button" class="btn btn-primary btn-sm rooms-button">Conf Table</button>
-              <button disabled id="room-quad-music" type="button" class="btn btn-primary btn-sm rooms-button">Quad Music</button>
-              <button disabled id="room-bar" type="button" class="rooms-button btn btn-primary btn-sm">Bar</button>
-              <button disabled id="room-video" type="button" class="rooms-button btn btn-primary btn-sm">Video</button>
-
-            </div>
-
           </div>
 
-          <div id="canvas-container" class="canvas-group" style="height: 100%">
-            <canvas id="canvas" oncontextmenu="return false;"></canvas>
-          </div>
 
-          <div id="playerlist" class="player-list row justify-content-center">
-            <div id="player-wrapper-0" data-id="0" class="player-wrapper">
-              <div id="local-player" class="player"></div>
-              <p id="local-player-name" class="player-name"></p>
-            </div>
-          </div>
-
-          <div id="continue-dialog" class="continue-dialog">
-              <button disabled id="continue" type="submit" class="btn btn-primary btn-sm">Continue...</button>
+          <div class="rooms">
+            <p class="lead mb-0">Demo Rooms</p>
+            <button disabled id="room-conf-table" type="button" class="btn btn-white btn-sm rooms-button">Conf Table</button>
+            <button disabled id="room-quad-music" type="button" class="btn btn-white btn-sm rooms-button">Quad Music</button>
+            <button disabled id="room-bar" type="button" class="btn btn-white btn-sm rooms-button">Bar</button>
+            <button disabled id="room-video" type="button" class="btn btn-white btn-sm rooms-button">Video</button>
           </div>
 
         </div>
 
+        <div id="canvas-container" class="canvas-group" style="height: 100%">
+          <canvas id="canvas" oncontextmenu="return false;"></canvas>
+        </div>
+
+        <div id="playerlist" class="player-list row justify-content-center">
+          <div id="player-wrapper-0" data-id="0" class="player-wrapper">
+            <div id="local-player" class="player"></div>
+            <p id="local-player-name" class="player-name"></p>
+          </div>
+        </div>
+
+        <div id="continue-dialog" class="continue-dialog">
+          <button disabled id="continue" type="submit" class="btn btn-primary btn-sm">Continue...</button>
+        </div>
+
       </div>
-    </form>
 
-    <img src="listener.svg" class="icon" alt="listener" id="listenerIcon" hidden>
-    <img src="source.svg" class="icon" alt="source" id="sourceIcon" hidden>
+    </div>
+  </form>
 
-    <script src="./vendor/jquery-3.4.1.min.js"></script>
-    <script src="./vendor/bootstrap.bundle.min.js"></script>
-    <script src="./vendor/Sortable.min.js"></script>
-    <script src="./vendor/AgoraRTC_N-4.12.2.js"></script>
-    <script type="module" src="./audio-room.js"></script>
+  <img src="listener.svg" class="icon" alt="listener" id="listenerIcon" hidden>
+  <img src="source.svg" class="icon" alt="source" id="sourceIcon" hidden>
 
-  </body>
+  <script src="./vendor/jquery-3.4.1.min.js"></script>
+  <script src="./vendor/bootstrap.bundle.min.js"></script>
+  <script src="./vendor/Sortable.min.js"></script>
+  <script src="./vendor/AgoraRTC_N-4.12.2.js"></script>
+  <script type="module" src="./audio-room.js"></script>
+
+</body>
+
 </html>
