@@ -85,7 +85,6 @@ body {
     line-height: 9px;
     color: #fff;
     text-align: center;
-    flex: 1;
     padding: 0;
 }
 
@@ -112,22 +111,21 @@ input#username {
     background-image: url(/assets/controls-bg-m.jpg);
     background-position: center right;
     background-size: cover;
-    display: flex;
-    scroll-snap-type: x mandatory;
-    overflow-x: scroll;
-    padding: 2rem 0;
+    scroll-snap-type: y mandatory;
+    overflow-y: scroll;
+    padding: 2rem;
+    max-height: 160px;
 }
 
 .controls-and-rooms>div {
     flex: 1;
-    min-width: 400px;
-    padding: 0 2rem;
+    padding: 2rem 0;
     scroll-snap-align: center;
 
 }
 
 .controls-and-rooms>div:not(:last-child) {
-    border-right: 2px solid rgba(217, 217, 217, 0.5);
+    border-bottom: 2px solid rgba(217, 217, 217, 0.5);
 }
 
 .user-name-and-label {
@@ -152,10 +150,8 @@ button:not(:disabled):hover circle {
 
 .join-leave-buttons {
     display: flex;
-    width: 100%;
     align-items: center;
     justify-content: flex-end;
-    margin-top: 20px;
 }
 
 .rooms {
@@ -349,9 +345,18 @@ input[type=range]::-ms-fill-upper {
         display: flex;
         scroll-snap-type: none;
         overflow-x: visible;
+        padding: 2rem 0;
+        max-height: none
     }
 
     .controls-and-rooms>div {
         min-width: 0;
+        padding: 0 2rem;
+    }
+
+    .controls-and-rooms>div:not(:last-child) {
+        border-bottom: none;
+        border-right: 2px solid rgba(217, 217, 217, 0.5);
+
     }
 }
