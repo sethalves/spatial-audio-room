@@ -42,12 +42,12 @@ body {
     border-radius: 35px;
     border: none;
     display: inline-flex;
-    min-height: 42px;
+    min-height: 32px;
     align-items: center;
     justify-content: center;
     padding: 10px 34px;
     font-weight: 600;
-    font-size: 16px;
+    font-size: 12px;
 }
 
 .btn-white {
@@ -67,14 +67,39 @@ body {
 
 .btn-white.disabled,
 .btn-white:disabled {
-    background: #D9E8EF;
+    background: #fff;
     color: #0429E1;
-    opacity: .8;
+    opacity: 1;
 }
 
+.rooms-btns {
+    display: flex;
+    gap: 15px;
+}
+
+.rooms-button {
+    background: none !important;
+    border: none;
+    font-weight: 600;
+    font-size: 12px;
+    line-height: 9px;
+    color: #fff;
+    text-align: center;
+    flex: 1;
+    padding: 0;
+}
+
+.rooms-button circle {
+    transition: all .15s ease-in-out;
+    fill: #fff;
+}
+
+.rooms-button svg {
+    margin-bottom: 10px;
+}
 
 input#username {
-    min-height: 37px;
+    min-height: 28px;
     padding: 5px;
     border-radius: 4px;
     border: 2px solid #000000;
@@ -90,14 +115,19 @@ input#username {
     display: flex;
     scroll-snap-type: x mandatory;
     overflow-x: scroll;
+    padding: 2rem 0;
 }
 
 .controls-and-rooms>div {
     flex: 1;
     min-width: 400px;
-    padding: 2rem;
+    padding: 0 2rem;
     scroll-snap-align: center;
 
+}
+
+.controls-and-rooms>div:not(:last-child) {
+    border-right: 2px solid rgba(217, 217, 217, 0.5);
 }
 
 .user-name-and-label {
@@ -105,6 +135,11 @@ input#username {
     width: 100%;
     grid-template-columns: 1fr;
     grid-template-rows: repeat(2, min-content);
+}
+
+[type=button]:not(:disabled):hover circle,
+button:not(:disabled):hover circle {
+    fill: #f1a9d7;
 }
 
 .entry-label {
@@ -119,7 +154,7 @@ input#username {
     display: flex;
     width: 100%;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     margin-top: 20px;
 }
 
@@ -139,8 +174,8 @@ input#username {
 .switch {
     position: relative;
     display: inline-block;
-    width: 60px;
-    height: 34px;
+    width: 22px;
+    height: 10px;
     margin-bottom: 0;
 }
 
@@ -175,10 +210,11 @@ input#username {
 .slider:before {
     position: absolute;
     content: "";
-    height: 26px;
-    width: 26px;
-    left: 4px;
-    bottom: 4px;
+    height: 9px;
+    width: 9px;
+    left: 0.5px;
+    bottom: 50%;
+    transform: translateY(50%);
     background-color: #FF55BA;
     -webkit-transition: .4s;
     transition: .4s;
@@ -194,9 +230,7 @@ input:focus+.slider {
 }
 
 input:checked+.slider:before {
-    -webkit-transform: translateX(26px);
-    -ms-transform: translateX(26px);
-    transform: translateX(26px);
+    transform: translateX(11px) translateY(50%);
 }
 
 .slider.round {
@@ -259,13 +293,13 @@ input[type=range] {
 @media screen and (-webkit-min-device-pixel-ratio: 0) {
     input[type=range] {
         overflow: hidden;
-        height: 30px;
+        height: 10px;
         -webkit-appearance: none;
         background-color: #ddd;
     }
 
     input[type=range]::-webkit-slider-runnable-track {
-        height: 30px;
+        height: 10px;
         -webkit-appearance: none;
         color: #444;
         -webkit-transition: box-shadow 0.2s ease-in-out;
@@ -273,30 +307,16 @@ input[type=range] {
     }
 
     input[type=range]::-webkit-slider-thumb {
-        width: 30px;
+        width: 10px;
         -webkit-appearance: none;
-        height: 30px;
+        height: 10px;
         cursor: ew-resize;
         background: #FF55BA;
-        box-shadow: -340px 0 0 320px #FFA4DA, inset 0 0 0 5px #FFA4DA;
+        box-shadow: -340px 0 0 335px #FFA4DA, inset 0 0 0 5px #ea65b6;
         border-radius: 50%;
         -webkit-transition: box-shadow 0.2s ease-in-out;
         transition: box-shadow 0.2s ease-in-out;
         position: relative;
-    }
-    @media (min-width: 993px) {
-        input[type=range] {
-            height: 40px;
-        }
-
-        input[type=range]::-webkit-slider-runnable-track {
-            height: 40px;
-        }
-
-        input[type=range]::-webkit-slider-thumb {
-            width: 40px;
-            height: 40px;
-        }
     }
 }
 
@@ -320,6 +340,7 @@ input[type=range]::-ms-fill-upper {
     .controls {
         gap: 25px;
     }
+
     .controls-and-rooms {
         background: #000;
         background-image: url(/assets/controls-bg-m.jpg);
@@ -329,9 +350,7 @@ input[type=range]::-ms-fill-upper {
         scroll-snap-type: none;
         overflow-x: visible;
     }
-    .controls-and-rooms>div:not(:last-child) {
-        border-right: 2px solid rgba(217, 217, 217, 0.5);
-    }
+
     .controls-and-rooms>div {
         min-width: 0;
     }
