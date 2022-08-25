@@ -117,7 +117,7 @@ input#username {
     background-size: cover;
     overflow-y: scroll;
     padding: 0 2rem;
-    max-height: 160px;
+    max-height: 175px;
 }
 
 .controls-and-rooms>div {

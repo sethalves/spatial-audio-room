@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>Spatial Audio Room</title>
   <link rel="icon" href="favicon.ico" sizes="any">
@@ -80,16 +80,17 @@
               </div>
             </div>
 
-            <div class="threshold mt-lg-3 flex-md-column-reverse d-md-flex">
+            <div class="threshold mt-lg-3">
 
+              <div class="controls-all-cols d-flex mt-lg-2 justify-content-between">
+                <p class="control-label mb-2">Mic Threshold</p>
+                <output class="controls-all-cols control-label mb-0 mt-2 mt-md-0 mb-md-2 ml-2" id="threshold-value">-40</output>
+              </div>
               <div class="controls-all-cols">
                 <input id="threshold" style="width: 100%;" type="range" min=-96
                   max=0 value=-40 step=1>
               </div>
-              <div class="controls-all-cols d-flex mt-lg-2 justify-content-between">
-                <p class="control-label mb-0 mt-2 mt-md-0 mb-md-2">Mic Threshold</p>
-                <output class="controls-all-cols control-label mb-0 mt-2 mt-md-0 mb-md-2 ml-2" id="threshold-value">-40</output>
-              </div>
+
             </div>
 
           </div>
