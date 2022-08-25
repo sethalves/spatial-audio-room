@@ -131,6 +131,10 @@ input#username {
     border-bottom: 2px solid rgba(217, 217, 217, 0.5);
 }
 
+.join-leave-buttons [disabled] {
+    display: none;
+}
+
 .user-name-and-label {
     display: inline-grid;
     width: 100%;
