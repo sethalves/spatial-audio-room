@@ -127,20 +127,21 @@ CanvasControl.prototype.resize = function() {
     // console.log("dpr -- controls-width=" + JSON.stringify(getAbsoluteWidth('controls-and-rooms')));
     // console.log("dpr -- top-bar-height=" + JSON.stringify(getAbsoluteHeight('top-bar')));
 
-    let canvasWidth = windowWidth - getAbsoluteWidth('controls-and-rooms') * dpr - 40 * dpr;
-    let canvasHeight = windowHeight - getAbsoluteHeight('top-bar') * dpr - 40 * dpr;
+    // let canvasWidth = windowWidth - getAbsoluteWidth('controls-and-rooms') * dpr - 40 * dpr;
+    let canvasWidth = getAbsoluteWidth('controls-and-rooms') * dpr /*- 40 * dpr*/;
+    let canvasHeight = windowHeight - getAbsoluteHeight('controls-and-rooms') * dpr - 40 * dpr;
 
     // console.log("dpr -- canvas-size=" + JSON.stringify([canvasWidth, canvasHeight]));
 
-    if (canvasWidth < canvasHeight) {
+//    if (canvasWidth < canvasHeight) {
         this._canvas.width = canvasWidth / dpr;
         this._canvas.height = canvasWidth / dpr;
         // console.log("dpr -- setting canvas square: " + JSON.stringify([canvasWidth, canvasWidth]));
-    } else {
-        this._canvas.width = canvasHeight / dpr;
-        this._canvas.height = canvasHeight / dpr;
-        // console.log("dpr -- setting canvas square: " + JSON.stringify([canvasHeight, canvasHeight]));
-    }
+//    } else {
+//        this._canvas.width = canvasHeight / dpr;
+//        this._canvas.height = canvasHeight / dpr;
+//        // console.log("dpr -- setting canvas square: " + JSON.stringify([canvasHeight, canvasHeight]));
+//    }
 };
 
 CanvasControl.prototype.draw = function() {
