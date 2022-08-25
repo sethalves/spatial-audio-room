@@ -112,7 +112,7 @@ input#username {
 
 .controls-and-rooms {
     background: #000;
-    background-image: url(/assets/controls-bg-m.jpg);
+    background-image: url(controls-bg-m.jpg);
     background-position: center right;
     background-size: cover;
     overflow-y: scroll;
@@ -351,7 +351,7 @@ input[type=range]::-ms-fill-upper {
 
     .controls-and-rooms {
         background: #000;
-        background-image: url(/assets/controls-bg.jpg);
+        background-image: url(controls-bg.jpg);
         background-position: top right;
         background-size: cover;
         display: flex;
