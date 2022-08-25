@@ -74,7 +74,8 @@ body {
 
 .rooms-btns {
     display: flex;
-    gap: 2px;
+    column-gap: 2px;
+    row-gap: 1rem;
     flex-wrap: wrap;
 }
 
@@ -114,7 +115,6 @@ input#username {
     background-image: url(controls-bg-m.jpg);
     background-position: center right;
     background-size: cover;
-    scroll-snap-type: y proximity;
     overflow-y: scroll;
     padding: 0 2rem;
     max-height: 160px;
@@ -124,7 +124,10 @@ input#username {
     flex: 1;
     padding: 1.6rem 0;
     scroll-snap-align: center;
+}
 
+.controls > div {
+    width: 100%;
 }
 
 .controls-and-rooms>div:not(:last-child) {
@@ -186,7 +189,7 @@ button:not(:disabled):hover circle,
 .controls {
     gap: 15px;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
 }
 
 .controls>.d-flex {
@@ -343,12 +346,13 @@ input[type=range]::-ms-fill-upper {
 @media (min-width: 993px) {
     .controls {
         gap: 25px;
+        flex-direction: column;
     }
 
     .controls-and-rooms {
         background: #000;
-        background-image: url(controls-bg-m.jpg);
-        background-position: center right;
+        background-image: url(controls-bg.jpg);
+        background-position: top right;
         background-size: cover;
         display: flex;
         scroll-snap-type: none;
