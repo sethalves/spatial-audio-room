@@ -1,3 +1,8 @@
+:root {
+    --pink: #FFA4DA;
+    --dark-pink: #FF55BA
+}
+
 @font-face {
     font-family: "Graphik";
     src: url("https://f.hubspotusercontent40.net/hubfs/5066246/2021%20Website/Fonts/GraphikRegular.eot");
@@ -112,7 +117,7 @@ input#username {
 
 .controls-and-rooms {
     background: #000;
-    background-image: url(controls-bg-m.jpg);
+    background-image: url(/assets/controls-bg-m.jpg);
     background-position: center right;
     background-size: cover;
     overflow-y: scroll;
@@ -122,7 +127,7 @@ input#username {
 
 .controls-and-rooms>div {
     flex: 1;
-    padding: 1.25rem 0;
+    padding: 1.6rem 0;
     scroll-snap-align: center;
 }
 
@@ -173,9 +178,15 @@ button:not(:disabled):hover circle,
 
 .canvas-group {
     height: min-content;
-    background: #DAD9D9;
     border-width: 2px 2px 2px 0px;
     min-height: 500px;
+}
+
+.canvas-group[style="height: 100%; display: block;"] canvas {
+    background: #DAD9D9;
+}
+.canvas-group:not([style="height: 100%; display: block;"]) {
+    background: #DAD9D9;
 }
 
 .switch {
@@ -222,18 +233,18 @@ button:not(:disabled):hover circle,
     left: 0.5px;
     bottom: 50%;
     transform: translateY(50%);
-    background-color: #FF55BA;
+    background-color: var(--dark-pink);
     -webkit-transition: .4s;
     transition: .4s;
     box-shadow: 2.29006px 2.29006px 5.72514px rgba(0, 0, 0, 0.14), -2.29006px -1.14503px 4.58011px rgba(0, 0, 0, 0.09);
 }
 
 input:checked+.slider {
-    background-color: #FFA4DA;
+    background-color: var(--pink);
 }
 
 input:focus+.slider {
-    box-shadow: 0 0 1px #FFA4DA;
+    box-shadow: 0 0 1px var(--pink);
 }
 
 input:checked+.slider:before {
@@ -318,8 +329,8 @@ input[type=range] {
         -webkit-appearance: none;
         height: 10px;
         cursor: ew-resize;
-        background: #FF55BA;
-        box-shadow: -340px 0 0 335px #FFA4DA, inset 0 0 0 5px #ea65b6;
+        background: var(--pink);
+        box-shadow: -340px 0 0 335px var(--pink), inset 0 0 0 5px var(--dark-pink);
         border-radius: 50%;
         -webkit-transition: box-shadow 0.2s ease-in-out;
         transition: box-shadow 0.2s ease-in-out;
@@ -328,19 +339,19 @@ input[type=range] {
 }
 
 input[type=range]::-moz-range-progress {
-    background-color: #FFA4DA;
+    background-color: var(--pink);
 }
 
 input[type=range]::-moz-range-track {
-    background-color: #FF55BA;
+    background-color: var(--pink);
 }
 
 input[type=range]::-ms-fill-lower {
-    background-color: #FFA4DA;
+    background-color: var(--pink);
 }
 
 input[type=range]::-ms-fill-upper {
-    background-color: #FF55BA;
+    background-color: var(--dark-pink);
 }
 
 @media (min-width: 993px) {
@@ -351,7 +362,7 @@ input[type=range]::-ms-fill-upper {
 
     .controls-and-rooms {
         background: #000;
-        background-image: url(controls-bg.jpg);
+        background-image: url(/assets/controls-bg.jpg);
         background-position: top right;
         background-size: cover;
         display: flex;
