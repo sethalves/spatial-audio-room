@@ -1,6 +1,6 @@
 :root {
-    --pink: #FFA4DA;
-    --dark-pink: #FF55BA
+    --accent: #E0FFFF;
+    --accent_two: #00FFFF
 }
 
 @font-face {
@@ -182,11 +182,12 @@ button:not(:disabled):hover circle,
     min-height: 500px;
 }
 
-.canvas-group[style="height: 100%; display: block;"] canvas {
+.canvas-group canvas {
     background: #DAD9D9;
 }
-.canvas-group:not([style="height: 100%; display: block;"]) {
-    background: #DAD9D9;
+
+.canvas-group canvas:not([width]){
+    width: 100%;
 }
 
 .switch {
@@ -233,18 +234,18 @@ button:not(:disabled):hover circle,
     left: 0.5px;
     bottom: 50%;
     transform: translateY(50%);
-    background-color: var(--dark-pink);
+    background-color: var(--accent_two);
     -webkit-transition: .4s;
     transition: .4s;
     box-shadow: 2.29006px 2.29006px 5.72514px rgba(0, 0, 0, 0.14), -2.29006px -1.14503px 4.58011px rgba(0, 0, 0, 0.09);
 }
 
 input:checked+.slider {
-    background-color: var(--pink);
+    background-color: var(--accent);
 }
 
 input:focus+.slider {
-    box-shadow: 0 0 1px var(--pink);
+    box-shadow: 0 0 1px var(--accent);
 }
 
 input:checked+.slider:before {
@@ -329,8 +330,8 @@ input[type=range] {
         -webkit-appearance: none;
         height: 10px;
         cursor: ew-resize;
-        background: var(--pink);
-        box-shadow: -340px 0 0 335px var(--pink), inset 0 0 0 5px var(--dark-pink);
+        background: var(--accent);
+        box-shadow: -340px 0 0 335px var(--accent), inset 0 0 0 5px var(--accent_two);
         border-radius: 50%;
         -webkit-transition: box-shadow 0.2s ease-in-out;
         transition: box-shadow 0.2s ease-in-out;
@@ -339,19 +340,19 @@ input[type=range] {
 }
 
 input[type=range]::-moz-range-progress {
-    background-color: var(--pink);
+    background-color: var(--accent);
 }
 
 input[type=range]::-moz-range-track {
-    background-color: var(--pink);
+    background-color: var(--accent);
 }
 
 input[type=range]::-ms-fill-lower {
-    background-color: var(--pink);
+    background-color: var(--accent);
 }
 
 input[type=range]::-ms-fill-upper {
-    background-color: var(--dark-pink);
+    background-color: var(--accent_two);
 }
 
 @media (min-width: 993px) {
