@@ -117,7 +117,7 @@ input#username {
 
 .controls-and-rooms {
     background: #000;
-    background-image: url(controls-bg-m.jpg);
+    background-image: url(/assets/controls-bg-m.jpg);
     background-position: center right;
     background-size: cover;
     overflow-y: scroll;
@@ -188,6 +188,14 @@ button:not(:disabled):hover circle,
 
 .canvas-group canvas:not([width]){
     width: 100%;
+}
+
+img.logo {
+    width: 100px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
 }
 
 .switch {
@@ -356,6 +364,9 @@ input[type=range]::-ms-fill-upper {
 }
 
 @media (min-width: 993px) {
+    img.logo {
+        width: 140px;
+    }
     .controls {
         gap: 25px;
         flex-direction: column;
@@ -363,7 +374,7 @@ input[type=range]::-ms-fill-upper {
 
     .controls-and-rooms {
         background: #000;
-        background-image: url(controls-bg.jpg);
+        background-image: url(/assets/controls-bg.jpg);
         background-position: top right;
         background-size: cover;
         display: flex;
