@@ -46,7 +46,7 @@ let roomOptions = {
             { x: 0.707, y: -0.707, o: degToRad(315) }
         ],
         canvasDimensions: { width: 4, height: 4 },
-        background: "table.svg",
+        background: "Table_semi-transparent_HF_Logo.svg",
         token: null
     },
 
@@ -55,7 +55,7 @@ let roomOptions = {
         metaData: true,
         positions: [],
         canvasDimensions: { width: 8, height: 8 },
-        background: null,
+        background: "Semi-transparent_HF_Logo.svg",
         token: null
     },
 
@@ -64,7 +64,7 @@ let roomOptions = {
         metaData: true,
         positions: [],
         canvasDimensions: { width: 16, height: 16 },
-        background: null,
+        background: "Semi-transparent_HF_Logo.svg",
         token: null
     },
 
@@ -73,7 +73,7 @@ let roomOptions = {
         metaData: false,
         positions: [],
         canvasDimensions: { width: 8, height: 8 },
-        background: null,
+        background: "Semi-transparent_HF_Logo.svg",
         token: null
     }
 }

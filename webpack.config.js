@@ -24,6 +24,8 @@ module.exports = ({ buildEnv }) => {
                     { from: "assets/Logo-HighFidelity-Line-PrimaryBlue.svg", to: "" },
                     { from: "assets/High-Fidelity_Imagery_Brand_Logo_Left-Lockup_Black_v01.svg", to: "" },
                     { from: "assets/High-Fidelity_Imagery_Brand_Logo_Top-Right-Lockup_Black_v01-01.svg", to: "" },
+                    { from: "assets/Table_semi-transparent_HF_Logo.svg", to: "" },
+                    { from: "assets/Semi-transparent_HF_Logo.svg", to: "" },
                     { from: "assets/favicon.ico", to: "" },
                     { from: "assets/safari-pinned-tab.svg", to: "" },
                     { from: "assets/table.svg", to: "" },

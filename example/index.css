@@ -190,13 +190,13 @@ button:not(:disabled):hover circle,
     width: 100%;
 }
 
-img.logo {
-    width: 100px;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-}
+// img.logo {
+//     width: 100px;
+//    position: absolute;
+//    top: 50%;
+//    left: 50%;
+//    transform: translate(-50%, -50%);
+// }
 
 .switch {
     position: relative;
@@ -364,9 +364,9 @@ input[type=range]::-ms-fill-upper {
 }
 
 @media (min-width: 993px) {
-    img.logo {
-        width: 140px;
-    }
+    // img.logo {
+    //     width: 140px;
+    // }
     .controls {
         gap: 25px;
         flex-direction: column;
