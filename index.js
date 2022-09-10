@@ -598,3 +598,40 @@ async function playSoundEffect() {
     sourceNode.connect(hifiLimiter);
     sourceNode.start();
 }
+
+// collect and display stats
+let statsInterval = setInterval(updateStats, 1000);
+
+function updateStats() {
+    let statsText = "";
+
+    // get the client stats
+    const clientStats = client.getRTCStats();
+    const clientStatsList = [{ description: "Send RTT to Agora", value: clientStats.RTT, unit: "ms" }];
+    statsText += `${clientStatsList.map((stat) => `<p style="margin:0">${stat.description}: ${stat.value} ${stat.unit}</p>`).join("")}`;
+
+    // get the local track stats
+    const localStats = client.getLocalAudioStats();
+    const localStatsList = [{ description: "Send packets lost", value: localStats.sendPacketsLost, unit: "" }];
+    statsText += `${localStatsList.map((stat) => `<p style="margin:0">${stat.description}: ${stat.value} ${stat.unit}</p>`).join("")}`;
+
+    Object.keys(remoteUsers).forEach((uid) => {
+        // get the remote track stats
+        const remoteTracksStats = client.getRemoteAudioStats()[uid];
+        const remoteTracksStatsList = [
+            { description: "Recv delay", value: Number(remoteTracksStats.receiveDelay).toFixed(0), unit: "ms" },
+            { description: "Recv packets lost", value: remoteTracksStats.receivePacketsLost, unit: "" },
+        ];
+        statsText += `${remoteTracksStatsList.map((stat) => `<p style="margin:0">${uid} ${stat.description}: ${stat.value} ${stat.unit}</p>`).join("")}`;
+
+        // get the remote network stats
+        const networkStats = client.getRemoteNetworkQuality()[uid];
+        const networkStatsList = [
+            { description: "Uplink quality", value: networkStats.uplinkNetworkQuality, unit: "" },
+            { description: "Downlink quality", value: networkStats.downlinkNetworkQuality, unit: "" },
+        ];
+        statsText += `${networkStatsList.map((stat) => `<p style="margin:0">${uid} ${stat.description}: ${stat.value} ${stat.unit}</p>`).join("")}`;
+    });
+
+    $("#success-alert").html(statsText);
+}
