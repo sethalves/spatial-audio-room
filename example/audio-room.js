@@ -346,7 +346,11 @@ function receiveBroadcast(uid, data) {
         usernames[uid] = msg.username;
         let ropts = roomOptions[ currentRoomID ];
         if (ropts.video) {
-            $(`#player-name-${uid}`).text(usernames[uid]);
+            if (!usernames[uid] || usernames[uid] == "") {
+                $(`#player-name-${uid}`).text("-");
+            } else {
+                $(`#player-name-${uid}`).text(usernames[uid]);
+            }
         }
         break;
     }
@@ -369,7 +373,11 @@ function onUserPublished(uid) {
         `);
 
         $("#playerlist").append(player);
-        $(`#player-name-${uid}`).text(usernames[uid]);
+        if (!usernames[uid] || usernames[uid] == "") {
+            $(`#player-name-${uid}`).text("-");
+        } else {
+            $(`#player-name-${uid}`).text(usernames[uid]);
+        }
         HiFiAudio.playVideo(uid, `player-${uid}`);
         updateVideoPositions();
     } else {
@@ -505,7 +513,11 @@ async function joinRoom() {
     usernames[ localUid ] = options.username;
 
     if (ropts.video) {
-        $("#local-player-name").text(options.username);
+        if (!options.username || options.username == "") {
+            $("#local-player-name").text("-");
+        } else {
+            $("#local-player-name").text(options.username);
+        }
         readyVideoSortable();
         // Play the local video track
         HiFiAudio.playVideo(localUid, "local-player");
@@ -548,7 +560,7 @@ async function leaveRoom(willRestart) {
 
     // remove remote users and player views
     $("#remote-playerlist").html("");
-    $("#local-player-name").text("");
+    $("#local-player-name").text("-");
 
     elements.length = 0;
     joined = false;

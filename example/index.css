@@ -296,6 +296,7 @@ input:checked+.slider:before {
 
 .player-name {
     width: 320px;
+    color: #444;
 }
 
 .continue-dialog {
