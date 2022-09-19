@@ -3,5 +3,7 @@
     "jerk": "hifi-2",
     "snap": "hifi-3",
     "crackle": "hifi-4",
-    "pop": "hifi-5"
+    "pop": "hifi-5",
+    "hopin-spatial-audio": "hifi-demo",
+    "sharechat-spatial-audio": "hifi-demo"
 }
