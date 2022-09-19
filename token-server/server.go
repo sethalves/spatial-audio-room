@@ -3,6 +3,7 @@
 package main
 
 import (
+	"os"
 	"flag"
 	"fmt"
 	"log"
@@ -65,12 +66,20 @@ func keepAlive(c *websocket.Conn, timeout time.Duration) {
 
 
 func getAgoraChannelPrefixFromDemoGroup(demoGroupName string) string {
-	demoGroupToAgoraChannel := make(map[string]string)
-	demoGroupToAgoraChannel[ "accel" ] = "hifi-1";
-	demoGroupToAgoraChannel[ "jerk" ] = "hifi-2";
-	demoGroupToAgoraChannel[ "snap" ] = "hifi-3";
-	demoGroupToAgoraChannel[ "crackle" ] = "hifi-4";
-	demoGroupToAgoraChannel[ "pop" ] = "hifi-5";
+
+    // mappingStr := `{ "accel": "hifi-1", "jerk": "hifi-2", "snap": "hifi-3", "crackle": "hifi-4", "pop": "hifi-5" }`
+
+
+    mappingStrB, err := os.ReadFile("/home/ubuntu/spatial-audio-room/token-server/channel-name-mapping.json")
+    if err != nil {
+        fmt.Print(err)
+		return "hifi-demo";
+    }
+    mappingStr := string(mappingStrB)
+
+
+    demoGroupToAgoraChannel := map[string]string{}
+    json.Unmarshal([]byte(mappingStr), &demoGroupToAgoraChannel)
 
 	agoraChannelPrefix, found := demoGroupToAgoraChannel[ demoGroupName ]
 	if (!found) {
