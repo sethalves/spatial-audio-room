@@ -89,8 +89,16 @@ let serverCurrentRoomID = roomIDs[0];
 
 // assume token server is on same webserver as this app...
 let tokenURL = new URL(window.location.href)
+let pathParts = tokenURL.pathname.split("/");
 tokenURL.pathname = "/token-server";
 tokenURL.protocol = "wss";
+
+let demoGroupName = null;
+if (pathParts.length > 1) {
+    demoGroupName = pathParts[ 1 ];
+} else {
+    demoGroupName = "hifi-demo";
+}
 
 
 //
@@ -139,6 +147,9 @@ webSocket.onmessage = async function (event) {
 }
 
 webSocket.onopen = async function (event) {
+
+    options.channel = await getRoomNamePrefix();
+
     for (const rID of roomIDs) {
         roomOptions[ rID ].token = await fetchToken(parseInt(localUid), options.channel + ":" + rID, 1);
     }
@@ -150,20 +161,9 @@ webSocket.onopen = async function (event) {
 // the demo can auto-set channel and user-name with params in url
 $(()=>{
     let urlParams = new URL(location.href).searchParams;
-    options.channel = urlParams.get("channel");
-    if (!options.channel) {
-        options.channel = "hifi-demo";
-    }
+    options.channel = ""
     options.username = urlParams.get("username");
-    if (options.channel) {
-        // $("#channel").val(options.channel);
-        $("#username").val(options.username);
-    }
-
-    options.admin = false;
-    if (urlParams.get("admin")) {
-        options.admin = true;
-    }
+    $("#username").val(options.username);
 
     for (const rID of roomIDs) {
         let roomButton = document.getElementById(rID);
@@ -213,13 +213,6 @@ $("#mute").click(function(e) {
 //     HiFiAudio.playSoundEffect(audioBuffer, false);
 // })
 
-
-function tellServerCurrentRoom() {
-    webSocket.send(JSON.stringify({
-        "message-type": "join-room",
-        "room": options.channel + ":" + currentRoomID,
-    }));
-}
 
 
 for (const rID of roomIDs) {
@@ -411,6 +404,34 @@ function onUserUnpublished(uid) {
 }
 
 
+async function getRoomNamePrefix() {
+    var resolve, reject;
+
+    const crPromise = new Promise((setResolve, setReject) => {
+        resolve = setResolve;
+        reject = setReject;
+    });
+
+    var previousOnMessage = webSocket.onmessage;
+    webSocket.onmessage = function (event) {
+        console.log("got websocket response: ", event.data);
+        previousOnMessage(event);
+        let msg = JSON.parse(event.data);
+        if (msg["message-type"] == "set-channel-prefix") {
+            webSocket.onmessage = previousOnMessage;
+            resolve(msg["channel-prefix"]);
+        }
+    }
+
+    webSocket.send(JSON.stringify({
+        "message-type": "get-channel-prefix",
+        "demo-group-name": demoGroupName
+    }));
+
+    return crPromise;
+}
+
+
 async function getCurrentRoom() {
     var resolve, reject;
 
@@ -475,7 +496,6 @@ async function joinRoom() {
 
     options.appid = $("#appid").val();
     options.token = $("#token").val();
-    // options.channel = $("#channel").val();
     options.username = $("#username").val();
 
     HiFiAudio.on("remote-position-updated", updateRemotePosition);
@@ -548,10 +568,6 @@ async function joinRoom() {
     updateAudioControlsUI();
     updateRoomsUI();
     sendUsername();
-
-    if (options.admin) {
-        tellServerCurrentRoom();
-    }
 }
 
 

@@ -64,6 +64,23 @@ func keepAlive(c *websocket.Conn, timeout time.Duration) {
 }
 
 
+func getAgoraChannelPrefixFromDemoGroup(demoGroupName string) string {
+	demoGroupToAgoraChannel := make(map[string]string)
+	demoGroupToAgoraChannel[ "accel" ] = "hifi-1";
+	demoGroupToAgoraChannel[ "jerk" ] = "hifi-2";
+	demoGroupToAgoraChannel[ "snap" ] = "hifi-3";
+	demoGroupToAgoraChannel[ "crackle" ] = "hifi-4";
+	demoGroupToAgoraChannel[ "pop" ] = "hifi-5";
+
+	agoraChannelPrefix, found := demoGroupToAgoraChannel[ demoGroupName ]
+	if (!found) {
+		agoraChannelPrefix = "hifi-demo";
+	}
+
+	return agoraChannelPrefix;
+}
+
+
 func handleTokenRequest(dat map[string]interface{}) map[string]interface{} {
 
 	var role_num uint32 = uint32(dat["token-role"].(float64))
@@ -121,12 +138,12 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		_, message, err := c.ReadMessage()
 
 		if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-			log.Printf("closing websocket -- normal close")
+			log.Printf("closing websocket -- normal close\n")
 			delete(websockets, c)
 			return
 		}
 		if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
-			log.Printf("closing websocket -- abnormal close")
+			log.Printf("closing websocket -- abnormal close\n")
 			delete(websockets, c)
 			return
 		}
@@ -154,6 +171,15 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 
 		if (msgType == "get-agora-token") {
 			var response = handleTokenRequest(dat)
+			data, _ := json.Marshal(response)
+			c.WriteMessage(websocket.TextMessage, data)
+		}
+
+		if (msgType == "get-channel-prefix") {
+			var demoGroupName = dat["demo-group-name"].(string)
+			var response map[string]interface{} = make(map[string]interface{})
+			response["message-type"] = "set-channel-prefix"
+			response["channel-prefix"] = getAgoraChannelPrefixFromDemoGroup(demoGroupName);
 			data, _ := json.Marshal(response)
 			c.WriteMessage(websocket.TextMessage, data)
 		}
