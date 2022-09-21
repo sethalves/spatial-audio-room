@@ -23,12 +23,61 @@ let localUid = "" + (((Math.random()*4294967296)>>>0));
 let usernames = {};
 let joined = false;
 
+// characterPosition x and y are floats [0.0, 1.0)
 let characterPosition = {
-    x: 2.0 * Math.random() - 1.0,
-    y: 2.0 * Math.random() - 1.0,
+    x: 0.5 * Math.random(),
+    y: 0.5 * Math.random(),
     o: 0.0
 };
 let characterPositionSet = false;
+
+
+function getCharacterPositionX() {
+    let ropts = roomOptions[ currentRoomID ];
+    let canvasDimensions = ropts.canvasDimensions;
+    let minX = -canvasDimensions.width / 2;
+    let maxX = canvasDimensions.width / 2;
+    return (maxX - minX) * characterPosition.x + minX;
+}
+
+function setCharacterPositionX(x) {
+    let ropts = roomOptions[ currentRoomID ];
+    let canvasDimensions = ropts.canvasDimensions;
+    let minX = -canvasDimensions.width / 2;
+    let maxX = canvasDimensions.width / 2;
+    characterPosition.x = (x - minX) / (maxX - minX);
+}
+
+function getCharacterPositionY() {
+    let ropts = roomOptions[ currentRoomID ];
+    let canvasDimensions = ropts.canvasDimensions;
+    let minY = -canvasDimensions.height / 2;
+    let maxY = canvasDimensions.height / 2;
+    return (maxY - minY) * characterPosition.y + minY;
+}
+
+function setCharacterPositionY(y) {
+    let ropts = roomOptions[ currentRoomID ];
+    let canvasDimensions = ropts.canvasDimensions;
+    let minY = -canvasDimensions.height / 2;
+    let maxY = canvasDimensions.height / 2;
+    characterPosition.y = (y - minY) / (maxY - minY);
+}
+
+
+function getCharacterPositionInAudioSpace() {
+    return {
+        x: getCharacterPositionX(),
+        y: getCharacterPositionY(),
+        o: characterPosition.o
+    };
+}
+
+function setCharacterPositionFromAudioSpace(p) {
+    setCharacterPositionX(p.x);
+    setCharacterPositionY(p.y);
+    characterPosition.o = p.o;
+}
 
 
 let roomOptions = {
@@ -248,10 +297,10 @@ function clampCharacterPosition() {
     let maxX = canvasDimensions.width / 2;
     let maxY = canvasDimensions.height / 2;
 
-    if (characterPosition.x < minX) characterPosition.x = minX;
-    if (characterPosition.y < minY) characterPosition.y = minY;
-    if (characterPosition.x > maxX) characterPosition.x = maxX;
-    if (characterPosition.y > maxY) characterPosition.y = maxY;
+    if (getCharacterPositionX() < minX) setCharacterPositionX(minX);
+    if (getCharacterPositionY() < minY) setCharacterPositionY(minY);
+    if (getCharacterPositionX() > maxX) setCharacterPositionX(maxX);
+    if (getCharacterPositionY() > maxY) setCharacterPositionY(maxY);
 }
 
 
@@ -262,13 +311,11 @@ function updatePositions(elts) {
     if (e !== undefined) {
         let ropts = roomOptions[ currentRoomID ];
         // transform canvas to audio coordinates
-        characterPosition = {
-            x: (e.x - 0.5) * ropts.canvasDimensions.width,
-            y: -(e.y - 0.5) * ropts.canvasDimensions.height,
-            o: e.o
-        }
+        setCharacterPositionX((e.x - 0.5) * ropts.canvasDimensions.width);
+        setCharacterPositionY(-(e.y - 0.5) * ropts.canvasDimensions.height);
+        characterPosition.o = e.o;
         clampCharacterPosition();
-        HiFiAudio.setLocalMetaData(characterPosition);
+        HiFiAudio.setLocalMetaData(getCharacterPositionInAudioSpace());
     }
 }
 
@@ -524,7 +571,7 @@ async function joinRoom() {
                          parseInt(localUid),
                          ropts.token, // fetchToken,
                          options.channel + ":" + currentRoomID,
-                         characterPosition,
+                         getCharacterPositionInAudioSpace(),
                          threshold.value,
                          ropts.video,
                          ropts.metaData);
@@ -552,8 +599,8 @@ async function joinRoom() {
 
         elements.push({
             icon: 'listenerIcon',
-            x: 0.5 + (characterPosition.x / ropts.canvasDimensions.width),
-            y: 0.5 - (characterPosition.y / ropts.canvasDimensions.height),
+            x: 0.5 + (getCharacterPositionX() / ropts.canvasDimensions.width),
+            y: 0.5 - (getCharacterPositionY() / ropts.canvasDimensions.height),
             o: characterPosition.o,
             radius: 0.02,
             alpha: 0.5,
@@ -675,7 +722,7 @@ function setRoomButtonsEnabled(v) {
 
 function setOwnPosition(p) {
     console.log("SET OWN POSITION: " + JSON.stringify(p));
-    characterPosition = p;
+    setCharacterPositionFromAudioSpace(p);
 
     let e = elements.find(e => e.uid === localUid);
     if (e !== undefined) {
