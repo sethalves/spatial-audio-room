@@ -1,9 +1,7 @@
 {
-    "accel": "hifi-1",
-    "jerk": "hifi-2",
+    "hopin-spatial-audio": "hifi-1",
+    "sharechat-spatial-audio": "hifi-2",
     "snap": "hifi-3",
     "crackle": "hifi-4",
-    "pop": "hifi-5",
-    "hopin-spatial-audio": "hifi-demo",
-    "sharechat-spatial-audio": "hifi-demo"
+    "pop": "hifi-5"
 }
