@@ -266,6 +266,42 @@ function updatePositions(elements) {
     }
 }
 
+function installSenderTransform() {
+
+    let senders = client._p2pChannel.connection.peerConnection.getSenders();
+    let sender = senders.find(e => e.track?.kind === 'audio');
+
+    if (encodedTransformSupported) {
+        // Encoded Transform
+        sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
+
+    } else {
+        // Insertable Streams
+        const senderStreams = sender.createEncodedStreams();
+        const readableStream = senderStreams.readable;
+        const writableStream = senderStreams.writable;
+        senderTransform(readableStream, writableStream);
+    }
+}
+
+function installReceiverTransform(trackId, uid) {
+
+    let receivers = client._p2pChannel.connection.peerConnection.getReceivers();
+    let receiver = receivers.find(e => e.track?.id === trackId && e.track?.kind === 'audio');
+
+    if (encodedTransformSupported) {
+        // Encoded Transform
+        receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
+
+    } else {
+        // Insertable Streams
+        const receiverStreams = receiver.createEncodedStreams();
+        const readableStream = receiverStreams.readable;
+        const writableStream = receiverStreams.writable;
+        receiverTransform(readableStream, writableStream, uid);
+    }
+}
+
 async function join() {
 
     await startSpatialAudio();
@@ -273,6 +309,36 @@ async function join() {
     // add event listener to play remote tracks when remote user publishs.
     client.on("user-published", handleUserPublished);
     client.on("user-unpublished", handleUserUnpublished);
+
+    // When Agora performs a "tryNext" reconnect, a new SFU peer connection is created and all
+    // tracks and transceivers will change. The new tracks are quietly republished/resubscribed
+    // and no "user-published" callbacks are triggered. This callback finishes configuring the
+    // new tracks and transceivers.
+    client.on("media-reconnect-end", async function (uid) {
+        if (uid == client.uid) {
+
+            console.warn('RECONNECT for local audioTrack:', uid);
+            installSenderTransform();
+
+        } else {
+
+            let user = remoteUsers[uid];
+            if (user !== undefined) {
+
+                console.warn('RECONNECT for remote audioTrack:', uid);
+
+                // sourceNode for new WebRTC track
+                let mediaStreamTrack = user.audioTrack.getMediaStreamTrack();
+                let mediaStream = new MediaStream([mediaStreamTrack]);
+                let sourceNode = audioContext.createMediaStreamSource(mediaStream);
+
+                // connect to existing hifiSource
+                sourceNode.connect(hifiSources[uid]);
+
+                installReceiverTransform(mediaStreamTrack.id, uid);
+            }
+        }
+    });
 
     // join a channel
     options.uid = await client.join(options.appid, options.channel, options.token || null);
@@ -332,23 +398,7 @@ async function join() {
     await client.publish(Object.values(localTracks));
     console.log("publish success");
 
-    //
-    // Insertable Streams / Encoded Transform
-    //
-    let senders = client._p2pChannel.connection.peerConnection.getSenders();
-    let sender = senders.find(e => e.track?.kind === 'audio');
-
-    if (encodedTransformSupported) {
-
-        sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
-
-    } else {
-
-        const senderStreams = sender.createEncodedStreams();
-        const readableStream = senderStreams.readable;
-        const writableStream = senderStreams.writable;
-        senderTransform(readableStream, writableStream);
-    }
+    installSenderTransform();
 
     //
     // HACK! set user radius based on volume level
@@ -436,32 +486,17 @@ async function subscribe(user, mediaType) {
 
         //user.audioTrack.play();
 
+        // sourceNode for WebRTC track
         let mediaStreamTrack = user.audioTrack.getMediaStreamTrack();
         let mediaStream = new MediaStream([mediaStreamTrack]);
         let sourceNode = audioContext.createMediaStreamSource(mediaStream);
 
+        // connect to new hifiSource
         let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
         hifiSources[uid] = hifiSource;
-
         sourceNode.connect(hifiSource).connect(hifiListener);
 
-        //
-        // Insertable Streams / Encoded Transform
-        //
-        let receivers = client._p2pChannel.connection.peerConnection.getReceivers();
-        let receiver = receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'audio');
-
-        if (encodedTransformSupported) {
-
-            receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
-
-        } else {
-
-            const receiverStreams = receiver.createEncodedStreams();
-            const readableStream = receiverStreams.readable;
-            const writableStream = receiverStreams.writable;
-            receiverTransform(readableStream, writableStream, uid);
-        }
+        installReceiverTransform(mediaStreamTrack.id, uid);
 
         elements.push({
             icon: 'sourceIcon',
