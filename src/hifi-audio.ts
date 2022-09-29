@@ -142,6 +142,52 @@ interface HifiOptions {
 let hifiOptions : HifiOptions = {};
 
 
+
+
+
+function installSenderTransform() {
+    //
+    // Insertable Streams / Encoded Transform
+    //
+
+    let senders : Array<RTCRtpSenderIS> = client._p2pChannel.connection.peerConnection.getSenders();
+    let sender = senders.find(e => e.track?.kind === 'audio');
+
+    if (encodedTransformSupported) {
+        // Encoded Transform
+        sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
+
+    } else {
+        // Insertable Streams
+        const senderStreams = sender.createEncodedStreams();
+        const readableStream = senderStreams.readable;
+        const writableStream = senderStreams.writable;
+        senderTransform(readableStream, writableStream);
+    }
+}
+
+function installReceiverTransform(trackId : string, uid : UID) {
+    //
+    // Insertable Streams / Encoded Transform
+    //
+
+    let receivers : Array<RTCRtpReceiverIS> = client._p2pChannel.connection.peerConnection.getReceivers();
+    let receiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === trackId && e.track?.kind === 'audio');
+
+    if (encodedTransformSupported) {
+        // Encoded Transform
+        receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
+
+    } else {
+        // Insertable Streams
+        const receiverStreams = receiver.createEncodedStreams();
+        const readableStream = receiverStreams.readable;
+        const writableStream = receiverStreams.writable;
+        receiverTransform(readableStream, writableStream, uid, sourceMetadata);
+    }
+}
+
+
 export function sendBroadcastMessage(msg : Uint8Array) : boolean {
 
     var msgString = new TextDecoder().decode(msg);
@@ -382,6 +428,36 @@ export async function joinAgoraRoom() {
     client.on("user-published", (user : IAgoraRTCRemoteUser, mediaType : string) => { handleUserPublished(user, mediaType); });
     client.on("user-unpublished", (user : IAgoraRTCRemoteUser) => { handleUserUnpublished(user); });
 
+    // When Agora performs a "tryNext" reconnect, a new SFU peer connection is created and all
+    // tracks and transceivers will change. The new tracks are quietly republished/resubscribed
+    // and no "user-published" callbacks are triggered. This callback finishes configuring the
+    // new tracks and transceivers.
+    client.on("media-reconnect-end", async function (uid) {
+        if (uid == client.uid) {
+
+            console.warn('RECONNECT for local audioTrack:', uid);
+            installSenderTransform();
+
+        } else {
+
+            let user = remoteUsers[uid];
+            if (user !== undefined) {
+
+                console.warn('RECONNECT for remote audioTrack:', uid);
+
+                // sourceNode for new WebRTC track
+                let mediaStreamTrack = user.audioTrack.getMediaStreamTrack();
+                let mediaStream = new MediaStream([mediaStreamTrack]);
+                let sourceNode = audioContext.createMediaStreamSource(mediaStream);
+
+                // connect to existing hifiSource
+                sourceNode.connect(hifiSources[uid]);
+
+                installReceiverTransform(mediaStreamTrack.id, uid);
+            }
+        }
+    });
+
     client.on("token-privilege-will-expire", async function () {
         console.log("token will expire...");
         // if (hifiOptions.tokenProvider) {
@@ -458,24 +534,8 @@ export async function joinAgoraRoom() {
     await client.publish(Object.values(localTracks));
     console.log("publish success");
 
-    //
-    // Insertable Streams / Encoded Transform
-    //
-    let senders : Array<RTCRtpSenderIS> = client._p2pChannel.connection.peerConnection.getSenders();
-    let sender = senders.find(e => e.track?.kind === 'audio');
-
     if (hifiOptions.enableMetadata) {
-        if (encodedTransformSupported) {
-
-            sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
-
-        } else {
-
-            const senderStreams = sender.createEncodedStreams();
-            const readableStream = senderStreams.readable;
-            const writableStream = senderStreams.writable;
-            senderTransform(readableStream, writableStream);
-        }
+        installSenderTransform();
     }
 
     //
@@ -575,33 +635,18 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
 
         subscribedToAudio[ "" + uid ] = true;
 
+        // sourceNode for WebRTC track
         let mediaStreamTrack = user.audioTrack.getMediaStreamTrack();
         let mediaStream = new MediaStream([mediaStreamTrack]);
         let sourceNode = audioContext.createMediaStreamSource(mediaStream);
 
+        // connect to new hifiSource
         let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
         hifiSources[uid] = hifiSource;
-
         sourceNode.connect(hifiSource).connect(hifiListener);
 
-        //
-        // Insertable Streams / Encoded Transform
-        //
-        let receivers : Array<RTCRtpReceiverIS> = client._p2pChannel.connection.peerConnection.getReceivers();
-        let receiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'audio');
-
         if (hifiOptions.enableMetadata) {
-            if (encodedTransformSupported) {
-
-                receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
-
-            } else {
-
-                const receiverStreams = receiver.createEncodedStreams();
-                const readableStream = receiverStreams.readable;
-                const writableStream = receiverStreams.writable;
-                receiverTransform(readableStream, writableStream, uid, sourceMetadata);
-            }
+            installReceiverTransform(mediaStreamTrack.id, uid);
         }
     }
 
