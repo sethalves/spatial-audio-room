@@ -436,7 +436,10 @@ export async function joinAgoraRoom() {
         if (uid == client.uid) {
 
             console.warn('RECONNECT for local audioTrack:', uid);
-            installSenderTransform();
+
+            if (hifiOptions.enableMetadata) {
+                installSenderTransform();
+            }
 
         } else {
 
@@ -453,7 +456,9 @@ export async function joinAgoraRoom() {
                 // connect to existing hifiSource
                 sourceNode.connect(hifiSources[uid]);
 
-                installReceiverTransform(mediaStreamTrack.id, uid);
+                if (hifiOptions.enableMetadata) {
+                    installReceiverTransform(mediaStreamTrack.id, uid);
+                }
             }
         }
     });
@@ -824,4 +829,10 @@ export async function playSoundEffectFromURL(url : string, loop : boolean) : Pro
     sourceNode.connect(hifiLimiter);
     sourceNode.start();
     return sourceNode;
+}
+
+
+export function testReconnect() {
+    client._p2pChannel.disconnectForReconnect();
+    client._p2pChannel.requestReconnect();
 }
