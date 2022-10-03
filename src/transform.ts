@@ -62,25 +62,34 @@ export function receiverTransform(readableStream : ReadableStream, writableStrea
         transform(encodedFrame, controller) {
 
             let src = new Uint8Array(encodedFrame.data);
-            let len = encodedFrame.data.byteLength - METADATA_BYTES;
+            let len = encodedFrame.data.byteLength;
 
-            // create dst buffer with METADATA_BYTES fewer bytes
-            let dst = new Uint8Array(len);
+            if (len < METADATA_BYTES) {
 
-            // copy src data
-            for (let i = 0; i < len; ++i) {
-                dst[i] = src[i];
+                console.log('%cWARNING: receiver transform has no metadata! uid:', 'color:yellow', uid);
+                controller.enqueue(encodedFrame);
+
+            } else {
+
+                // create dst buffer with METADATA_BYTES fewer bytes
+                len -= METADATA_BYTES;
+                let dst = new Uint8Array(len);
+
+                // copy src data
+                for (let i = 0; i < len; ++i) {
+                    dst[i] = src[i];
+                }
+
+                // extract metadata at the end
+                let data = new Uint8Array(METADATA_BYTES);
+                for (let i = 0; i < METADATA_BYTES; ++i) {
+                    data[i] = src[len + i];
+                }
+                sourceMetadata(data.buffer, uid);
+
+                encodedFrame.data = dst.buffer;
+                controller.enqueue(encodedFrame);
             }
-
-            // extract metadata at the end
-            let data = new Uint8Array(METADATA_BYTES);
-            for (let i = 0; i < METADATA_BYTES; ++i) {
-                data[i] = src[len + i];
-            }
-            sourceMetadata(data.buffer, uid);
-
-            encodedFrame.data = dst.buffer;
-            controller.enqueue(encodedFrame);
         },
     });
     transformStream.uid = uid;
