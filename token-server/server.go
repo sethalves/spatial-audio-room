@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"sync"
 	"strings"
 	"net/http"
 	"time"
@@ -15,6 +16,17 @@ import (
 	"github.com/gorilla/websocket"
 	rtctokenbuilder "github.com/AgoraIO/Tools/DynamicKey/AgoraDynamicKey/go/src/RtcTokenBuilder"
 )
+
+
+type P2PClient struct {
+	uid string
+	websocketConnection *websocket.Conn
+	mutex *sync.Mutex
+}
+
+var p2pClients = make(map[string]*P2PClient)
+var p2pChannels = make(map[string]map[string]*P2PClient) // map from channel name to (map of uid to p2pClients)
+
 
 func checkError(err error) {
 	if err != nil {
@@ -148,18 +160,15 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 
 		if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
 			log.Printf("closing websocket -- normal close\n")
-			delete(websockets, c)
-			return
+			break;
 		}
 		if websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
 			log.Printf("closing websocket -- abnormal close\n")
-			delete(websockets, c)
-			return
+			break;
 		}
 		if err != nil {
 			log.Printf("websocket connection -- failed: %s\n", err.Error())
-			delete(websockets, c)
-			return
+			break;
 		}
 
 		// if mt == websocket.TextMessage {
@@ -207,6 +216,79 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			data, _ := json.Marshal(response)
 			for ws, _ := range websockets {
 				ws.WriteMessage(websocket.TextMessage, data)
+			}
+		}
+
+
+		// peer-to-peer messages
+		if (msgType == "join-p2p-channel") {
+			var uid = dat["uid"].(string)
+			var channelName = dat["channel"].(string)
+			p2pClient := P2PClient{ uid, c, &sync.Mutex{} }
+
+			p2pClients[ uid ] = &p2pClient
+
+			if channel, ok := p2pChannels[ channelName ]; ok {
+				channel[ uid ] = &p2pClient
+			} else {
+				p2pChannels[ channelName ] = make(map[string]*P2PClient)
+				p2pChannels[ channelName ][ uid ] = &p2pClient
+			}
+
+			log.Printf("got join-p2p-channel uid=%v channelName=%v\n", uid, channelName);
+
+			var channelClients = p2pChannels[ channelName ]
+			for otherUID, otherP2PClient := range channelClients {
+				if (uid == otherUID) {
+					continue;
+				}
+
+				{
+					log.Printf("p2p telling %v to contact %v\n", otherP2PClient.uid, uid);
+					var response map[string]interface{} = make(map[string]interface{})
+					response["message-type"] = "connect-with-peer"
+					response["uid"] = uid
+					data, _ := json.Marshal(response)
+					otherP2PClient.websocketConnection.WriteMessage(websocket.TextMessage, data)
+				}
+
+				{
+					log.Printf("p2p telling %v to contact %v\n", uid, otherP2PClient.uid);
+					var response map[string]interface{} = make(map[string]interface{})
+					response["message-type"] = "connect-with-peer"
+					response["uid"] = otherUID
+					data, _ := json.Marshal(response)
+					c.WriteMessage(websocket.TextMessage, data)
+				}
+			}
+		}
+
+		if (msgType == "ice-candidate" || msgType == "sdp") {
+			var fromUID = dat["from-uid"].(string)
+			var toUID = dat["to-uid"].(string)
+
+			log.Printf("%v from %v to %v\n", msgType, fromUID, toUID);
+
+			if p2pClient, ok := p2pClients[ toUID ]; ok {
+				p2pClient.websocketConnection.WriteMessage(websocket.TextMessage, message)
+			} else {
+				log.Printf("error -- can't find recipient of ice-candidate -- from %v to %v\n", fromUID, toUID);
+			}
+		}
+	}
+
+	delete(websockets, c)
+
+	for uid, p2pClient := range p2pClients {
+		if (p2pClient.websocketConnection == c) {
+			delete(p2pClients, uid);
+		}
+	}
+
+	for _, channelClients := range p2pChannels {
+		for uid, p2pClient := range channelClients {
+			if (p2pClient.websocketConnection == c) {
+				delete(channelClients, uid);
 			}
 		}
 	}

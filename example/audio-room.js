@@ -9,7 +9,8 @@
 
 'use strict';
 
-import * as HiFiAudio from './hifi-audio-agora.js'
+// import * as HiFiAudio from './hifi-audio-agora.js'
+import * as HiFiAudio from './hifi-audio-p2p.js'
 import { CanvasControl } from './canvas-control.js'
 
 function degToRad(d) {
