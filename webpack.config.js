@@ -10,7 +10,8 @@ module.exports = ({ buildEnv }) => {
                 './example/audio-room.js',
                 './src/check-supported.js',
                 './src/patchRTCPeerConnection.js',
-                './src/hifi-audio.ts'
+                './src/fast-atan2.js',
+                './src/hifi-audio-p2p.ts'
             ],
         },
         plugins: [
@@ -59,8 +60,10 @@ module.exports = ({ buildEnv }) => {
         resolve: {
             extensions: ['.ts', '.js'],
             alias: {
-                './hifi-audio.js$': path.resolve(__dirname, 'src/hifi-audio.ts'),
-                './transform.js$': path.resolve(__dirname, 'src/transform.ts')
+                './hifi-audio-agora.js$': path.resolve(__dirname, 'src/hifi-audio-agora.ts'),
+                './hifi-audio-p2p.js$': path.resolve(__dirname, 'src/hifi-audio-p2p.ts'),
+                './transform.js$': path.resolve(__dirname, 'src/transform.ts'),
+                './fast-atan2.js$': path.resolve(__dirname, 'src/fast-atan2.js')
             },
         },
     };
