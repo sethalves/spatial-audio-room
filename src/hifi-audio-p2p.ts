@@ -11,7 +11,7 @@ patchRTCPeerConnection(_RTCPeerConnection);
 let _RTCPeerConnectionWithMetadata = RTCPeerConnection;
 let _RTCPeerConnectionWithoutMetadata = _RTCPeerConnection;
 
-const debugRTC = true;
+const debugRTC = false;
 
 import { metadata, senderTransform, receiverTransform } from './transform.js';
 
@@ -56,19 +56,18 @@ declare class RTCRtpScriptTransform {
 
 // RTC with insertable stream support
 interface RTCRtpSenderIS extends RTCRtpSender {
-    createEncodedStreams : Function,
+    createEncodedStreams? : Function,
     transform? : RTCRtpScriptTransform
 }
 interface RTCRtpReceiverIS extends RTCRtpReceiver {
-    createEncodedStreams : Function,
+    createEncodedStreams? : Function,
     transform? : RTCRtpScriptTransform
 }
 
 interface LocalTracks {
-    videoTrack?: MediaStreamTrack,
-    audioTrack: MediaStreamTrack
+    videoTrack?: MediaStream,
+    audioTrack: MediaStream
 }
-
 
 let loopback : RTCPeerConnection[];
 
@@ -127,12 +126,12 @@ let hifiOptions : HifiOptions = {};
 
 
 
-function installSenderTransform() {
+function installSenderTransform(remoteUser : RTCRemoteUser) {
     //
     // Insertable Streams / Encoded Transform
     //
 
-    let senders : Array<RTCRtpSenderIS>; // = client._p2pChannel.connection.peerConnection.getSenders();
+    let senders : Array<RTCRtpSenderIS> = remoteUser.peerConnection.getSenders();
     let sender = senders.find(e => e.track?.kind === 'audio');
 
     if (encodedTransformSupported) {
@@ -148,12 +147,12 @@ function installSenderTransform() {
     }
 }
 
-function installReceiverTransform(trackId : string, uid : string) {
+function installReceiverTransform(remoteUser : RTCRemoteUser, trackId : string, uid : string) {
     //
     // Insertable Streams / Encoded Transform
     //
 
-    let receivers : Array<RTCRtpReceiverIS>; // = client._p2pChannel.connection.peerConnection.getReceivers();
+    let receivers : Array<RTCRtpReceiverIS> = remoteUser.peerConnection.getReceivers();
     let receiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === trackId && e.track?.kind === 'audio');
 
     if (encodedTransformSupported) {
@@ -363,16 +362,49 @@ export async function join(appID : string,
         RTCPeerConnection = _RTCPeerConnectionWithoutMetadata;
     }
 
+    await startSpatialAudio();
+
+    // let outputAudioMediaStream : MediaStream = new window.MediaStream();
+    // audioElement.srcObject = outputAudioMediaStream;
+    audioElement.play();
 
 
-    let mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: video
-    })
+    localTracks.audioTrack = await navigator.mediaDevices.getUserMedia(
+        {
+            audio: {
+                echoCancellation: true,
+                autoGainControl: true,
+                noiseSuppression: true,
+                // sampleRate: 24000,
+                channelCount: { exact:1 }
+            },
+            video: video
+        }
+    );
+    delete localTracks.videoTrack;
 
-    localTracks.audioTrack = mediaStream.getAudioTracks()[0];
-    localTracks.videoTrack = null; // mediaStream.getVideoTracks()[0];
 
+    {
+        //
+        // route mic stream through Web Audio noise gate
+        //
+        let mediaStreamTrack = localTracks.audioTrack.getAudioTracks()[0];
+        let mediaStream = new MediaStream([mediaStreamTrack]);
+
+        let sourceNode = audioContext.createMediaStreamSource(mediaStream);
+        let destinationNode = audioContext.createMediaStreamDestination();
+
+        hifiNoiseGate = new AudioWorkletNode(audioContext, 'wasm-noise-gate');
+        console.log("hifi-audio: setting initial threshold to " + hifiOptions.thresholdValue);
+        setThreshold(hifiOptions.thresholdValue);
+
+        sourceNode.connect(hifiNoiseGate).connect(destinationNode);
+
+        let destinationTrack = destinationNode.stream.getAudioTracks()[0];
+        // await localTracks.audioTrack._updateOriginMediaStreamTrack(destinationTrack, false);
+        localTracks.audioTrack.removeTrack(mediaStreamTrack);
+        localTracks.audioTrack.addTrack(destinationTrack);
+    }
 
     let tokenURL = new URL(window.location.href)
     tokenURL.pathname = "/token-server";
@@ -387,7 +419,7 @@ export async function join(appID : string,
         }));
     }
     webSocket.onmessage = async function (event) {
-        console.log("got websocket message: ", event.data);
+        // console.log("got websocket message: ", event.data);
         let msg = JSON.parse(event.data);
         if (msg["message-type"] == "connect-with-peer") {
             let otherUID = msg["uid"];
@@ -411,14 +443,40 @@ export async function join(appID : string,
             }
 
             contactPeer(remoteUser,
-                        (peerID : string, event : RTCTrackEvent) => {
+                        async (peerID : string, event : RTCTrackEvent) => {
                             // on audio-track
                             console.log("XXXXX got stream");
+
+                            if (hifiOptions.enableMetadata) {
+                                installSenderTransform(remoteUser);
+                            }
+
+                            console.log("got audio track from peer, " + event.streams.length + " streams.");
+
+                            const mediaStreamTrack = event.track;
+                            let mediaStream = new MediaStream([mediaStreamTrack]);
+                            let sourceNode = audioContext.createMediaStreamSource(mediaStream);
+                            let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
+                            hifiSources[remoteUser.uid] = hifiSource;
+                            sourceNode.connect(hifiSource).connect(hifiListener);
+
+                            audioElement.srcObject = mediaStream;
+
+                            if (hifiOptions.enableMetadata) {
+                                installReceiverTransform(remoteUser, mediaStreamTrack.id, remoteUser.uid);
+                            }
                         },
                         (peerID : string, event : RTCDataChannelEvent) => {
                             // on data-channel
                             console.log("XXXXX got data-channel event");
                         });
+
+            // this triggers negotiation-needed on the peer-connection
+            localTracks.audioTrack.getAudioTracks().forEach(track => {
+                remoteUser.peerConnection.addTrack(track, localTracks.audioTrack);
+            });
+
+
         } else if (msg["message-type"] == "ice-candidate") {
             let fromUID = msg["from-uid"];
             if (remoteUsers[ fromUID ]) {
@@ -443,13 +501,13 @@ export async function leave(willRestart : boolean) {
     console.log("hifi-audio: leave()");
 
     if (localTracks.audioTrack) {
-        localTracks.audioTrack.stop();
+        // localTracks.audioTrack.stop();
         // localTracks.audioTrack.close();
         localTracks.audioTrack = undefined;
     }
 
     if (localTracks.videoTrack) {
-        localTracks.videoTrack.stop();
+        // localTracks.videoTrack.stop();
         // localTracks.videoTrack.close();
         delete localTracks.videoTrack;
     }
@@ -751,7 +809,9 @@ function contactPeer(remoteUser : RTCRemoteUser,
         // the local WebRTC stack has discovered another possible address for the local machine.
         // send this to the remoteUser so it can try this address out.
         if (event.candidate) {
-            console.log("local ice candidate: " + JSON.stringify(event.candidate));
+            if (debugRTC) {
+                console.log("local ice candidate: " + JSON.stringify(event.candidate));
+            }
             webSocket.send(JSON.stringify({
                 "message-type": "ice-candidate",
                 "from-uid": "" + hifiOptions.uid,
@@ -770,12 +830,14 @@ function contactPeer(remoteUser : RTCRemoteUser,
 
 
     remoteUser.peerConnection.addEventListener("negotiationneeded", ev => {
-        if (debugRTC) {
+//        if (debugRTC) {
             console.log("got negotiationneeded for remoteUser " + remoteUser.uid);
-        }
+//        }
 
         if (remoteUser.uid > hifiOptions.uid) { // avoid glare
-            console.log("creating RTC offer SDP...");
+            if (debugRTC) {
+                console.log("creating RTC offer SDP...");
+            }
             remoteUser.peerConnection.createOffer()
                 .then((offer : RTCSessionDescription) => {
                     remoteUser.peerConnection.setLocalDescription(offer)
@@ -792,7 +854,9 @@ function contactPeer(remoteUser : RTCRemoteUser,
                 })
                 .catch((err : any) => console.error(err));
         } else {
-            console.log("waiting for peer to create RTC offer...");
+            if (debugRTC) {
+                console.log("waiting for peer to create RTC offer...");
+            }
         }
 
     }, false);
@@ -813,7 +877,9 @@ function contactPeer(remoteUser : RTCRemoteUser,
 
                 while (iceQueue.length > 0) {
                     let cndt = iceQueue.shift();
-                    console.log("adding ice from queue: " + JSON.stringify(cndt));
+                    if (debugRTC) {
+                        console.log("adding ice from queue: " + JSON.stringify(cndt));
+                    }
                     remoteUser.peerConnection.addIceCandidate(cndt);
                 }
 
@@ -868,7 +934,4 @@ function contactPeer(remoteUser : RTCRemoteUser,
     if (remoteUser.uid > hifiOptions.uid) {
         remoteUser.toPeer = remoteUser.peerConnection.createDataChannel(hifiOptions.uid + "-to-" + remoteUser.uid);
     }
-
-    // this triggers negotiationneeded
-    remoteUser.peerConnection.addTrack(localTracks.audioTrack);
 }

@@ -175,7 +175,7 @@ function readyVideoSortable() {
 
 let webSocket = new WebSocket(tokenURL.href);
 webSocket.onmessage = async function (event) {
-    console.log("got websocket message: ", event.data);
+    // console.log("got websocket message: ", event.data);
     let msg = JSON.parse(event.data);
     if (msg.room) {
         serverCurrentRoomID = msg.room;
@@ -463,7 +463,7 @@ async function getRoomNamePrefix() {
 
     var previousOnMessage = webSocket.onmessage;
     webSocket.onmessage = function (event) {
-        console.log("got websocket response: ", event.data);
+        // console.log("got websocket response: ", event.data);
         previousOnMessage(event);
         let msg = JSON.parse(event.data);
         if (msg["message-type"] == "set-channel-prefix") {
@@ -491,7 +491,7 @@ async function getCurrentRoom() {
 
     var previousOnMessage = webSocket.onmessage;
     webSocket.onmessage = function (event) {
-        console.log("got websocket response: ", event.data);
+        // console.log("got websocket response: ", event.data);
         previousOnMessage(event);
         let msg = JSON.parse(event.data);
         if (msg["message-type"] == "join-room") {
@@ -520,7 +520,7 @@ async function fetchToken(uid /*: UID*/, channelName /*: string*/, tokenRole /*:
 
     var previousOnMessage = webSocket.onmessage;
     webSocket.onmessage = function (event) {
-        console.log("got websocket response: ", event.data);
+        // console.log("got websocket response: ", event.data);
         let msg = JSON.parse(event.data);
         if (msg["message-type"] == "new-agora-token") {
             webSocket.onmessage = previousOnMessage;
