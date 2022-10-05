@@ -155,6 +155,9 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	nthConnect++;
 	nthConnect = nthConnect % 8;
 
+	var thisUID string = ""
+	var currentChannel string = ""
+
 	for {
 		_, message, err := c.ReadMessage()
 
@@ -226,6 +229,28 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			var channelName = dat["channel"].(string)
 			p2pClient := P2PClient{ uid, c, &sync.Mutex{} }
 
+			if (currentChannel != "") {
+				var channelClients = p2pChannels[ currentChannel ]
+				for otherUID, otherP2PClient := range channelClients {
+					if (thisUID == otherUID) {
+						continue;
+					}
+
+					{
+						log.Printf("p2p telling %v to unsubscribe from %v\n", otherP2PClient.uid, thisUID);
+						var response map[string]interface{} = make(map[string]interface{})
+						response["message-type"] = "disconnect-from-peer"
+						response["uid"] = thisUID
+						data, _ := json.Marshal(response)
+						otherP2PClient.websocketConnection.WriteMessage(websocket.TextMessage, data)
+					}
+				}
+
+			}
+
+			thisUID = uid;
+			currentChannel = channelName;
+
 			p2pClients[ uid ] = &p2pClient
 
 			if channel, ok := p2pChannels[ channelName ]; ok {
@@ -290,6 +315,22 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			if (p2pClient.websocketConnection == c) {
 				delete(channelClients, uid);
 			}
+		}
+	}
+
+	var channelClients = p2pChannels[ currentChannel ]
+	for otherUID, otherP2PClient := range channelClients {
+		if (thisUID == otherUID) {
+			continue;
+		}
+
+		{
+			log.Printf("p2p telling %v to unsubscribe from %v\n", otherP2PClient.uid, thisUID);
+			var response map[string]interface{} = make(map[string]interface{})
+			response["message-type"] = "disconnect-from-peer"
+			response["uid"] = thisUID
+			data, _ := json.Marshal(response)
+			otherP2PClient.websocketConnection.WriteMessage(websocket.TextMessage, data)
 		}
 	}
 }

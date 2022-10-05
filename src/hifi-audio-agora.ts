@@ -728,14 +728,6 @@ async function startSpatialAudio() {
     if (!audioElement) audioElement = new Audio();
     if (!audioContext) audioContext = new AudioContext({ sampleRate: 48000 });
 
-    // audioElement = new Audio();
-    // try {
-    //     audioContext = new AudioContext({ sampleRate: 48000 });
-    // } catch (e) {
-    //     console.log('Web Audio API is not supported by this browser.');
-    //     return;
-    // }
-
     console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
 
     if (hifiOptions.enableMetadata) {
