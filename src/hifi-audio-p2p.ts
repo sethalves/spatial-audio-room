@@ -1,21 +1,23 @@
 
+import { HiFiRemoteUser, HiFiTransport, RTCRtpSenderIS, RTCRtpReceiverIS,
+         HiFiMicrophoneAudioTrackInitConfig, HiFiCameraVideoTrackInitConfig,
+         RTCRtpScriptTransform, LocalTrack } from "./hifi-transport.js";
+import { HiFiTransportP2P } from "./hifi-transport-p2p.js";
 
-import { checkSupported } from './check-supported.js';
-import { fastAtan2 } from './fast-atan2.js'
+import { checkSupported } from "./check-supported.js";
+import { fastAtan2 } from "./fast-atan2.js"
 let [ simdSupported, encodedTransformSupported, browserIsChrome ] = checkSupported();
 
-let webAudioPeakMeter = require('web-audio-peak-meter');
+let webAudioPeakMeter = require("web-audio-peak-meter");
 
-import { patchRTCPeerConnection } from './patchRTCPeerConnection.js';
+import { patchRTCPeerConnection } from "./patchRTCPeerConnection.js";
 let _RTCPeerConnection = RTCPeerConnection;
 patchRTCPeerConnection(_RTCPeerConnection);
 
 let _RTCPeerConnectionWithMetadata = RTCPeerConnection;
 let _RTCPeerConnectionWithoutMetadata = _RTCPeerConnection;
 
-const debugRTC = false;
-
-import { metadata, senderTransform, receiverTransform } from './transform.js';
+import { metadata, senderTransform, receiverTransform } from "./transform.js";
 
 
 interface AudioWorkletNodeMeta extends AudioWorkletNode {
@@ -32,64 +34,21 @@ interface MetaData {
 }
 
 
-// interface RTCConfiguration {
-//     iceServers?: RTCIceServer[] | undefined;
-//     iceTransportPolicy?: RTCIceTransportPolicy | undefined; // default = 'all'
-//     bundlePolicy?: RTCBundlePolicy | undefined; // default = 'balanced'
-//     rtcpMuxPolicy?: RTCRtcpMuxPolicy | undefined; // default = 'require'
-//     peerIdentity?: string | undefined; // default = null
-//     certificates?: RTCCertificate[] | undefined;
-//     iceCandidatePoolSize?: number | undefined; // default = 0
-//     encodedInsertableStreams?: boolean | undefined;
-// }
-
-// interface RTCRtpScriptTransformer {
-//     readable : ReadableStream;
-//     writable : WritableStream;
-//     options : any;
-//     generateKeyFrame : Function; // (optional sequence <DOMString> rids) : Promise<undefined>;
-//     sendKeyFrameRequest : Function; // () : Promise<undefined> ();
-// };
-
-declare class RTCRtpScriptTransform {
-    constructor(worker : Worker, options : any);
-};
-
-
-// RTC with insertable stream support
-interface RTCRtpSenderIS extends RTCRtpSender {
-    createEncodedStreams? : Function,
-    transform? : RTCRtpScriptTransform
-}
-interface RTCRtpReceiverIS extends RTCRtpReceiver {
-    createEncodedStreams? : Function,
-    transform? : RTCRtpScriptTransform
-}
-
 interface LocalTracks {
-    videoTrack?: MediaStream,
-    audioTrack: MediaStream
+    videoTrack?: LocalTrack,
+    audioTrack: LocalTrack
 }
+
 
 let loopback : RTCPeerConnection[];
+
+let client : HiFiTransport;
 
 let localTracks : LocalTracks = {
     // videoTrack: null,
     audioTrack: null
 };
 
-interface RTCRemoteUser {
-    uid: string
-    contacted: boolean;
-    peerConnection: RTCPeerConnection;
-    toPeer : RTCDataChannel;
-    fromPeer : (peerID : string, data : Uint8Array) => void;
-    sdp : (sdpType: string, sdp: string /*RTCSessionDescriptionInit*/) => void;
-    ice : (candidate: string, sdpMid: string, sdpMLineIndex: number) => void;
-    doStop : boolean;
-}
-
-let webSocket : WebSocket;
 
 let onUpdateRemotePosition : any;
 let onReceiveBroadcast : any;
@@ -97,7 +56,7 @@ let onUpdateVolumeIndicator : any;
 let onRemoteUserJoined : any;
 let onRemoteUserLeft : any;
 
-let remoteUsers : { [uid: string] : RTCRemoteUser; } = {};
+let remoteUsers : { [uid: string] : HiFiRemoteUser; } = {};
 let worker : Worker = undefined;
 
 let hifiSources: { [name: string]: AudioWorkletNodeMeta } = {};
@@ -105,12 +64,8 @@ let hifiNoiseGate  : AudioWorkletNode;  // mic stream connects here
 let hifiListener : AudioWorkletNodeMeta;   // hifiSource connects here
 let hifiLimiter : AudioWorkletNode;    // additional sounds connect here
 
-// let audioElement : HTMLAudioElement;
+let audioElement : HTMLAudioElement;
 let audioContext : AudioContext;
-
-let audioDestination : MediaStreamAudioDestinationNode;
-// let audioDestination : MediaStream;
-
 
 let hifiPosition = { x: 0.0, y: 0.0, o: 0.0 };
 
@@ -131,14 +86,12 @@ interface HifiOptions {
 let hifiOptions : HifiOptions = {};
 
 
-
-function installSenderTransform(remoteUser : RTCRemoteUser) {
+function installSenderTransform(sender : RTCRtpSenderIS) {
     //
     // Insertable Streams / Encoded Transform
     //
+    if (!sender) return;
 
-    let senders : Array<RTCRtpSenderIS> = remoteUser.peerConnection.getSenders();
-    let sender = senders.find(e => e.track?.kind === 'audio');
 
     if (encodedTransformSupported) {
         // Encoded Transform
@@ -153,14 +106,10 @@ function installSenderTransform(remoteUser : RTCRemoteUser) {
     }
 }
 
-function installReceiverTransform(remoteUser : RTCRemoteUser, trackId : string, uid : string) {
+function installReceiverTransform(receiver : RTCRtpReceiverIS, uid : string) {
     //
     // Insertable Streams / Encoded Transform
     //
-
-    let receivers : Array<RTCRtpReceiverIS> = remoteUser.peerConnection.getReceivers();
-    let receiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === trackId && e.track?.kind === 'audio');
-
     if (encodedTransformSupported) {
         // Encoded Transform
         receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
@@ -180,13 +129,11 @@ export function sendBroadcastMessage(msg : Uint8Array) : boolean {
     var msgString = new TextDecoder().decode(msg);
     console.log("hifi-audio: send broadcast message: " + JSON.stringify(msgString));
 
-    for (let uid in remoteUsers) {
-        if (remoteUsers[ uid ].toPeer) {
-            remoteUsers[ uid ].toPeer.send(msg);
-        }
+    if (client && localTracks.audioTrack) {
+        client.sendStreamMessage(msg);
+        return true;
     }
-
-    return true;
+    return false;
 }
 
 
@@ -251,8 +198,7 @@ export async function setAecEnabled(v : boolean) : Promise<string> {
     if (aecEnabled != v) {
         aecEnabled = v;
         if (localTracks.audioTrack) {
-            await leave(true);
-            // await joinAgoraRoom();
+            await client.rejoin();
         }
     }
     return "" + hifiOptions.uid;
@@ -322,9 +268,16 @@ export function setLocalMetaData(e : MetaData) : void {
 }
 
 
+export function setNewToken(token: string) : void {
+    client.renewToken(token);
+}
+
+
 export function on(eventName : string, callback : Function) {
     if (eventName == "remote-position-updated") {
         onUpdateRemotePosition = callback;
+    } else if (eventName == "remote-client-joined") {
+        onRemoteUserJoined = callback;
     } else if (eventName == "broadcast-received") {
         onReceiveBroadcast = callback;
     } else if (eventName == "remote-volume-updated") {
@@ -370,223 +323,120 @@ export async function join(appID : string,
         RTCPeerConnection = _RTCPeerConnectionWithoutMetadata;
     }
 
-    let audioElement : HTMLAudioElement = new Audio();
+    return await joinTransportRoom();
+}
 
-    await startSpatialAudio(audioElement);
 
-    // let destination = audioContext.createMediaStreamDestination();
-    // hifiLimiter.connect(destination);
-    // audioElement.srcObject = destination.stream;
-    // audioElement.play();
-    // audioElement.muted = true;
+export async function joinTransportRoom() {
 
-    localTracks.audioTrack = await navigator.mediaDevices.getUserMedia(
-        {
-            audio: {
-                echoCancellation: true,
-                autoGainControl: true,
-                noiseSuppression: true,
-                sampleRate: 48000,
-                channelCount: { exact:1 }
-            },
-            video: video
+    client = new HiFiTransportP2P() as HiFiTransport;
+
+    await startSpatialAudio();
+
+    client.on("user-published", (user : HiFiRemoteUser, mediaType : string) => { handleUserPublished(user, mediaType); });
+    client.on("user-unpublished", (user : HiFiRemoteUser) => { handleUserUnpublished(user); });
+
+    let audioConfig : HiFiMicrophoneAudioTrackInitConfig = {
+        AEC: aecEnabled,
+        AGC: false,
+        ANS: false,
+        bypassWebAudio: true,
+        encoderConfig: {
+            sampleRate: 48000,
+            bitrate: 64,
+            stereo: false
         }
-    );
-    delete localTracks.videoTrack;
+    };
 
+    if (hifiOptions.video) {
+        let videoConfig : HiFiCameraVideoTrackInitConfig = {
+            encoderConfig: "240p_1"
+        };
 
-    {
-        //
-        // route mic stream through Web Audio noise gate
-        //
-        let mediaStreamTrack = localTracks.audioTrack.getAudioTracks()[0];
-        let mediaStream = new MediaStream([mediaStreamTrack]);
+        // Join a channel and create local tracks. Best practice is to use Promise.all and run them concurrently.
+        [hifiOptions.uid, localTracks.audioTrack, localTracks.videoTrack] = await Promise.all([
+            client.join(hifiOptions.appid, hifiOptions.channel, null, hifiOptions.uid || null),
+            client.createMicrophoneAudioTrack(audioConfig),
+            client.createCameraVideoTrack(videoConfig)
+        ]);
 
-        {
-            let mts : MediaTrackSettings = mediaStreamTrack.getSettings();
-            console.log("audioContext.sampleRate=" + audioContext.sampleRate +
-                " mediaStream.sampleRate=" + mts.sampleRate);
-        }
+    } else {
+        delete localTracks.videoTrack;
 
-        let sourceNode = audioContext.createMediaStreamSource(mediaStream);
-        let destinationNode = audioContext.createMediaStreamDestination();
-
-        var myMeterElement = document.getElementById('my-peak-meter');
-        var meterNode = webAudioPeakMeter.createMeterNode(sourceNode, audioContext);
-        webAudioPeakMeter.createMeter(myMeterElement, meterNode, {});
-
-
-        hifiNoiseGate = new AudioWorkletNode(audioContext, 'wasm-noise-gate');
-        console.log("hifi-audio: setting initial threshold to " + hifiOptions.thresholdValue);
-        setThreshold(hifiOptions.thresholdValue);
-
-        sourceNode.connect(hifiNoiseGate).connect(destinationNode);
-
-        let destinationTrack = destinationNode.stream.getAudioTracks()[0];
-        // await localTracks.audioTrack._updateOriginMediaStreamTrack(destinationTrack, false);
-        localTracks.audioTrack.removeTrack(mediaStreamTrack);
-        localTracks.audioTrack.addTrack(destinationTrack);
+        [hifiOptions.uid, localTracks.audioTrack] = await Promise.all([
+            client.join(hifiOptions.appid, hifiOptions.channel, null, hifiOptions.uid || null),
+            client.createMicrophoneAudioTrack(audioConfig)
+        ]);
     }
 
-    let tokenURL = new URL(window.location.href)
-    tokenURL.pathname = "/token-server";
-    tokenURL.protocol = "wss";
+    audioElement.play();
 
-    webSocket = new WebSocket(tokenURL.href);
-    webSocket.onopen = async function (event) {
-        webSocket.send(JSON.stringify({
-            "message-type": "join-p2p-channel",
-            "uid": "" + uid,
-            "channel": channel
-        }));
+    //
+    // route mic stream through Web Audio noise gate
+    //
+    let mediaStreamTrack = localTracks.audioTrack.getMediaStreamTrack(); // getAudioTracks()[0];
+    let mediaStream = new MediaStream([mediaStreamTrack]);
+
+    let sourceNode = audioContext.createMediaStreamSource(mediaStream);
+    let destinationNode = audioContext.createMediaStreamDestination();
+
+    var myMeterElement = document.getElementById('my-peak-meter');
+    var meterNode = webAudioPeakMeter.createMeterNode(sourceNode, audioContext);
+    webAudioPeakMeter.createMeter(myMeterElement, meterNode, {});
+
+    hifiNoiseGate = new AudioWorkletNode(audioContext, 'wasm-noise-gate');
+    console.log("hifi-audio: setting initial threshold to " + hifiOptions.thresholdValue);
+    setThreshold(hifiOptions.thresholdValue);
+
+    sourceNode.connect(hifiNoiseGate).connect(destinationNode);
+
+    let destinationTrack = destinationNode.stream.getAudioTracks()[0];
+    localTracks.audioTrack.updateOriginMediaStreamTrack(destinationTrack);
+
+    // publish local tracks to channel
+    await client.publish(Object.values(localTracks));
+    console.log("publish success");
+
+    if (hifiOptions.enableMetadata) {
+        installSenderTransform(client.getSharedAudioSender());
     }
-    webSocket.onmessage = async function (event) {
-        // console.log("got websocket message: ", event.data);
-        let msg = JSON.parse(event.data);
-        if (msg["message-type"] == "connect-with-peer") {
-            let otherUID = msg["uid"];
-            let remoteUser : RTCRemoteUser;
-            if (remoteUsers[ otherUID ]) {
-                remoteUser = remoteUsers[ otherUID ];
-            } else {
-                remoteUser = {
-                    uid: otherUID,
-                    contacted: false,
-                    peerConnection: undefined,
-                    toPeer : undefined,
-                    fromPeer : (peerID : string, data : Uint8Array) => {
-                        console.log("got data-channel data from peer");
-                        if (onReceiveBroadcast) {
-                            onReceiveBroadcast(otherUID, data);
-                        }
-                    },
-                    sdp : undefined,
-                    ice : undefined,
-                    doStop : false
-                };
-                remoteUsers[ otherUID ] = remoteUser;
-            }
-
-            contactPeer(remoteUser,
-                        async (peerID : string, event : RTCTrackEvent) => {
-                            // on audio-track
-                            console.log("XXXXX got stream");
-
-                            // if (hifiOptions.enableMetadata) {
-                            //     installSenderTransform(remoteUser);
-                            // }
-
-                            console.log("got audio track from peer, " + event.streams.length + " streams.");
-
-                            subscribedToAudio[ "" + otherUID ] = true;
-
-                            // sourceNode for WebRTC track
-                            const mediaStreamTrack = event.track;
-                            let mediaStream = new MediaStream([mediaStreamTrack]);
-                            let sourceNode = audioContext.createMediaStreamSource(mediaStream);
 
 
-                            // var myMeterElement = document.getElementById('my-peak-meter');
-                            // var meterNode = webAudioPeakMeter.createMeterNode(sourceNode, audioContext);
-                            // webAudioPeakMeter.createMeter(myMeterElement, meterNode, {});
-
-
-                            // connect to new hifiSource
-                            let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
-                            hifiSources[remoteUser.uid] = hifiSource;
-                            sourceNode.connect(hifiSource).connect(hifiListener);
-
-                            // sourceNode.connect(hifiSource).connect(audioDestination);
-
-                            audioElement.srcObject = mediaStream;
-                            audioElement.muted = true;
-
-                            if (hifiOptions.enableMetadata) {
-                                installReceiverTransform(remoteUser, mediaStreamTrack.id, remoteUser.uid);
-                            }
-
-                            if (hifiOptions.video &&
-                                subscribedToAudio[ "" + remoteUser.uid ] &&
-                                subscribedToVideo[ "" + remoteUser.uid ]) {
-                                onRemoteUserJoined("" + remoteUser.uid);
-                            }
-                            if (!hifiOptions.video && subscribedToAudio[ "" + remoteUser.uid ]) {
-                                onRemoteUserJoined("" + remoteUser.uid);
-                            }
-
-                        },
-                        (peerID : string, event : RTCDataChannelEvent) => {
-                            // on data-channel
-                            console.log("XXXXX got data-channel event");
-                        });
-
-
-            // this triggers negotiation-needed on the peer-connection
-            // localTracks.audioTrack.getAudioTracks().forEach(track => {
-            //     remoteUser.peerConnection.addTrack(track, localTracks.audioTrack);
-            // });
-            remoteUser.peerConnection.addTrack(localTracks.audioTrack.getAudioTracks()[ 0 ]);
-
-            if (hifiOptions.enableMetadata) {
-                installSenderTransform(remoteUser);
-            }
-
-
-        } else if (msg["message-type"] == "ice-candidate") {
-            let fromUID = msg["from-uid"];
-            if (remoteUsers[ fromUID ]) {
-                remoteUsers[ fromUID ].ice(msg["candidate"], msg["sdpMid"], msg["sdpMLineIndex"]);
-            } else {
-                console.log("error -- got ice from unknown remote user:" + fromUID);
-            }
-        } else if (msg["message-type"] == "sdp") {
-            let fromUID = msg["from-uid"];
-            if (remoteUsers[ fromUID ]) {
-                remoteUsers[ fromUID ].sdp(msg["offer"] ? "offer" : "answer", msg["sdp"]);
-            } else {
-                console.log("error -- git ice from unknown remote user:" + fromUID);
-            }
-        } else if (msg["message-type"] == "disconnect-from-peer") {
-            let otherUID = msg["uid"];
-            let remoteUser : RTCRemoteUser;
-            delete remoteUsers[ otherUID ];
-            if (onRemoteUserLeft) {
-                onRemoteUserLeft("" + otherUID);
-            }
-            delete subscribedToAudio[ "" + otherUID ];
-            delete subscribedToVideo[ "" + otherUID ];
+    // handle broadcast from remote user
+    client.on("stream-message", (uid : string, data : Uint8Array) => {
+        if (onReceiveBroadcast) {
+            onReceiveBroadcast("" + uid, data);
         }
-    }
+    });
+
+    return "" + hifiOptions.uid;
 }
 
 
 export async function leave(willRestart : boolean) {
 
-    if (webSocket) {
-        webSocket.close();
+    if (!client) {
+        return;
     }
-
-    let meter = document.getElementById('my-peak-meter');
-    if (meter) {
-        while (meter.firstChild) {
-            meter.removeChild(meter.firstChild);
-        }
-    }
-
 
     console.log("hifi-audio: leave()");
 
+    await client.unpublish(Object.values(localTracks));
+
     if (localTracks.audioTrack) {
-        // localTracks.audioTrack.stop();
-        // localTracks.audioTrack.close();
+        localTracks.audioTrack.stop();
+        localTracks.audioTrack.close();
         localTracks.audioTrack = undefined;
     }
 
     if (localTracks.videoTrack) {
-        // localTracks.videoTrack.stop();
-        // localTracks.videoTrack.close();
+        localTracks.videoTrack.stop();
+        localTracks.videoTrack.close();
         delete localTracks.videoTrack;
     }
+
+    // leave the channel
+    await client.leave();
 
     hifiSources = {};
     hifiNoiseGate = undefined;
@@ -596,8 +446,9 @@ export async function leave(willRestart : boolean) {
     loopback = [];
 
     stopSpatialAudio(willRestart);
+    client = undefined;
 
-    for (let uid in remoteUsers) {
+    for (var uid in remoteUsers) {
         if (onRemoteUserLeft) {
             onRemoteUserLeft("" + uid);
         }
@@ -606,8 +457,76 @@ export async function leave(willRestart : boolean) {
     }
 
     remoteUsers = {};
+}
 
-    webSocket.close();
+function handleUserPublished(user : HiFiRemoteUser, mediaType : string) {
+
+    if (hifiOptions.enableMetadata) {
+        installSenderTransform(user.getSender());
+    }
+
+    const id = user.uid;
+    remoteUsers["" + id] = user;
+
+    subscribe(user, mediaType);
+}
+
+function handleUserUnpublished(user : HiFiRemoteUser) {
+    const uid = user.uid;
+    delete remoteUsers["" + uid];
+    if (onRemoteUserLeft) {
+        onRemoteUserLeft("" + uid);
+    }
+    unsubscribe(user);
+}
+
+async function subscribe(user : HiFiRemoteUser, mediaType : string) {
+    const uid = user.uid;
+
+    if (mediaType === 'audio') {
+
+        // subscribe to a remote user
+        await client.subscribe(user, mediaType);
+        console.log("subscribe uid:", uid);
+
+        subscribedToAudio[ "" + uid ] = true;
+
+        // sourceNode for WebRTC track
+        let mediaStreamTrack = user.audioTrack;
+        let mediaStream = new MediaStream([mediaStreamTrack]);
+        let sourceNode = audioContext.createMediaStreamSource(mediaStream);
+
+        // connect to new hifiSource
+        let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
+        hifiSources[uid] = hifiSource;
+        sourceNode.connect(hifiSource).connect(hifiListener);
+
+        {
+            let ae : HTMLAudioElement = new Audio();
+            ae.srcObject = mediaStream;
+            ae.muted = true;
+        }
+
+        if (hifiOptions.enableMetadata) {
+            installReceiverTransform(user.getReceiver(), uid);
+        }
+    }
+
+    if (mediaType === 'video') {
+
+        // subscribe to a remote user
+        await client.subscribe(user, mediaType);
+        console.log("subscribe uid:", uid);
+
+        subscribedToVideo[ "" + uid ] = true;
+    }
+
+    if (hifiOptions.video && subscribedToAudio[ "" + uid ] && subscribedToVideo[ "" + uid ]) {
+        onRemoteUserJoined("" + uid);
+    }
+    if (!hifiOptions.video && subscribedToAudio[ "" + uid ]) {
+        onRemoteUserJoined("" + uid);
+    }
 }
 
 
@@ -615,13 +534,24 @@ export async function playVideo(uid : string, videoEltID : string) {
     if (uid == hifiOptions.uid) {
         // await localTracks.videoTrack.play(videoEltID);
     } else {
-        let user = remoteUsers[ "" + uid ];
+        // XXX
+        // let user = remoteUsers[ "" + uid ];
         // if (user.videoTrack) {
         //     await user.videoTrack.play(videoEltID);
         // }
     }
 }
 
+
+async function unsubscribe(user: HiFiRemoteUser) {
+    const uid = user.uid;
+
+    delete hifiSources[ uid ];
+    delete subscribedToAudio[ "" + uid ];
+    delete subscribedToVideo[ "" + uid ];
+
+    console.log("unsubscribe uid:", uid);
+}
 
 //
 // Chrome (as of M100) cannot perform echo cancellation of the Web Audio output.
@@ -672,12 +602,12 @@ function stopEchoCancellation() {
 }
 
 
-async function startSpatialAudio(audioElement : HTMLAudioElement) {
+async function startSpatialAudio() {
 
     // audioElement and audioContext are created immediately after a user gesture,
     // to prevent Safari auto-play policy from breaking the audio pipeline.
 
-    // if (!audioElement) audioElement = new Audio();
+    if (!audioElement) audioElement = new Audio();
     if (!audioContext) audioContext = new AudioContext({ sampleRate: 48000 });
 
     console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
@@ -701,20 +631,9 @@ async function startSpatialAudio(audioElement : HTMLAudioElement) {
     hifiListener.connect(hifiLimiter);
 
     if (isAecEnabled() && isChrome()) {
-        console.log("XXXXXX is chrome + aec");
         startEchoCancellation(audioElement, audioContext);
     } else {
-        console.log("XXXXXX not chrome + aec");
-
         hifiLimiter.connect(audioContext.destination);
-
-        // if (!audioDestination) {
-        //     audioDestination = audioContext.createMediaStreamDestination();
-        //     // audioDestination = new MediaStream([hifiLimiter.stream]);
-        // }
-        // // hifiLimiter.connect(audioDestination);
-        // audioElement.srcObject = audioDestination.stream;
-        // audioElement.play();
     }
 }
 
@@ -724,9 +643,7 @@ function stopSpatialAudio(willRestart : boolean) {
 
     stopEchoCancellation();
 
-    if (audioContext) {
-        audioContext.close();
-    }
+    audioContext.close();
     audioContext = undefined;
 
     if (willRestart) audioContext = new AudioContext({ sampleRate: 48000 });
@@ -781,237 +698,3 @@ function forceStereoDown(sdp: string) {
 }
 
 
-function contactPeer(remoteUser : RTCRemoteUser,
-                     onAudioTrack : (peerID : string, event : RTCTrackEvent) => void,
-                     onDataChannel : (peerID : string, event : RTCDataChannelEvent) => void) {
-
-    let iceQueue : RTCIceCandidate[] = [];
-
-    if (remoteUser.contacted) {
-        return;
-    }
-    remoteUser.contacted = true;
-
-    console.log("I am " + hifiOptions.uid + ", contacting peer " + remoteUser.uid);
-
-    remoteUser.peerConnection = new RTCPeerConnection({
-	    iceServers: [
-		    {
-			    urls: "stun:stun.l.google.com:19302",
-		    },
-
-		    // {
-		    //     urls: "turn:some.domain.com:3478",
-		    //     credential: "turn-password",
-		    //     username: "turn-username"
-		    // },
-
-	    ],
-    });
-
-    remoteUser.peerConnection.onconnectionstatechange = function(event) {
-        if (debugRTC) {
-            switch(remoteUser.peerConnection.connectionState) {
-                case "connected":
-                    // The connection has become fully connected
-                    console.log("connection-state is now connected");
-                    break;
-                case "disconnected":
-                    console.log("connection-state is now disconnected");
-                    break;
-                case "failed":
-                    // One or more transports has terminated unexpectedly or in an error
-                    console.log("connection-state is now failed");
-                    break;
-                case "closed":
-                    // The connection has been closed
-                    console.log("connection-state is now closed");
-                    break;
-            }
-        }
-    }
-
-
-    remoteUser.peerConnection.ondatachannel = (event : RTCDataChannelEvent) => {
-
-        remoteUser.toPeer = event.channel;
-        remoteUser.toPeer.binaryType = "arraybuffer";
-
-        remoteUser.toPeer.onmessage = (event : MessageEvent) => {
-            remoteUser.fromPeer(remoteUser.uid, new Uint8Array(event.data));
-        };
-
-        remoteUser.toPeer.onopen = (event) => {
-            if (debugRTC) {
-                console.log("data-channel is open");
-            }
-        };
-
-        remoteUser.toPeer.onclose = (event) => {
-            if (debugRTC) {
-                console.log("data-channel is closed");
-            }
-        };
-
-        onDataChannel(remoteUser.uid, event);
-    };
-
-
-    remoteUser.peerConnection.ontrack = function(event : RTCTrackEvent) {
-        onAudioTrack(remoteUser.uid, event);
-    };
-
-
-    remoteUser.peerConnection.addEventListener("icegatheringstatechange", ev => {
-        if (debugRTC) {
-            switch(remoteUser.peerConnection.iceGatheringState) {
-                case "new":
-                    /* gathering is either just starting or has been reset */
-                    console.log("ice-gathering state-change to new: " + JSON.stringify(ev));
-                    break;
-                case "gathering":
-                    /* gathering has begun or is ongoing */
-                    console.log("ice-gathering state-change to gathering: " + JSON.stringify(ev));
-                    break;
-                case "complete":
-                    /* gathering has ended */
-                    console.log("ice-gathering state-change to complete: " + JSON.stringify(ev));
-                    break;
-            }
-        }
-    });
-
-
-    remoteUser.peerConnection.onicecandidate = (event : RTCPeerConnectionIceEvent) => {
-        // the local WebRTC stack has discovered another possible address for the local machine.
-        // send this to the remoteUser so it can try this address out.
-        if (event.candidate) {
-            if (debugRTC) {
-                console.log("local ice candidate: " + JSON.stringify(event.candidate));
-            }
-            webSocket.send(JSON.stringify({
-                "message-type": "ice-candidate",
-                "from-uid": "" + hifiOptions.uid,
-                "to-uid": remoteUser.uid,
-                "candidate": event.candidate.candidate,
-                "sdpMid": event.candidate.sdpMid,
-                "sdpMLineIndex": event.candidate.sdpMLineIndex
-            }));
-
-        } else {
-            if (debugRTC) {
-                console.log("done with local ice candidates");
-            }
-        }
-    };
-
-
-    remoteUser.peerConnection.addEventListener("negotiationneeded", ev => {
-//        if (debugRTC) {
-            console.log("got negotiationneeded for remoteUser " + remoteUser.uid);
-//        }
-
-        if (remoteUser.uid > hifiOptions.uid) { // avoid glare
-            if (debugRTC) {
-                console.log("creating RTC offer SDP...");
-            }
-            remoteUser.peerConnection.createOffer()
-                .then((offer : RTCSessionDescription) => {
-                    remoteUser.peerConnection.setLocalDescription(offer)
-                        .then(() => {
-                            webSocket.send(JSON.stringify({
-                                "message-type": "sdp",
-                                "from-uid": "" + hifiOptions.uid,
-                                "to-uid": remoteUser.uid,
-                                "sdp": offer.sdp,
-                                "offer": true
-                            }));
-                        })
-                        .catch((err : any) => console.error(err));
-                })
-                .catch((err : any) => console.error(err));
-        } else {
-            if (debugRTC) {
-                console.log("waiting for peer to create RTC offer...");
-            }
-        }
-
-    }, false);
-
-
-    remoteUser.sdp = (sdpType: string, sdp: string /*RTCSessionDescriptionInit*/) => {
-        if (debugRTC) {
-            console.log("got sdp from remoteUser: " + sdpType);
-        }
-
-        // forceBitrateUp(sdp);
-
-        remoteUser.peerConnection.setRemoteDescription(new RTCSessionDescription({ type: sdpType as RTCSdpType, sdp: sdp }))
-            .then(() => {
-                if (debugRTC) {
-                    console.log("remote description is set\n");
-                }
-
-                while (iceQueue.length > 0) {
-                    let cndt = iceQueue.shift();
-                    if (debugRTC) {
-                        console.log("adding ice from queue: " + JSON.stringify(cndt));
-                    }
-                    remoteUser.peerConnection.addIceCandidate(cndt);
-                }
-
-
-                if (sdpType == "offer") {
-                    remoteUser.peerConnection.createAnswer()
-                        .then((answer : RTCSessionDescription) => {
-                            if (debugRTC) {
-                                console.log("answer is created\n");
-                            }
-                            let stereoAnswer = new RTCSessionDescription({
-                                type: answer.type,
-                                sdp: answer.sdp // forceStereoDown(answer.sdp)
-                            });
-                            return remoteUser.peerConnection.setLocalDescription(stereoAnswer).then(() => {
-                                webSocket.send(JSON.stringify({
-                                    "message-type": "sdp",
-                                    "from-uid": "" + hifiOptions.uid,
-                                    "to-uid": remoteUser.uid,
-                                    "sdp": stereoAnswer.sdp,
-                                    "offer": false
-                                }));
-                            }).catch((err : any) => console.error(err));
-                        })
-                }
-            })
-    }
-
-
-    remoteUser.ice = (candidate : string, sdpMid : string, sdpMLineIndex : number) => {
-        if (debugRTC) {
-            console.log("got ice candidate from remoteUser: " + JSON.stringify(candidate));
-        }
-
-        let cndt = new RTCIceCandidate({
-            candidate: candidate,
-            sdpMid: sdpMid,
-            sdpMLineIndex: sdpMLineIndex,
-            usernameFragment: "",
-        });
-
-        if (!remoteUser.peerConnection ||
-            !remoteUser.peerConnection.remoteDescription ||
-            !remoteUser.peerConnection.remoteDescription.type) {
-            iceQueue.push(cndt);
-        } else {
-            remoteUser.peerConnection.addIceCandidate(cndt);
-        }
-    }
-
-
-    if (remoteUser.uid > hifiOptions.uid) {
-        remoteUser.toPeer = remoteUser.peerConnection.createDataChannel(hifiOptions.uid + "-to-" + remoteUser.uid);
-        remoteUser.toPeer.onmessage = (event : MessageEvent) => {
-            remoteUser.fromPeer(remoteUser.uid, new Uint8Array(event.data));
-        };
-    }
-}

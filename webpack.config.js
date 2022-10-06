@@ -62,6 +62,8 @@ module.exports = ({ buildEnv }) => {
             alias: {
                 './hifi-audio-agora.js$': path.resolve(__dirname, 'src/hifi-audio-agora.ts'),
                 './hifi-audio-p2p.js$': path.resolve(__dirname, 'src/hifi-audio-p2p.ts'),
+                './hifi-transport.js$': path.resolve(__dirname, 'src/hifi-transport.ts'),
+                './hifi-transport-p2p.js$': path.resolve(__dirname, 'src/hifi-transport-p2p.ts'),
                 './transform.js$': path.resolve(__dirname, 'src/transform.ts'),
                 './fast-atan2.js$': path.resolve(__dirname, 'src/fast-atan2.js')
             },

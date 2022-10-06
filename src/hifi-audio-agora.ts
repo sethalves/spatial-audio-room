@@ -1,31 +1,21 @@
 
-import type {
-    IAgoraRTC,
-    IAgoraRTCClient,
-    UID,
-    IMicrophoneAudioTrack,
-    ICameraVideoTrack,
-    IAgoraRTCRemoteUser,
-    MicrophoneAudioTrackInitConfig,
-    CameraVideoTrackInitConfig
-} from 'agora-rtc-sdk-ng';
-interface IAgoraRTCOpen extends IAgoraRTC {
-    setParameter? : any | undefined
-}
-declare const AgoraRTC: IAgoraRTCOpen;
+import { HiFiRemoteUser, HiFiTransport, RTCRtpSenderIS, RTCRtpReceiverIS,
+         HiFiMicrophoneAudioTrackInitConfig, HiFiCameraVideoTrackInitConfig,
+         RTCRtpScriptTransform, LocalTrack } from "./hifi-transport.js";
+import { HiFiTransportAgora } from "./hifi-transport-agora.js";
 
-import { checkSupported } from './check-supported.js';
-import { fastAtan2 } from './fast-atan2.js'
+import { checkSupported } from "./check-supported.js";
+import { fastAtan2 } from "./fast-atan2.js"
 let [ simdSupported, encodedTransformSupported, browserIsChrome ] = checkSupported();
 
-import { patchRTCPeerConnection } from './patchRTCPeerConnection.js';
+import { patchRTCPeerConnection } from "./patchRTCPeerConnection.js";
 let _RTCPeerConnection = RTCPeerConnection;
 patchRTCPeerConnection(_RTCPeerConnection);
 
 let _RTCPeerConnectionWithMetadata = RTCPeerConnection;
 let _RTCPeerConnectionWithoutMetadata = _RTCPeerConnection;
 
-import { metadata, senderTransform, receiverTransform } from './transform.js';
+import { metadata, senderTransform, receiverTransform } from "./transform.js";
 
 
 interface AudioWorkletNodeMeta extends AudioWorkletNode {
@@ -42,63 +32,15 @@ interface MetaData {
 }
 
 
-interface RTCConfiguration {
-    iceServers?: RTCIceServer[] | undefined;
-    iceTransportPolicy?: RTCIceTransportPolicy | undefined; // default = 'all'
-    bundlePolicy?: RTCBundlePolicy | undefined; // default = 'balanced'
-    rtcpMuxPolicy?: RTCRtcpMuxPolicy | undefined; // default = 'require'
-    peerIdentity?: string | undefined; // default = null
-    certificates?: RTCCertificate[] | undefined;
-    iceCandidatePoolSize?: number | undefined; // default = 0
-    encodedInsertableStreams?: boolean | undefined;
-}
-
-interface RTCRtpScriptTransformer {
-    readable : ReadableStream;
-    writable : WritableStream;
-    options : any;
-    generateKeyFrame : Function; // (optional sequence <DOMString> rids) : Promise<undefined>;
-    sendKeyFrameRequest : Function; // () : Promise<undefined> ();
-};
-
-declare class RTCRtpScriptTransform {
-    constructor(worker : Worker, options : any);
-};
-
-
-// Agora this.client with _p2pChannel exposed
-interface IAgoraRTCClientOpen extends IAgoraRTCClient {
-    _p2pChannel? : any | undefined,
-    sendStreamMessage? : any | undefined
-}
-
-// RTC with insertable stream support
-interface RTCRtpSenderIS extends RTCRtpSender {
-    createEncodedStreams : Function,
-    transform? : RTCRtpScriptTransform
-}
-interface RTCRtpReceiverIS extends RTCRtpReceiver {
-    createEncodedStreams : Function,
-    transform? : RTCRtpScriptTransform
-}
-
-
-interface IMicrophoneAudioTrackOpen extends IMicrophoneAudioTrack {
-    _updateOriginMediaStreamTrack? : Function | undefined
-}
 interface LocalTracks {
-    videoTrack?: ICameraVideoTrack,
-    audioTrack: IMicrophoneAudioTrackOpen
+    videoTrack?: LocalTrack,
+    audioTrack: LocalTrack
 }
 
 
 let loopback : RTCPeerConnection[];
 
-// create Agora client
-let client : IAgoraRTCClientOpen /* = AgoraRTC.createClient({
-    mode: "rtc",
-    codec: "vp8"
-}) */ ;
+let client : HiFiTransport;
 
 let localTracks : LocalTracks = {
     // videoTrack: null,
@@ -112,10 +54,10 @@ let onUpdateVolumeIndicator : any;
 let onRemoteUserJoined : any;
 let onRemoteUserLeft : any;
 
-let remoteUsers : { [uid: string] : IAgoraRTCRemoteUser; } = {};
+let remoteUsers : { [uid: string] : HiFiRemoteUser; } = {};
 let worker : Worker = undefined;
 
-let hifiSources: { [name: UID]: AudioWorkletNodeMeta } = {};
+let hifiSources: { [name: string]: AudioWorkletNodeMeta } = {};
 let hifiNoiseGate  : AudioWorkletNode;  // mic stream connects here
 let hifiListener : AudioWorkletNodeMeta;   // hifiSource connects here
 let hifiLimiter : AudioWorkletNode;    // additional sounds connect here
@@ -129,12 +71,11 @@ let subscribedToAudio : { [uid: string] : boolean; } = {};
 let subscribedToVideo : { [uid: string] : boolean; } = {};
 
 
-// Agora client hifiOptions
 interface HifiOptions {
     appid?: string | undefined,
     channel?: string | undefined,
     tokenProvider?: string /* Function */ | undefined,
-    uid?: UID | undefined,
+    uid?: string | undefined,
     thresholdValue?: number | undefined,
     thresholdSet?: boolean | undefined,
     video? : boolean | undefined,
@@ -143,17 +84,11 @@ interface HifiOptions {
 let hifiOptions : HifiOptions = {};
 
 
-
-
-
-function installSenderTransform() {
+function installSenderTransform(sender : RTCRtpSenderIS) {
     //
     // Insertable Streams / Encoded Transform
     //
-
-    let senders : Array<RTCRtpSenderIS> = client._p2pChannel.connection.peerConnection.getSenders();
-    let sender = senders.find(e => e.track?.kind === 'audio');
-
+    if (!sender) return;
     if (encodedTransformSupported) {
         // Encoded Transform
         sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
@@ -167,14 +102,10 @@ function installSenderTransform() {
     }
 }
 
-function installReceiverTransform(trackId : string, uid : UID) {
+function installReceiverTransform(receiver : RTCRtpReceiverIS, uid : string) {
     //
     // Insertable Streams / Encoded Transform
     //
-
-    let receivers : Array<RTCRtpReceiverIS> = client._p2pChannel.connection.peerConnection.getReceivers();
-    let receiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === trackId && e.track?.kind === 'audio');
-
     if (encodedTransformSupported) {
         // Encoded Transform
         receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
@@ -223,7 +154,7 @@ function listenerMetadata(position : MetaData) {
     }
 }
 
-export function sourceMetadata(buffer : ArrayBuffer, uid : UID) : void {
+export function sourceMetadata(buffer : ArrayBuffer, uid : string) : void {
     let data = new DataView(buffer);
 
     let x = data.getInt16(0) * (1/256.0);
@@ -263,8 +194,7 @@ export async function setAecEnabled(v : boolean) : Promise<string> {
     if (aecEnabled != v) {
         aecEnabled = v;
         if (localTracks.audioTrack) {
-            await leave(true);
-            await joinAgoraRoom();
+            await client.rejoin();
         }
     }
     return "" + hifiOptions.uid;
@@ -301,7 +231,7 @@ function angleWrap(angle : number) {
 }
 
 
-export function setAzimuth(uid : UID, azimuth : number) {
+export function setAzimuth(uid : string, azimuth : number) {
     let hifiSource = hifiSources[uid];
     if (hifiSource !== undefined) {
         hifiSource.parameters.get('azimuth').value = azimuth;
@@ -357,7 +287,7 @@ export function on(eventName : string, callback : Function) {
 
 
 export async function join(appID : string,
-                           uid : number,
+                           uid : string,
                            tokenProvider : string /* Function */,
                            channel : string,
                            initialPosition : MetaData,
@@ -387,78 +317,20 @@ export async function join(appID : string,
         RTCPeerConnection = _RTCPeerConnectionWithoutMetadata;
     }
 
-    return await joinAgoraRoom();
+    return await joinTransportRoom();
 }
 
 
-export async function joinAgoraRoom() {
+export async function joinTransportRoom() {
 
-    client = AgoraRTC.createClient({
-        mode: "rtc",
-        codec: "vp8"
-    });
+    client = new HiFiTransportAgora() as HiFiTransport;
 
     await startSpatialAudio();
 
-    // add event listener to play remote tracks when remote user publishs.
-    client.on("user-published", (user : IAgoraRTCRemoteUser, mediaType : string) => { handleUserPublished(user, mediaType); });
-    client.on("user-unpublished", (user : IAgoraRTCRemoteUser) => { handleUserUnpublished(user); });
+    client.on("user-published", (user : HiFiRemoteUser, mediaType : string) => { handleUserPublished(user, mediaType); });
+    client.on("user-unpublished", (user : HiFiRemoteUser) => { handleUserUnpublished(user); });
 
-    // When Agora performs a "tryNext" reconnect, a new SFU peer connection is created and all
-    // tracks and transceivers will change. The new tracks are quietly republished/resubscribed
-    // and no "user-published" callbacks are triggered. This callback finishes configuring the
-    // new tracks and transceivers.
-    client.on("media-reconnect-end", async function (uid) {
-        if (uid == client.uid) {
-
-            console.warn('RECONNECT for local audioTrack:', uid);
-
-            if (hifiOptions.enableMetadata) {
-                installSenderTransform();
-            }
-
-        } else {
-
-            let user = remoteUsers[uid];
-            if (user !== undefined) {
-
-                console.warn('RECONNECT for remote audioTrack:', uid);
-
-                // sourceNode for new WebRTC track
-                let mediaStreamTrack = user.audioTrack.getMediaStreamTrack();
-                let mediaStream = new MediaStream([mediaStreamTrack]);
-                let sourceNode = audioContext.createMediaStreamSource(mediaStream);
-
-                // connect to existing hifiSource
-                sourceNode.connect(hifiSources[uid]);
-
-                if (hifiOptions.enableMetadata) {
-                    installReceiverTransform(mediaStreamTrack.id, uid);
-                }
-            }
-        }
-    });
-
-    client.on("token-privilege-will-expire", async function () {
-        console.log("token will expire...");
-        // if (hifiOptions.tokenProvider) {
-        //     console.log("refreshing token...");
-        //     let token = await hifiOptions.tokenProvider(hifiOptions.uid, hifiOptions.channel, 1);
-        //     await client.renewToken(token);
-        // }
-    });
-
-    client.on("token-privilege-did-expire", async function () {
-        console.log("token expired...");
-    });
-
-    let token : string;
-    if (hifiOptions.tokenProvider) {
-        // token = await hifiOptions.tokenProvider(hifiOptions.uid, hifiOptions.channel, 1);
-        token = hifiOptions.tokenProvider;
-    }
-
-    let audioConfig : MicrophoneAudioTrackInitConfig = {
+    let audioConfig : HiFiMicrophoneAudioTrackInitConfig = {
         AEC: aecEnabled,
         AGC: false,
         ANS: false,
@@ -471,23 +343,27 @@ export async function joinAgoraRoom() {
     };
 
     if (hifiOptions.video) {
-        let videoConfig : CameraVideoTrackInitConfig = {
+        let videoConfig : HiFiCameraVideoTrackInitConfig = {
             encoderConfig: "240p_1"
         };
 
         // Join a channel and create local tracks. Best practice is to use Promise.all and run them concurrently.
         [hifiOptions.uid, localTracks.audioTrack, localTracks.videoTrack] = await Promise.all([
-            client.join(hifiOptions.appid, hifiOptions.channel, token || null, hifiOptions.uid || null),
-            AgoraRTC.createMicrophoneAudioTrack(audioConfig),
-            AgoraRTC.createCameraVideoTrack(videoConfig)
+            client.join(hifiOptions.appid, hifiOptions.channel,
+                        hifiOptions.tokenProvider || null,
+                        hifiOptions.uid || null),
+            client.createMicrophoneAudioTrack(audioConfig),
+            client.createCameraVideoTrack(videoConfig)
         ]);
 
     } else {
         delete localTracks.videoTrack;
 
         [hifiOptions.uid, localTracks.audioTrack] = await Promise.all([
-            client.join(hifiOptions.appid, hifiOptions.channel, token || null, hifiOptions.uid || null),
-            AgoraRTC.createMicrophoneAudioTrack(audioConfig)
+            client.join(hifiOptions.appid, hifiOptions.channel,
+                        hifiOptions.tokenProvider || null,
+                        hifiOptions.uid || null),
+            client.createMicrophoneAudioTrack(audioConfig)
         ]);
     }
 
@@ -509,32 +385,18 @@ export async function joinAgoraRoom() {
     sourceNode.connect(hifiNoiseGate).connect(destinationNode);
 
     let destinationTrack = destinationNode.stream.getAudioTracks()[0];
-    await localTracks.audioTrack._updateOriginMediaStreamTrack(destinationTrack, false);
+    localTracks.audioTrack.updateOriginMediaStreamTrack(destinationTrack);
 
     // publish local tracks to channel
     await client.publish(Object.values(localTracks));
     console.log("publish success");
 
     if (hifiOptions.enableMetadata) {
-        installSenderTransform();
+        installSenderTransform(client.getSharedAudioSender());
     }
 
-    //
-    // HACK! set user radius based on volume level
-    // TODO: reimplement in a performant way...
-    //
-    AgoraRTC.setParameter("AUDIO_VOLUME_INDICATION_INTERVAL", 20);
-    client.enableAudioVolumeIndicator();
-    client.on("volume-indicator", volumes => {
-        if (onUpdateVolumeIndicator) {
-            volumes.forEach((volume, index) => {
-                onUpdateVolumeIndicator("" + volume.uid, volume.level);
-            });
-        }
-    })
-
     // handle broadcast from remote user
-    client.on("stream-message", (uid : UID, data : Uint8Array) => {
+    client.on("stream-message", (uid : string, data : Uint8Array) => {
         if (onReceiveBroadcast) {
             onReceiveBroadcast("" + uid, data);
         }
@@ -590,13 +452,19 @@ export async function leave(willRestart : boolean) {
     remoteUsers = {};
 }
 
-function handleUserPublished(user : IAgoraRTCRemoteUser, mediaType : string) {
+function handleUserPublished(user : HiFiRemoteUser, mediaType : string) {
+
+    if (hifiOptions.enableMetadata) {
+        installSenderTransform(user.getSender());
+    }
+
     const id = user.uid;
     remoteUsers["" + id] = user;
+
     subscribe(user, mediaType);
 }
 
-function handleUserUnpublished(user : IAgoraRTCRemoteUser) {
+function handleUserUnpublished(user : HiFiRemoteUser) {
     const uid = user.uid;
     delete remoteUsers["" + uid];
     if (onRemoteUserLeft) {
@@ -605,7 +473,7 @@ function handleUserUnpublished(user : IAgoraRTCRemoteUser) {
     unsubscribe(user);
 }
 
-async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
+async function subscribe(user : HiFiRemoteUser, mediaType : string) {
     const uid = user.uid;
 
     if (mediaType === 'audio') {
@@ -617,7 +485,7 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
         subscribedToAudio[ "" + uid ] = true;
 
         // sourceNode for WebRTC track
-        let mediaStreamTrack = user.audioTrack.getMediaStreamTrack();
+        let mediaStreamTrack = user.audioTrack;
         let mediaStream = new MediaStream([mediaStreamTrack]);
         let sourceNode = audioContext.createMediaStreamSource(mediaStream);
 
@@ -627,7 +495,7 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
         sourceNode.connect(hifiSource).connect(hifiListener);
 
         if (hifiOptions.enableMetadata) {
-            installReceiverTransform(mediaStreamTrack.id, uid);
+            installReceiverTransform(user.getReceiver(), uid);
         }
     }
 
@@ -649,19 +517,20 @@ async function subscribe(user : IAgoraRTCRemoteUser, mediaType : string) {
 }
 
 
-export async function playVideo(uid : UID, videoEltID : string) {
+export async function playVideo(uid : string, videoEltID : string) {
     if (uid == hifiOptions.uid) {
         await localTracks.videoTrack.play(videoEltID);
     } else {
-        let user = remoteUsers[ "" + uid ];
-        if (user.videoTrack) {
-            await user.videoTrack.play(videoEltID);
-        }
+        // XXX
+        // let user = remoteUsers[ "" + uid ];
+        // if (user.videoTrack) {
+        //     await user.videoTrack.play(videoEltID);
+        // }
     }
 }
 
 
-async function unsubscribe(user: IAgoraRTCRemoteUser) {
+async function unsubscribe(user: HiFiRemoteUser) {
     const uid = user.uid;
 
     delete hifiSources[ uid ];
@@ -753,8 +622,6 @@ async function startSpatialAudio() {
     } else {
         hifiLimiter.connect(audioContext.destination);
     }
-
-    // audioElement.play();
 }
 
 
@@ -797,10 +664,4 @@ export async function playSoundEffectFromURL(url : string, loop : boolean) : Pro
     sourceNode.connect(hifiLimiter);
     sourceNode.start();
     return sourceNode;
-}
-
-
-export function testReconnect() {
-    client._p2pChannel.disconnectForReconnect();
-    client._p2pChannel.requestReconnect();
 }
