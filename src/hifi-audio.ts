@@ -2,7 +2,9 @@
 import { HiFiRemoteUser, HiFiTransport, RTCRtpSenderIS, RTCRtpReceiverIS,
          HiFiMicrophoneAudioTrackInitConfig, HiFiCameraVideoTrackInitConfig,
          RTCRtpScriptTransform, LocalTrack } from "./hifi-transport.js";
-import { HiFiTransportP2P } from "./hifi-transport-p2p.js";
+
+// import { HiFiTransportP2P } from "./hifi-transport-p2p.js";
+// import { HiFiTransportAgora } from "./hifi-transport-agora.js";
 
 import { checkSupported } from "./check-supported.js";
 import { fastAtan2 } from "./fast-atan2.js"
@@ -128,7 +130,7 @@ export function sendBroadcastMessage(msg : Uint8Array) : boolean {
     console.log("hifi-audio: send broadcast message: " + JSON.stringify(msgString));
 
     if (client && localTracks.audioTrack) {
-        client.sendStreamMessage(msg);
+        client.sendBroadcastMessage(msg);
         return true;
     }
     return false;
@@ -288,7 +290,8 @@ export function on(eventName : string, callback : Function) {
 }
 
 
-export async function join(appID : string,
+export async function join(transport : HiFiTransport,
+                           appID : string,
                            uid : string,
                            tokenProvider : string /* Function */,
                            channel : string,
@@ -296,6 +299,8 @@ export async function join(appID : string,
                            initialThresholdValue : number,
                            video : boolean,
                            enableMetadata : boolean) {
+
+    client = transport;
 
     hifiOptions.appid = appID;
     hifiOptions.uid = uid;
@@ -324,8 +329,6 @@ export async function join(appID : string,
 
 
 export async function joinTransportRoom() {
-
-    client = new HiFiTransportP2P() as HiFiTransport;
 
     await startSpatialAudio();
 
@@ -398,7 +401,7 @@ export async function joinTransportRoom() {
     }
 
     // handle broadcast from remote user
-    client.on("stream-message", (uid : string, data : Uint8Array) => {
+    client.on("broadcast-received", (uid : string, data : Uint8Array) => {
         if (onReceiveBroadcast) {
             onReceiveBroadcast("" + uid, data);
         }

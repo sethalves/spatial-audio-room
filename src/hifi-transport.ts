@@ -22,8 +22,8 @@ export interface HiFiRemoteUser {
     getAudioSender? : () => RTCRtpSenderIS,
     getAudioReceiver? : () => RTCRtpReceiverIS,
     getAudioTrack? : () => MediaStreamTrack,
-    hasAudio : () => boolean,
-    hasVideo : () => boolean
+    hasAudio : boolean,
+    hasVideo : boolean
 }
 
 
@@ -38,7 +38,7 @@ export interface HiFiTransport {
     unpublish : (streams : Array<LocalTrack>) => Promise<void>,
     subscribe : (user : HiFiRemoteUser, mediaType : string) => Promise<void>,
     unsubscribe : (user : HiFiRemoteUser) => Promise<void>,
-    sendStreamMessage : (msg : Uint8Array) => boolean,
+    sendBroadcastMessage : (msg : Uint8Array) => boolean,
 
     getSharedAudioSender: () => RTCRtpSenderIS,
 

@@ -9,8 +9,10 @@
 
 'use strict';
 
-import * as HiFiAudio from './hifi-audio-agora.js'
-// import * as HiFiAudio from './hifi-audio-p2p.js'
+import * as HiFiAudio from './hifi-audio.js'
+import { HiFiTransportP2P } from "./hifi-transport-p2p.js";
+import { HiFiTransportAgora } from "./hifi-transport-agora.js";
+
 import { CanvasControl } from './canvas-control.js'
 
 function degToRad(d) {
@@ -569,7 +571,10 @@ async function joinRoom() {
 
     clampCharacterPosition();
 
-    await HiFiAudio.join(options.appid,
+    let transport = new HiFiTransportAgora() /* as HiFiTransport */;
+
+    await HiFiAudio.join(transport,
+                         options.appid,
                          parseInt(localUid),
                          ropts.token, // fetchToken,
                          options.channel + ":" + currentRoomID,

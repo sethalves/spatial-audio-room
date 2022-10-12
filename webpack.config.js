@@ -11,7 +11,7 @@ module.exports = ({ buildEnv }) => {
                 './src/check-supported.js',
                 './src/patchRTCPeerConnection.js',
                 './src/fast-atan2.js',
-                './src/hifi-audio-agora.ts',
+                './src/hifi-audio.ts',
                 './src/hifi-transport-agora.ts'
             ],
         },
@@ -61,8 +61,7 @@ module.exports = ({ buildEnv }) => {
         resolve: {
             extensions: ['.ts', '.js'],
             alias: {
-                './hifi-audio-agora.js$': path.resolve(__dirname, 'src/hifi-audio-agora.ts'),
-                './hifi-audio-p2p.js$': path.resolve(__dirname, 'src/hifi-audio-p2p.ts'),
+                './hifi-audio.js$': path.resolve(__dirname, 'src/hifi-audio.ts'),
                 './hifi-transport.js$': path.resolve(__dirname, 'src/hifi-transport.ts'),
                 './hifi-transport-agora.js$': path.resolve(__dirname, 'src/hifi-transport-agora.ts'),
                 './hifi-transport-p2p.js$': path.resolve(__dirname, 'src/hifi-transport-p2p.ts'),

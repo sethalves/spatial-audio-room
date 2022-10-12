@@ -118,8 +118,8 @@ export class HiFiTransportP2P implements HiFiTransport {
                         doStop : false,
                         audioTrack : undefined,
                         videoTrack : undefined,
-                        hasAudio : function() { return this.audioTrack ? true : false; },
-                        hasVideo : function() { return this.videoTrack ? true : false; },
+                        hasAudio : false,
+                        hasVideo : false,
                         getAudioSender : function() {
                             return this.peerConnection.getSenders()[0];
                         },
@@ -143,6 +143,7 @@ export class HiFiTransportP2P implements HiFiTransport {
                                      console.log("XXXXX got stream");
                                      console.log("got audio track from peer, " + event.streams.length + " streams.");
                                      remoteUser.audioTrack = event.track;
+                                     remoteUser.hasAudio = true;
 
                                      if (this.onUserPublished) {
                                          this.onUserPublished(remoteUser, "audio");
@@ -244,7 +245,7 @@ export class HiFiTransportP2P implements HiFiTransport {
             this.onUserPublished = callback;
         } else if (eventName == "user-unpublished") {
             this.onUserUnpublished = callback;
-        } else if (eventName == "stream-message") {
+        } else if (eventName == "broadcast-received") {
             this.onStreamMessage = callback;
         } else if (eventName == "volume-level-change") {
             this.onVolumeLevelChange = callback;
@@ -584,7 +585,7 @@ export class HiFiTransportP2P implements HiFiTransport {
     }
 
 
-    sendStreamMessage(msg : Uint8Array) : boolean {
+    sendBroadcastMessage(msg : Uint8Array) : boolean {
         var msgString = new TextDecoder().decode(msg);
         console.log("hifi-audio: send broadcast message: " + JSON.stringify(msgString));
 

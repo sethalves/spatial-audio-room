@@ -103,11 +103,20 @@ export class HiFiTransportAgora implements HiFiTransport {
                 this.addUserAccessors(user);
                 this.onUserPublished(user, mediaType);
             }
+            this.remoteUsers[ user.uid ] = user as HiFiRemoteUser;
         });
         this.client.on("user-unpublished", (user : IAgoraRTCRemoteUser) => {
             if (this.onUserUnpublished) {
                 this.addUserAccessors(user);
                 this.onUserUnpublished(user);
+            }
+            delete this.remoteUsers[ user.uid ];
+        });
+
+        // handle broadcast from remote user
+        this.client.on("stream-message", (uid : UID, data : Uint8Array) => {
+            if (this.onStreamMessage) {
+                this.onStreamMessage("" + uid, data);
             }
         });
 
@@ -206,7 +215,7 @@ export class HiFiTransportAgora implements HiFiTransport {
         };
     }
 
-    async leave(willRestart? : boolean) {
+    async leave(willRestart? : boolean) : Promise<void> {
 
         let meter = document.getElementById('my-peak-meter');
         if (meter) {
@@ -215,44 +224,29 @@ export class HiFiTransportAgora implements HiFiTransport {
             }
         }
 
-        if (!client) {
+        if (!this.client) {
             return;
         }
 
         console.log("hifi-audio: leave()");
 
         if (this.micTrack) {
-            await client.unpublish([ micTrack ]);
-            micTrack.stop();
-            micTrack.close();
-            micTrack = undefined;
+            let track : ILocalTrack = this.micTrack  as unknown as ILocalTrack;
+            await this.client.unpublish([ track ]);
+            track.stop();
+            track.close();
+            this.micTrack = undefined;
         }
         if (this.cameraTrack) {
-            await client.unpublish([ cameraTrack ]);
-            cameraTrack.stop();
-            cameraTrack.close();
-            cameraTrack = undefined;
+            let track : ILocalTrack = this.cameraTrack  as unknown as ILocalTrack;
+            await this.client.unpublish([ track ]);
+            track.stop();
+            track.close();
+            this.cameraTrack = undefined;
         }
 
         // leave the channel
-        await client.leave();
-
-        hifiSources = {};
-        hifiNoiseGate = undefined;
-        hifiListener = undefined;
-        hifiLimiter = undefined;
-        loopback = [];
-
-        stopSpatialAudio(willRestart);
-        client = undefined;
-
-        for (var uid in remoteUsers) {
-            if (onRemoteUserLeft) {
-                onRemoteUserLeft("" + uid);
-            }
-            delete subscribedToAudio[ "" + uid ];
-            delete subscribedToVideo[ "" + uid ];
-        }
+        await this.client.leave();
 
         if (this.onUserUnpublished) {
             for (let uid in this.remoteUsers) {
@@ -261,6 +255,10 @@ export class HiFiTransportAgora implements HiFiTransport {
         }
 
         this.remoteUsers = {};
+
+        return new Promise<void>((resolve) => {
+            resolve();
+        });
     }
 
 
@@ -278,7 +276,7 @@ export class HiFiTransportAgora implements HiFiTransport {
             this.onUserPublished = callback;
         } else if (eventName == "user-unpublished") {
             this.onUserUnpublished = callback;
-        } else if (eventName == "stream-message") {
+        } else if (eventName == "broadcast-received") {
             this.onStreamMessage = callback;
         } else if (eventName == "volume-level-change") {
             this.onVolumeLevelChange = callback;
@@ -349,8 +347,7 @@ export class HiFiTransportAgora implements HiFiTransport {
     }
 
 
-    sendStreamMessage(msg : Uint8Array) : boolean {
-
+    sendBroadcastMessage(msg : Uint8Array) : boolean {
         var msgString = new TextDecoder().decode(msg);
         console.log("hifi-audio: send broadcast message: " + JSON.stringify(msgString));
         this.client.sendStreamMessage(msg);
