@@ -263,29 +263,33 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			log.Printf("got join-p2p-channel uid=%v channelName=%v\n", uid, channelName);
 
 			var channelClients = p2pChannels[ channelName ]
-			for otherUID, otherP2PClient := range channelClients {
-				if (uid == otherUID) {
-					continue;
-				}
 
-				{
-					log.Printf("p2p telling %v to contact %v\n", otherP2PClient.uid, uid);
-					var response map[string]interface{} = make(map[string]interface{})
-					response["message-type"] = "connect-with-peer"
-					response["uid"] = uid
-					data, _ := json.Marshal(response)
-					otherP2PClient.websocketConnection.WriteMessage(websocket.TextMessage, data)
-				}
+			for uid, _ := range channelClients {
+				for otherUID, otherP2PClient := range channelClients {
+					if (uid == otherUID) {
+						continue;
+					}
 
-				{
-					log.Printf("p2p telling %v to contact %v\n", uid, otherP2PClient.uid);
-					var response map[string]interface{} = make(map[string]interface{})
-					response["message-type"] = "connect-with-peer"
-					response["uid"] = otherUID
-					data, _ := json.Marshal(response)
-					c.WriteMessage(websocket.TextMessage, data)
+					{
+						log.Printf("p2p telling %v to contact %v\n", otherP2PClient.uid, uid);
+						var response map[string]interface{} = make(map[string]interface{})
+						response["message-type"] = "connect-with-peer"
+						response["uid"] = uid
+						data, _ := json.Marshal(response)
+						otherP2PClient.websocketConnection.WriteMessage(websocket.TextMessage, data)
+					}
+
+					{
+						log.Printf("p2p telling %v to contact %v\n", uid, otherP2PClient.uid);
+						var response map[string]interface{} = make(map[string]interface{})
+						response["message-type"] = "connect-with-peer"
+						response["uid"] = otherUID
+						data, _ := json.Marshal(response)
+						c.WriteMessage(websocket.TextMessage, data)
+					}
 				}
 			}
+
 		}
 
 		if (msgType == "ice-candidate" || msgType == "sdp") {

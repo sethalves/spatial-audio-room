@@ -40,7 +40,7 @@ export interface HiFiTransport {
     unsubscribe : (user : HiFiRemoteUser) => Promise<void>,
     sendBroadcastMessage : (msg : Uint8Array) => boolean,
 
-    getSharedAudioSender: () => RTCRtpSenderIS,
+    getSharedAudioSender : () => RTCRtpSenderIS,
 
     renewToken : (token : string) => Promise<void>
 }

@@ -72,6 +72,8 @@ export class HiFiTransportP2P implements HiFiTransport {
 
     private micTrack : MediaStream;
     private cameraTrack : MediaStream;
+
+    private broadcastQueue : { [uid: string] : Array<Uint8Array> } = {};
     
     constructor() {
         this.signalingURL = new URL(window.location.href)
@@ -99,8 +101,8 @@ export class HiFiTransportP2P implements HiFiTransport {
                 let otherUID = msg["uid"];
                 let remoteUser : RTCRemoteUser;
                 if (this.remoteUsers[ otherUID ]) {
-                    console.log("XXX found existing remote-user " + otherUID);
-                    remoteUser = this.remoteUsers[ otherUID ];
+                    console.log("found existing remote-user " + otherUID);
+                    return;
                 } else {
                     remoteUser = {
                         uid: otherUID,
@@ -108,7 +110,7 @@ export class HiFiTransportP2P implements HiFiTransport {
                         peerConnection: undefined,
                         toPeer : undefined,
                         fromPeer : (peerID : string, data : Uint8Array) => {
-                            console.log("got data-channel data from peer");
+                            console.log("XXXXX got data-channel data from peer " + otherUID);
                             if (this.onStreamMessage) {
                                 this.onStreamMessage(otherUID, data);
                             }
@@ -133,15 +135,14 @@ export class HiFiTransportP2P implements HiFiTransport {
                             return this.audioTrack;
                         }
                     };
-                    console.log("XXX created new remote-user " + otherUID);
+                    console.log("created new remote-user " + otherUID);
                     this.remoteUsers[ otherUID ] = remoteUser;
                 }
 
                 this.contactPeer(remoteUser,
                                  async (peerID : string, event : RTCTrackEvent) => {
                                      // on audio-track
-                                     console.log("XXXXX got stream");
-                                     console.log("got audio track from peer, " + event.streams.length + " streams.");
+                                     console.log("got audio track from peer, " + peerID);
                                      remoteUser.audioTrack = event.track;
                                      remoteUser.hasAudio = true;
 
@@ -152,7 +153,7 @@ export class HiFiTransportP2P implements HiFiTransport {
                                  },
                                  (peerID : string, event : RTCDataChannelEvent) => {
                                      // on data-channel
-                                     console.log("XXXXX got data-channel event");
+                                     console.log("XXXXX got data-channel event from " + peerID + ": "+ JSON.stringify(event));
                                  });
 
 
@@ -161,10 +162,10 @@ export class HiFiTransportP2P implements HiFiTransport {
                 //     remoteUser.peerConnection.addTrack(track, localTracks.audioTrack);
                 // });
                 if (this.micTrack) {
-                    console.log("XXX adding track to peer-connection (A) for " + uid);
+                    console.log("adding track to peer-connection (A) for " + uid);
                     remoteUser.peerConnection.addTrack(this.micTrack.getAudioTracks()[ 0 ]);
                 } else {
-                    console.log("XXX no mic track yet");
+                    console.log("no mic track yet");
                 }
 
             } else if (msg["message-type"] == "ice-candidate") {
@@ -253,7 +254,7 @@ export class HiFiTransportP2P implements HiFiTransport {
     }
 
     publish(localTracks : Array<LocalTrack>) : Promise<void> {
-        console.log("XXX in publish mic-track...");
+        console.log("in publish mic-track...");
 
         for (let localTrack of localTracks) {
             let track = localTrack.getMediaStreamTrack();
@@ -263,12 +264,11 @@ export class HiFiTransportP2P implements HiFiTransport {
                     this.micTrack = new MediaStream();
                 }
 
-                console.log("XXXXXX HERE " + JSON.stringify(track));
                 this.micTrack.addTrack(track);
 
                 for (let uid in this.remoteUsers) {
                     let remoteUser = this.remoteUsers[ uid ];
-                    console.log("XXX adding track to peer-connection (B) for " + uid);
+                    console.log("adding track to peer-connection (B) for " + uid);
                     remoteUser.peerConnection.addTrack(this.micTrack.getAudioTracks()[ 0 ]);
                 }
             }
@@ -362,6 +362,17 @@ export class HiFiTransportP2P implements HiFiTransport {
 
         console.log("I am " + this.localUID + ", contacting peer " + remoteUser.uid);
 
+        let sendQueuedBroadcasts = () => {
+            if (this.broadcastQueue[ remoteUser.uid ]) {
+                console.log("sending " + this.broadcastQueue[ remoteUser.uid ].length + " queued messages to peer " +
+                    remoteUser.uid);
+                for (let msg of this.broadcastQueue[ remoteUser.uid ]) {
+                    remoteUser.toPeer.send(msg);
+                }
+                delete this.broadcastQueue[ remoteUser.uid ];
+            }
+        };
+
         remoteUser.peerConnection = new RTCPeerConnection({
 	        iceServers: [
 		        {
@@ -410,9 +421,10 @@ export class HiFiTransportP2P implements HiFiTransport {
             };
 
             remoteUser.toPeer.onopen = (event) => {
-                if (this.debugRTC) {
-                    console.log("data-channel is open");
-                }
+                //if (this.debugRTC) {
+                    console.log("data-channel is open A");
+                //}
+                sendQueuedBroadcasts();
             };
 
             remoteUser.toPeer.onclose = (event) => {
@@ -578,6 +590,10 @@ export class HiFiTransportP2P implements HiFiTransport {
 
         if (remoteUser.uid > this.localUID) {
             remoteUser.toPeer = remoteUser.peerConnection.createDataChannel(this.localUID + "-to-" + remoteUser.uid);
+            remoteUser.toPeer.onopen = (event) => {
+                console.log("data-channel is open B");
+                sendQueuedBroadcasts();
+            }
             remoteUser.toPeer.onmessage = (event : MessageEvent) => {
                 remoteUser.fromPeer(remoteUser.uid, new Uint8Array(event.data));
             };
@@ -587,12 +603,19 @@ export class HiFiTransportP2P implements HiFiTransport {
 
     sendBroadcastMessage(msg : Uint8Array) : boolean {
         var msgString = new TextDecoder().decode(msg);
-        console.log("hifi-audio: send broadcast message: " + JSON.stringify(msgString));
 
         for (let uid in this.remoteUsers) {
-            if (this.remoteUsers[ uid ].toPeer) {
-                this.remoteUsers[ uid ].toPeer.send(msg);
+            let dataChannel = this.remoteUsers[ uid ].toPeer;
+            if (dataChannel && dataChannel.readyState == "open") {
+                console.log("hifi-audio: send broadcast message: " + JSON.stringify(msgString));
+                dataChannel.send(msg);
+                continue;
             }
+            if (!this.broadcastQueue[ uid ]) {
+                this.broadcastQueue[ uid ] = [];
+            }
+            console.log("hifi-audio: queue broadcast message: " + JSON.stringify(msgString));
+            this.broadcastQueue[ uid ].push(msg);
         }
 
         return true;

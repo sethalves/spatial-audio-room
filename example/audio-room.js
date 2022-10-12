@@ -379,7 +379,7 @@ function updateVolumeIndicator(uid, level) {
 
 
 function receiveBroadcast(uid, data) {
-    console.log('%creceived stream-message from:', 'color:cyan', usernames[uid]);
+    // console.log('%creceived stream-message from:', 'color:cyan', usernames[uid]);
 
     let txt = (new TextDecoder).decode(data);
     let msg = JSON.parse(txt);
@@ -571,7 +571,8 @@ async function joinRoom() {
 
     clampCharacterPosition();
 
-    let transport = new HiFiTransportAgora() /* as HiFiTransport */;
+    // let transport = new HiFiTransportAgora() /* as HiFiTransport */;
+    let transport = new HiFiTransportP2P() /* as HiFiTransport */;
 
     await HiFiAudio.join(transport,
                          options.appid,
