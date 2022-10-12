@@ -17,10 +17,11 @@ export interface RTCRtpReceiverIS extends RTCRtpReceiver {
 
 export interface HiFiRemoteUser {
     uid : string,
-    audioTrack : MediaStreamTrack,
-    videoTrack : MediaStreamTrack,
-    getSender : () => RTCRtpSenderIS,
-    getReceiver : () => RTCRtpReceiverIS,
+    audioTrack : any,
+    videoTrack : any,
+    getAudioSender? : () => RTCRtpSenderIS,
+    getAudioReceiver? : () => RTCRtpReceiverIS,
+    getAudioTrack? : () => MediaStreamTrack,
     hasAudio : () => boolean,
     hasVideo : () => boolean
 }
@@ -40,7 +41,6 @@ export interface HiFiTransport {
     sendStreamMessage : (msg : Uint8Array) => boolean,
 
     getSharedAudioSender: () => RTCRtpSenderIS,
-    // getSharedAudioReceiver: () => RTCRtpReceiverIS,
 
     renewToken : (token : string) => Promise<void>
 }

@@ -120,15 +120,18 @@ export class HiFiTransportP2P implements HiFiTransport {
                         videoTrack : undefined,
                         hasAudio : function() { return this.audioTrack ? true : false; },
                         hasVideo : function() { return this.videoTrack ? true : false; },
-                        getSender : function() {
+                        getAudioSender : function() {
                             return this.peerConnection.getSenders()[0];
                         },
-                        getReceiver : function() {
+                        getAudioReceiver : function() {
                             let receivers : Array<RTCRtpReceiverIS> = this.peerConnection.getReceivers();
                             let receiver : RTCRtpReceiverIS =
                                 receivers.find(e => e.track?.id === this.audioTrack.id && e.track?.kind === 'audio');
                             return receiver;
                         },
+                        getAudioTrack : function() {
+                            return this.audioTrack;
+                        }
                     };
                     console.log("XXX created new remote-user " + otherUID);
                     this.remoteUsers[ otherUID ] = remoteUser;

@@ -8,6 +8,8 @@ import { checkSupported } from "./check-supported.js";
 import { fastAtan2 } from "./fast-atan2.js"
 let [ simdSupported, encodedTransformSupported, browserIsChrome ] = checkSupported();
 
+let webAudioPeakMeter = require("web-audio-peak-meter");
+
 import { patchRTCPeerConnection } from "./patchRTCPeerConnection.js";
 let _RTCPeerConnection = RTCPeerConnection;
 patchRTCPeerConnection(_RTCPeerConnection);
@@ -349,9 +351,7 @@ export async function joinTransportRoom() {
 
         // Join a channel and create local tracks. Best practice is to use Promise.all and run them concurrently.
         [hifiOptions.uid, localTracks.audioTrack, localTracks.videoTrack] = await Promise.all([
-            client.join(hifiOptions.appid, hifiOptions.channel,
-                        hifiOptions.tokenProvider || null,
-                        hifiOptions.uid || null),
+            client.join(hifiOptions.appid, hifiOptions.channel, hifiOptions.tokenProvider || null, hifiOptions.uid || null),
             client.createMicrophoneAudioTrack(audioConfig),
             client.createCameraVideoTrack(videoConfig)
         ]);
@@ -360,9 +360,7 @@ export async function joinTransportRoom() {
         delete localTracks.videoTrack;
 
         [hifiOptions.uid, localTracks.audioTrack] = await Promise.all([
-            client.join(hifiOptions.appid, hifiOptions.channel,
-                        hifiOptions.tokenProvider || null,
-                        hifiOptions.uid || null),
+            client.join(hifiOptions.appid, hifiOptions.channel, hifiOptions.tokenProvider || null, hifiOptions.uid || null),
             client.createMicrophoneAudioTrack(audioConfig)
         ]);
     }
@@ -377,6 +375,10 @@ export async function joinTransportRoom() {
 
     let sourceNode = audioContext.createMediaStreamSource(mediaStream);
     let destinationNode = audioContext.createMediaStreamDestination();
+
+    var myMeterElement = document.getElementById('my-peak-meter');
+    var meterNode = webAudioPeakMeter.createMeterNode(sourceNode, audioContext);
+    webAudioPeakMeter.createMeter(myMeterElement, meterNode, {});
 
     hifiNoiseGate = new AudioWorkletNode(audioContext, 'wasm-noise-gate');
     console.log("hifi-audio: setting initial threshold to " + hifiOptions.thresholdValue);
@@ -455,7 +457,7 @@ export async function leave(willRestart : boolean) {
 function handleUserPublished(user : HiFiRemoteUser, mediaType : string) {
 
     if (hifiOptions.enableMetadata) {
-        installSenderTransform(user.getSender());
+        installSenderTransform(user.getAudioSender());
     }
 
     const id = user.uid;
@@ -485,7 +487,7 @@ async function subscribe(user : HiFiRemoteUser, mediaType : string) {
         subscribedToAudio[ "" + uid ] = true;
 
         // sourceNode for WebRTC track
-        let mediaStreamTrack = user.audioTrack;
+        let mediaStreamTrack = user.getAudioTrack();
         let mediaStream = new MediaStream([mediaStreamTrack]);
         let sourceNode = audioContext.createMediaStreamSource(mediaStream);
 
@@ -494,8 +496,15 @@ async function subscribe(user : HiFiRemoteUser, mediaType : string) {
         hifiSources[uid] = hifiSource;
         sourceNode.connect(hifiSource).connect(hifiListener);
 
+        // XXX
+        {
+            let ae : HTMLAudioElement = new Audio();
+            ae.srcObject = mediaStream;
+            ae.muted = true;
+        }
+
         if (hifiOptions.enableMetadata) {
-            installReceiverTransform(user.getReceiver(), uid);
+            installReceiverTransform(user.getAudioReceiver(), uid);
         }
     }
 
@@ -519,7 +528,7 @@ async function subscribe(user : HiFiRemoteUser, mediaType : string) {
 
 export async function playVideo(uid : string, videoEltID : string) {
     if (uid == hifiOptions.uid) {
-        await localTracks.videoTrack.play(videoEltID);
+        // await localTracks.videoTrack.play(videoEltID);
     } else {
         // XXX
         // let user = remoteUsers[ "" + uid ];

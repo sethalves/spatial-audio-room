@@ -91,8 +91,6 @@ function installSenderTransform(sender : RTCRtpSenderIS) {
     // Insertable Streams / Encoded Transform
     //
     if (!sender) return;
-
-
     if (encodedTransformSupported) {
         // Encoded Transform
         sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
@@ -276,8 +274,6 @@ export function setNewToken(token: string) : void {
 export function on(eventName : string, callback : Function) {
     if (eventName == "remote-position-updated") {
         onUpdateRemotePosition = callback;
-    } else if (eventName == "remote-client-joined") {
-        onRemoteUserJoined = callback;
     } else if (eventName == "broadcast-received") {
         onReceiveBroadcast = callback;
     } else if (eventName == "remote-volume-updated") {
@@ -355,7 +351,7 @@ export async function joinTransportRoom() {
 
         // Join a channel and create local tracks. Best practice is to use Promise.all and run them concurrently.
         [hifiOptions.uid, localTracks.audioTrack, localTracks.videoTrack] = await Promise.all([
-            client.join(hifiOptions.appid, hifiOptions.channel, null, hifiOptions.uid || null),
+            client.join(hifiOptions.appid, hifiOptions.channel, hifiOptions.tokenProvider || null, hifiOptions.uid || null),
             client.createMicrophoneAudioTrack(audioConfig),
             client.createCameraVideoTrack(videoConfig)
         ]);
@@ -364,7 +360,7 @@ export async function joinTransportRoom() {
         delete localTracks.videoTrack;
 
         [hifiOptions.uid, localTracks.audioTrack] = await Promise.all([
-            client.join(hifiOptions.appid, hifiOptions.channel, null, hifiOptions.uid || null),
+            client.join(hifiOptions.appid, hifiOptions.channel, hifiOptions.tokenProvider || null, hifiOptions.uid || null),
             client.createMicrophoneAudioTrack(audioConfig)
         ]);
     }
@@ -374,7 +370,7 @@ export async function joinTransportRoom() {
     //
     // route mic stream through Web Audio noise gate
     //
-    let mediaStreamTrack = localTracks.audioTrack.getMediaStreamTrack(); // getAudioTracks()[0];
+    let mediaStreamTrack = localTracks.audioTrack.getMediaStreamTrack();
     let mediaStream = new MediaStream([mediaStreamTrack]);
 
     let sourceNode = audioContext.createMediaStreamSource(mediaStream);
@@ -400,7 +396,6 @@ export async function joinTransportRoom() {
     if (hifiOptions.enableMetadata) {
         installSenderTransform(client.getSharedAudioSender());
     }
-
 
     // handle broadcast from remote user
     client.on("stream-message", (uid : string, data : Uint8Array) => {
@@ -462,7 +457,7 @@ export async function leave(willRestart : boolean) {
 function handleUserPublished(user : HiFiRemoteUser, mediaType : string) {
 
     if (hifiOptions.enableMetadata) {
-        installSenderTransform(user.getSender());
+        installSenderTransform(user.getAudioSender());
     }
 
     const id = user.uid;
@@ -492,7 +487,7 @@ async function subscribe(user : HiFiRemoteUser, mediaType : string) {
         subscribedToAudio[ "" + uid ] = true;
 
         // sourceNode for WebRTC track
-        let mediaStreamTrack = user.audioTrack;
+        let mediaStreamTrack = user.getAudioTrack();
         let mediaStream = new MediaStream([mediaStreamTrack]);
         let sourceNode = audioContext.createMediaStreamSource(mediaStream);
 
@@ -501,6 +496,7 @@ async function subscribe(user : HiFiRemoteUser, mediaType : string) {
         hifiSources[uid] = hifiSource;
         sourceNode.connect(hifiSource).connect(hifiListener);
 
+        // XXX
         {
             let ae : HTMLAudioElement = new Audio();
             ae.srcObject = mediaStream;
@@ -508,7 +504,7 @@ async function subscribe(user : HiFiRemoteUser, mediaType : string) {
         }
 
         if (hifiOptions.enableMetadata) {
-            installReceiverTransform(user.getReceiver(), uid);
+            installReceiverTransform(user.getAudioReceiver(), uid);
         }
     }
 
@@ -678,23 +674,3 @@ export async function playSoundEffectFromURL(url : string, loop : boolean) : Pro
     sourceNode.start();
     return sourceNode;
 }
-
-
-function forceBitrateUp(sdp: string) {
-    // Need to format the SDP differently if the input is stereo, so
-    // reach up into our owner's stream controller to find out.
-    const localAudioIsStereo = false
-    // Use 128kbps for stereo upstream audio, 64kbps for mono
-    const bitrate = localAudioIsStereo ? 128000 : 64000;
-
-    // SDP munging: use 128kbps for stereo upstream audio, 64kbps for mono
-    return sdp.replace(/a=fmtp:111 /g, 'a=fmtp:111 maxaveragebitrate='+bitrate+';');
-}
-
-
-function forceStereoDown(sdp: string) {
-    // munge the SDP answer: request 128kbps stereo for downstream audio
-    return sdp.replace(/a=fmtp:111 /g, 'a=fmtp:111 maxaveragebitrate=128000;sprop-stereo=1;stereo=1;');
-}
-
-

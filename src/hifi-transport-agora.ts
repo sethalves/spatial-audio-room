@@ -20,6 +20,7 @@ import type {
     MicrophoneAudioTrackInitConfig,
     CameraVideoTrackInitConfig
 } from "agora-rtc-sdk-ng";
+
 interface IAgoraRTCOpen extends IAgoraRTC {
     setParameter? : any | undefined
 }
@@ -99,11 +100,13 @@ export class HiFiTransportAgora implements HiFiTransport {
         // add event listener to play remote tracks when remote user publishs.
         this.client.on("user-published", (user : IAgoraRTCRemoteUser, mediaType : string) => {
             if (this.onUserPublished) {
+                this.addUserAccessors(user);
                 this.onUserPublished(user, mediaType);
             }
         });
         this.client.on("user-unpublished", (user : IAgoraRTCRemoteUser) => {
             if (this.onUserUnpublished) {
+                this.addUserAccessors(user);
                 this.onUserUnpublished(user);
             }
         });
@@ -181,17 +184,29 @@ export class HiFiTransportAgora implements HiFiTransport {
             }
         });
 
+        await this.client.join(appID, channel, token, uid);
+
         return new Promise<string>((resolve) => {
             resolve(this.localUID);
         });
     }
 
 
-    async leave(willRestart? : boolean) {
+    addUserAccessors(user: IAgoraRTCRemoteUser) {
+        (user as unknown as HiFiRemoteUser).getAudioSender = () => { return null; };
+        (user as unknown as HiFiRemoteUser).getAudioReceiver = () => {
+            let mediaStreamTrack = user.audioTrack.getMediaStreamTrack();
+            let trackID = mediaStreamTrack.id;
+            let receivers : Array<RTCRtpReceiverIS> = this.client._p2pChannel.connection.peerConnection.getReceivers();
+            let receiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === trackID && e.track?.kind === 'audio');
+            return receiver;
+        };
+        (user as unknown as HiFiRemoteUser).getAudioTrack = () => {
+            return user.audioTrack.getMediaStreamTrack();
+        };
+    }
 
-        if (this.webSocket) {
-            this.webSocket.close();
-        }
+    async leave(willRestart? : boolean) {
 
         let meter = document.getElementById('my-peak-meter');
         if (meter) {
@@ -200,11 +215,44 @@ export class HiFiTransportAgora implements HiFiTransport {
             }
         }
 
+        if (!client) {
+            return;
+        }
 
         console.log("hifi-audio: leave()");
 
-        this.micTrack = undefined;
-        this.cameraTrack = undefined;
+        if (this.micTrack) {
+            await client.unpublish([ micTrack ]);
+            micTrack.stop();
+            micTrack.close();
+            micTrack = undefined;
+        }
+        if (this.cameraTrack) {
+            await client.unpublish([ cameraTrack ]);
+            cameraTrack.stop();
+            cameraTrack.close();
+            cameraTrack = undefined;
+        }
+
+        // leave the channel
+        await client.leave();
+
+        hifiSources = {};
+        hifiNoiseGate = undefined;
+        hifiListener = undefined;
+        hifiLimiter = undefined;
+        loopback = [];
+
+        stopSpatialAudio(willRestart);
+        client = undefined;
+
+        for (var uid in remoteUsers) {
+            if (onRemoteUserLeft) {
+                onRemoteUserLeft("" + uid);
+            }
+            delete subscribedToAudio[ "" + uid ];
+            delete subscribedToVideo[ "" + uid ];
+        }
 
         if (this.onUserUnpublished) {
             for (let uid in this.remoteUsers) {

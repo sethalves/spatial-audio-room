@@ -11,7 +11,8 @@ module.exports = ({ buildEnv }) => {
                 './src/check-supported.js',
                 './src/patchRTCPeerConnection.js',
                 './src/fast-atan2.js',
-                './src/hifi-audio-p2p.ts'
+                './src/hifi-audio-agora.ts',
+                './src/hifi-transport-agora.ts'
             ],
         },
         plugins: [
@@ -63,6 +64,7 @@ module.exports = ({ buildEnv }) => {
                 './hifi-audio-agora.js$': path.resolve(__dirname, 'src/hifi-audio-agora.ts'),
                 './hifi-audio-p2p.js$': path.resolve(__dirname, 'src/hifi-audio-p2p.ts'),
                 './hifi-transport.js$': path.resolve(__dirname, 'src/hifi-transport.ts'),
+                './hifi-transport-agora.js$': path.resolve(__dirname, 'src/hifi-transport-agora.ts'),
                 './hifi-transport-p2p.js$': path.resolve(__dirname, 'src/hifi-transport-p2p.ts'),
                 './transform.js$': path.resolve(__dirname, 'src/transform.ts'),
                 './fast-atan2.js$': path.resolve(__dirname, 'src/fast-atan2.js')
