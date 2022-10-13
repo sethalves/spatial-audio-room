@@ -37,11 +37,11 @@ export function CanvasControl(canvas, elements, usernames, callbackFunc, backgro
   }
 
   canvas.addEventListener('touchstart', function(event) {
-    that._cursorDownFunc(event);
+    return that._cursorDownFunc(event);
   });
 
   canvas.addEventListener('mousedown', function(event) {
-    that._cursorDownFunc(event);
+    return that._cursorDownFunc(event);
   });
 
   canvas.addEventListener('touchmove', function(event) {
@@ -85,6 +85,17 @@ CanvasControl.prototype.invokeCallback = function() {
     this._callbackFunc(this._elements);
   }
 };
+
+function absorbEvent(event) {
+    let e = event || window.event;
+    e.preventDefault && e.preventDefault();
+    e.stopPropagation && e.stopPropagation();
+    e.cancelBubble = true;
+    e.returnValue = false;
+    // e.stopImmediatePropagation && e.stopImmediatePropagation();
+    // e.stopPropagation && e.stopPropagation();
+    return false;
+}
 
 
 function getAbsoluteHeight(eltID) {
@@ -246,13 +257,12 @@ CanvasControl.prototype._cursorDownFunc = function(event) {
   let cursorPosition = this.getCursorPosition(event);
   this._selected = this.getNearestElement(cursorPosition);
   this._cursorUpdateFunc(cursorPosition);
-  document.body.style = 'overflow: hidden;';
+  return absorbEvent(event);
 };
 
 CanvasControl.prototype._cursorUpFunc = function(event) {
   this._cursorDown = false;
   this._selected.index = -1;
-  document.body.style = '';
 };
 
 CanvasControl.prototype._cursorMoveFunc = function(event) {
