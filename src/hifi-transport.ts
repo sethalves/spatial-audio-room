@@ -15,29 +15,33 @@ export interface RTCRtpReceiverIS extends RTCRtpReceiver {
 }
 
 
-export interface HiFiRemoteUser {
+/**
+ * Represents a remote audio and/or video source
+ *
+ * @param uid - unique identifier for this user.
+ */
+export interface RemoteSource {
     uid : string,
-    audioTrack : any,
-    videoTrack : any,
     getAudioSender? : () => RTCRtpSenderIS,
     getAudioReceiver? : () => RTCRtpReceiverIS,
-    getAudioTrack? : () => MediaStreamTrack,
+    getAudioTrack? : () => RemoteTrack,
+    getVideoTrack? : () => RemoteTrack,
     hasAudio : boolean,
     hasVideo : boolean
 }
 
 
-export interface HiFiTransport {
+export interface TransportManager {
     join : (appID : string, channel : string, token : string, uid : string) => Promise<string>,
     leave : (willRestart? : boolean) => Promise<void>,
     rejoin : () => Promise<void>,
     on : (eventName : string, callback : Function) => void,
-    createMicrophoneAudioTrack : (audioConfig : HiFiMicrophoneAudioTrackInitConfig) => Promise<LocalTrack>,
-    createCameraVideoTrack : (videoConfig : HiFiCameraVideoTrackInitConfig) => Promise<LocalTrack>,
+    createMicrophoneAudioTrack : (audioConfig : MicrophoneConfig) => Promise<LocalTrack>,
+    createCameraVideoTrack : (videoConfig : CameraConfig) => Promise<LocalTrack>,
     publish : (streams : Array<LocalTrack>) => Promise<void>,
     unpublish : (streams : Array<LocalTrack>) => Promise<void>,
-    subscribe : (user : HiFiRemoteUser, mediaType : string) => Promise<void>,
-    unsubscribe : (user : HiFiRemoteUser) => Promise<void>,
+    subscribe : (user : RemoteSource, mediaType : string) => Promise<void>,
+    unsubscribe : (user : RemoteSource) => Promise<void>,
     sendBroadcastMessage : (msg : Uint8Array) => boolean,
 
     getSharedAudioReceiver : () => RTCRtpReceiverIS,
@@ -46,7 +50,7 @@ export interface HiFiTransport {
     renewToken : (token : string) => Promise<void>
 }
 
-export interface HiFiMicrophoneAudioTrackInitConfig {
+export interface MicrophoneConfig {
     AEC: boolean,
     AGC: boolean,
     ANS: boolean,
@@ -58,7 +62,7 @@ export interface HiFiMicrophoneAudioTrackInitConfig {
     } */
 }
 
-export interface HiFiCameraVideoTrackInitConfig {
+export interface CameraConfig {
     encoderConfig: any
 }
 
@@ -68,5 +72,11 @@ export interface LocalTrack {
     close : () => void,
     play : (videoEltID : string) => void
     getMediaStreamTrack : () => MediaStreamTrack,
-    updateOriginMediaStreamTrack? : (replacement : MediaStreamTrack) => Promise<void>
+    replaceMediaStreamTrack? : (replacement : MediaStreamTrack) => Promise<void>
+}
+
+
+export interface RemoteTrack {
+    play : (videoEltID : string) => void
+    getMediaStreamTrack : () => MediaStreamTrack,
 }

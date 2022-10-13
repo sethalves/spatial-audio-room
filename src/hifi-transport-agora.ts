@@ -1,10 +1,10 @@
 import {
-    HiFiRemoteUser,
-    HiFiTransport,
+    RemoteSource,
+    TransportManager,
     RTCRtpSenderIS,
     RTCRtpReceiverIS,
-    HiFiMicrophoneAudioTrackInitConfig,
-    HiFiCameraVideoTrackInitConfig,
+    MicrophoneConfig,
+    CameraConfig,
     LocalTrack
 } from "./hifi-transport.js"
 
@@ -50,7 +50,7 @@ interface AgoraRemoteUser extends IAgoraRTCRemoteUser {
 }
 
 
-export class HiFiTransportAgora implements HiFiTransport {
+export class TransportManagerAgora implements TransportManager {
 
     private client : IAgoraRTCClientOpen;
 
@@ -64,7 +64,7 @@ export class HiFiTransportAgora implements HiFiTransport {
     private onStreamMessage : any;
     private onVolumeLevelChange : any;
 
-    private remoteUsers : { [uid: string] : HiFiRemoteUser; } = {};
+    private remoteUsers : { [uid: string] : RemoteSource; } = {};
 
     private micTrack : MediaStream;
     private cameraTrack : MediaStream;
@@ -87,7 +87,7 @@ export class HiFiTransportAgora implements HiFiTransport {
                 this.addUserAccessors(user);
                 this.onUserPublished(user, mediaType);
             }
-            this.remoteUsers[ user.uid ] = user as HiFiRemoteUser;
+            this.remoteUsers[ user.uid ] = user as RemoteSource;
         });
         this.client.on("user-unpublished", (user : IAgoraRTCRemoteUser) => {
             if (this.onUserUnpublished) {
@@ -186,16 +186,19 @@ export class HiFiTransportAgora implements HiFiTransport {
 
 
     addUserAccessors(user: IAgoraRTCRemoteUser) {
-        (user as unknown as HiFiRemoteUser).getAudioSender = () => { return null; };
-        (user as unknown as HiFiRemoteUser).getAudioReceiver = () => {
+        (user as unknown as RemoteSource).getAudioSender = () => { return null; };
+        (user as unknown as RemoteSource).getAudioReceiver = () => {
             let mediaStreamTrack = user.audioTrack.getMediaStreamTrack();
             let trackID = mediaStreamTrack.id;
             let receivers : Array<RTCRtpReceiverIS> = this.client._p2pChannel.connection.peerConnection.getReceivers();
             let receiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === trackID && e.track?.kind === 'audio');
             return receiver;
         };
-        (user as unknown as HiFiRemoteUser).getAudioTrack = () => {
-            return user.audioTrack.getMediaStreamTrack();
+        (user as unknown as RemoteSource).getAudioTrack = () => {
+            return user.audioTrack;
+        };
+        (user as unknown as RemoteSource).getVideoTrack = () => {
+            return user.videoTrack;
         };
     }
 
@@ -222,7 +225,7 @@ export class HiFiTransportAgora implements HiFiTransport {
             this.micTrack = undefined;
         }
         if (this.cameraTrack) {
-            let track : ILocalTrack = this.cameraTrack  as unknown as ILocalTrack;
+            let track : ILocalTrack = this.cameraTrack as unknown as ILocalTrack;
             await this.client.unpublish([ track ]);
             track.stop();
             track.close();
@@ -277,7 +280,7 @@ export class HiFiTransportAgora implements HiFiTransport {
     }
 
 
-    async subscribe(user : HiFiRemoteUser, mediaType : string) : Promise<void> {
+    async subscribe(user : RemoteSource, mediaType : string) : Promise<void> {
         if (mediaType == "audio" || mediaType == "video") {
             await this.client.subscribe(user as unknown as IAgoraRTCRemoteUser, mediaType);
         }
@@ -287,7 +290,7 @@ export class HiFiTransportAgora implements HiFiTransport {
     }
 
 
-    async unsubscribe(user : HiFiRemoteUser) : Promise<void> {
+    async unsubscribe(user : RemoteSource) : Promise<void> {
         return this.client.unsubscribe(user as unknown as IAgoraRTCRemoteUser);
     }
 
@@ -303,9 +306,9 @@ export class HiFiTransportAgora implements HiFiTransport {
     }
 
 
-    async createMicrophoneAudioTrack(audioConfig : HiFiMicrophoneAudioTrackInitConfig) : Promise<LocalTrack> {
+    async createMicrophoneAudioTrack(audioConfig : MicrophoneConfig) : Promise<LocalTrack> {
         let micTrack : IMicrophoneAudioTrackOpen = await AgoraRTC.createMicrophoneAudioTrack(audioConfig);
-        micTrack.updateOriginMediaStreamTrack = async (replacement : MediaStreamTrack) => {
+        (micTrack as LocalTrack).replaceMediaStreamTrack = async (replacement : MediaStreamTrack) => {
             await micTrack._updateOriginMediaStreamTrack(replacement, false);
             return new Promise<void>((resolve) => {
                 resolve();
@@ -317,7 +320,7 @@ export class HiFiTransportAgora implements HiFiTransport {
         });
     }
 
-    async createCameraVideoTrack(videoConfig : HiFiCameraVideoTrackInitConfig) : Promise<LocalTrack> {
+    async createCameraVideoTrack(videoConfig : CameraConfig) : Promise<LocalTrack> {
         let videoTrack = await AgoraRTC.createCameraVideoTrack(videoConfig)
 
         return new Promise<LocalTrack>((resolve) => {

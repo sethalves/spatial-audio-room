@@ -18,6 +18,9 @@ all:
 	sed -i 's/export //g' dist/worker-transform.js
 
 
+docs:
+	./node_modules/typedoc/bin/typedoc --out dist/docs src/hifi-transport.ts
+
 webpack-dev:
 	${WEBPACK} --env buildEnv=dev
 	tsc --declaration true # for transform.js

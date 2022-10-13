@@ -1,16 +1,17 @@
 
 import {
-    HiFiRemoteUser,
-    HiFiTransport,
-    HiFiMicrophoneAudioTrackInitConfig,
-    HiFiCameraVideoTrackInitConfig,
+    RemoteSource,
+    TransportManager,
+    MicrophoneConfig,
+    CameraConfig,
     RTCRtpReceiverIS,
     RTCRtpSenderIS,
-    LocalTrack
+    LocalTrack,
+    RemoteTrack
 } from "./hifi-transport.js"
 
 
-interface RTCRemoteUser extends HiFiRemoteUser {
+interface RTCRemoteSource extends RemoteSource {
     contacted : boolean;
     peerConnection : RTCPeerConnection;
     toPeer : RTCDataChannel;
@@ -18,10 +19,12 @@ interface RTCRemoteUser extends HiFiRemoteUser {
     sdp : (sdpType: string, sdp: string /*RTCSessionDescriptionInit*/) => void;
     ice : (candidate: string, sdpMid: string, sdpMLineIndex: number) => void;
     doStop : boolean;
+    audioTrack : RemoteTrack;
+    videoTrack : RemoteTrack;
 }
 
 
-export class HiFiTransportP2P implements HiFiTransport {
+export class TransportManagerP2P implements TransportManager {
 
     private debugRTC = false;
 
@@ -34,7 +37,7 @@ export class HiFiTransportP2P implements HiFiTransport {
     private onStreamMessage : any;
     private onVolumeLevelChange : any;
 
-    private remoteUsers : { [uid: string] : RTCRemoteUser; } = {};
+    private remoteUsers : { [uid: string] : RTCRemoteSource; } = {};
 
     private micTrack : MediaStream;
     private cameraTrack : MediaStream;
@@ -65,7 +68,7 @@ export class HiFiTransportP2P implements HiFiTransport {
             let msg = JSON.parse(event.data);
             if (msg["message-type"] == "connect-with-peer") {
                 let otherUID = msg["uid"];
-                let remoteUser : RTCRemoteUser;
+                let remoteUser : RTCRemoteSource;
                 if (this.remoteUsers[ otherUID ]) {
                     console.log("found existing remote-user " + otherUID);
                     return;
@@ -93,12 +96,18 @@ export class HiFiTransportP2P implements HiFiTransport {
                         },
                         getAudioReceiver : function() {
                             let receivers : Array<RTCRtpReceiverIS> = this.peerConnection.getReceivers();
+                            let trackID = this.audioTrack.getMediaStreamTrack().id;
                             let receiver : RTCRtpReceiverIS =
-                                receivers.find(e => e.track?.id === this.audioTrack.id && e.track?.kind === 'audio');
+                                receivers.find((e : RTCRtpReceiverIS) => {
+                                    return e.track?.id === trackID && e.track?.kind === 'audio'
+                                });
                             return receiver;
                         },
                         getAudioTrack : function() {
                             return this.audioTrack;
+                        },
+                        getVideoTrack : function() {
+                            return this.videoTrack;
                         }
                     };
                     console.log("created new remote-user " + otherUID);
@@ -109,7 +118,10 @@ export class HiFiTransportP2P implements HiFiTransport {
                                  async (peerID : string, event : RTCTrackEvent) => {
                                      // on audio-track
                                      console.log("got audio track from peer, " + peerID);
-                                     remoteUser.audioTrack = event.track;
+                                     remoteUser.audioTrack = {
+                                         play: (videoEltID : string) => { console.log("XXX write p2p playVideo"); },
+                                         getMediaStreamTrack: () => { return event.track; }
+                                     }
                                      remoteUser.hasAudio = true;
 
                                      if (this.onUserPublished) {
@@ -254,14 +266,14 @@ export class HiFiTransportP2P implements HiFiTransport {
     }
 
 
-    subscribe(user : HiFiRemoteUser, mediaType : string) : Promise<void> {
+    subscribe(user : RemoteSource, mediaType : string) : Promise<void> {
         return new Promise<void>((resolve) => {
             resolve();
         });
     }
 
 
-    unsubscribe(user : HiFiRemoteUser) : Promise<void> {
+    unsubscribe(user : RemoteSource) : Promise<void> {
         return new Promise<void>((resolve) => {
             resolve();
         });
@@ -277,7 +289,7 @@ export class HiFiTransportP2P implements HiFiTransport {
     }
 
 
-    async createMicrophoneAudioTrack(audioConfig : HiFiMicrophoneAudioTrackInitConfig) : Promise<LocalTrack> {
+    async createMicrophoneAudioTrack(audioConfig : MicrophoneConfig) : Promise<LocalTrack> {
         let audioTrack : MediaStream = await navigator.mediaDevices.getUserMedia({
             audio: {
                 echoCancellation: true,
@@ -294,7 +306,7 @@ export class HiFiTransportP2P implements HiFiTransport {
             close : () => { /* audioTrack.close(); */ },
             play : (videoEltID : string) => { },
             getMediaStreamTrack : () => { return audioTrack.getAudioTracks()[0]; },
-            updateOriginMediaStreamTrack : (replacement : MediaStreamTrack) => {
+            replaceMediaStreamTrack : (replacement : MediaStreamTrack) => {
                 audioTrack.removeTrack(audioTrack.getAudioTracks()[0]);
                 audioTrack.addTrack(replacement);
                 return new Promise<void>((resolve) => {
@@ -308,7 +320,7 @@ export class HiFiTransportP2P implements HiFiTransport {
         });
     }
 
-    async createCameraVideoTrack(videoConfig : HiFiCameraVideoTrackInitConfig) : Promise<LocalTrack> {
+    async createCameraVideoTrack(videoConfig : CameraConfig) : Promise<LocalTrack> {
        let videoTrack : MediaStream = await navigator.mediaDevices.getUserMedia({
             audio: false,
             video: true
@@ -337,7 +349,7 @@ export class HiFiTransportP2P implements HiFiTransport {
     }
 
     
-    private contactPeer(remoteUser : RTCRemoteUser,
+    private contactPeer(remoteUser : RTCRemoteSource,
                         onAudioTrack : (peerID : string, event : RTCTrackEvent) => void,
                         onDataChannel : (peerID : string, event : RTCDataChannelEvent) => void) {
 

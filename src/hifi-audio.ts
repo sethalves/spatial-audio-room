@@ -1,10 +1,10 @@
 
-import { HiFiRemoteUser, HiFiTransport, RTCRtpSenderIS, RTCRtpReceiverIS,
-         HiFiMicrophoneAudioTrackInitConfig, HiFiCameraVideoTrackInitConfig,
+import { RemoteSource, TransportManager, RTCRtpSenderIS, RTCRtpReceiverIS,
+         MicrophoneConfig, CameraConfig,
          RTCRtpScriptTransform, LocalTrack } from "./hifi-transport.js";
 
-// import { HiFiTransportP2P } from "./hifi-transport-p2p.js";
-// import { HiFiTransportAgora } from "./hifi-transport-agora.js";
+// import { TransportManagerP2P } from "./hifi-transport-p2p.js";
+// import { TransportManagerAgora } from "./hifi-transport-agora.js";
 
 import { checkSupported } from "./check-supported.js";
 import { fastAtan2 } from "./fast-atan2.js"
@@ -44,7 +44,7 @@ interface LocalTracks {
 
 let loopback : RTCPeerConnection[];
 
-let client : HiFiTransport;
+let client : TransportManager;
 
 let localTracks : LocalTracks = {
     // videoTrack: null,
@@ -58,7 +58,7 @@ let onUpdateVolumeIndicator : any;
 let onRemoteUserJoined : any;
 let onRemoteUserLeft : any;
 
-let remoteUsers : { [uid: string] : HiFiRemoteUser; } = {};
+let remoteUsers : { [uid: string] : RemoteSource; } = {};
 let worker : Worker = undefined;
 
 let hifiSources: { [name: string]: AudioWorkletNodeMeta } = {};
@@ -290,7 +290,7 @@ export function on(eventName : string, callback : Function) {
 }
 
 
-export async function join(transport : HiFiTransport,
+export async function join(transport : TransportManager,
                            appID : string,
                            uid : string,
                            tokenProvider : string /* Function */,
@@ -332,10 +332,10 @@ export async function joinTransportRoom() {
 
     await startSpatialAudio();
 
-    client.on("user-published", (user : HiFiRemoteUser, mediaType : string) => { handleUserPublished(user, mediaType); });
-    client.on("user-unpublished", (user : HiFiRemoteUser) => { handleUserUnpublished(user); });
+    client.on("user-published", (user : RemoteSource, mediaType : string) => { handleUserPublished(user, mediaType); });
+    client.on("user-unpublished", (user : RemoteSource) => { handleUserUnpublished(user); });
 
-    let audioConfig : HiFiMicrophoneAudioTrackInitConfig = {
+    let audioConfig : MicrophoneConfig = {
         AEC: aecEnabled,
         AGC: false,
         ANS: false,
@@ -348,7 +348,7 @@ export async function joinTransportRoom() {
     };
 
     if (hifiOptions.video) {
-        let videoConfig : HiFiCameraVideoTrackInitConfig = {
+        let videoConfig : CameraConfig = {
             encoderConfig: "240p_1"
         };
 
@@ -390,7 +390,7 @@ export async function joinTransportRoom() {
     sourceNode.connect(hifiNoiseGate).connect(destinationNode);
 
     let destinationTrack = destinationNode.stream.getAudioTracks()[0];
-    localTracks.audioTrack.updateOriginMediaStreamTrack(destinationTrack);
+    localTracks.audioTrack.replaceMediaStreamTrack(destinationTrack);
 
     // publish local tracks to channel
     await client.publish(Object.values(localTracks));
@@ -457,7 +457,7 @@ export async function leave(willRestart : boolean) {
     remoteUsers = {};
 }
 
-function handleUserPublished(user : HiFiRemoteUser, mediaType : string) {
+function handleUserPublished(user : RemoteSource, mediaType : string) {
 
     if (hifiOptions.enableMetadata) {
         installSenderTransform(user.getAudioSender());
@@ -469,7 +469,7 @@ function handleUserPublished(user : HiFiRemoteUser, mediaType : string) {
     subscribe(user, mediaType);
 }
 
-function handleUserUnpublished(user : HiFiRemoteUser) {
+function handleUserUnpublished(user : RemoteSource) {
     const uid = user.uid;
     delete remoteUsers["" + uid];
     if (onRemoteUserLeft) {
@@ -478,7 +478,7 @@ function handleUserUnpublished(user : HiFiRemoteUser) {
     unsubscribe(user);
 }
 
-async function subscribe(user : HiFiRemoteUser, mediaType : string) {
+async function subscribe(user : RemoteSource, mediaType : string) {
     const uid = user.uid;
 
     if (mediaType === 'audio') {
@@ -490,8 +490,8 @@ async function subscribe(user : HiFiRemoteUser, mediaType : string) {
         subscribedToAudio[ "" + uid ] = true;
 
         // sourceNode for WebRTC track
-        let mediaStreamTrack = user.getAudioTrack();
-        let mediaStream = new MediaStream([mediaStreamTrack]);
+        let remoteTrack = user.getAudioTrack();
+        let mediaStream = new MediaStream([remoteTrack.getMediaStreamTrack()]);
         let sourceNode = audioContext.createMediaStreamSource(mediaStream);
 
         // connect to new hifiSource
@@ -534,14 +534,14 @@ export async function playVideo(uid : string, videoEltID : string) {
         await localTracks.videoTrack.play(videoEltID);
     } else {
         let user = remoteUsers[ "" + uid ];
-        if (user.videoTrack) {
-            await user.videoTrack.play(videoEltID);
+        if (user.getVideoTrack()) {
+            await user.getVideoTrack().play(videoEltID);
         }
     }
 }
 
 
-async function unsubscribe(user: HiFiRemoteUser) {
+async function unsubscribe(user: RemoteSource) {
     const uid = user.uid;
 
     delete hifiSources[ uid ];

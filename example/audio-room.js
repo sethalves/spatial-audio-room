@@ -10,8 +10,8 @@
 'use strict';
 
 import * as HiFiAudio from './hifi-audio.js'
-import { HiFiTransportP2P } from "./hifi-transport-p2p.js";
-import { HiFiTransportAgora } from "./hifi-transport-agora.js";
+import { TransportManagerP2P } from "./hifi-transport-p2p.js";
+import { TransportManagerAgora } from "./hifi-transport-agora.js";
 
 import { CanvasControl } from './canvas-control.js'
 
@@ -571,8 +571,8 @@ async function joinRoom() {
 
     clampCharacterPosition();
 
-    // let transport = new HiFiTransportAgora() /* as HiFiTransport */;
-    let transport = new HiFiTransportP2P() /* as HiFiTransport */;
+    let transport = new TransportManagerAgora() /* as TransportManager */;
+    // let transport = new TransportManagerP2P() /* as TransportManager */;
 
     await HiFiAudio.join(transport,
                          options.appid,
