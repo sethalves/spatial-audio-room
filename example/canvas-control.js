@@ -153,6 +153,13 @@ CanvasControl.prototype.resize = function() {
 //        this._canvas.height = canvasHeight / dpr;
 //        // console.log("dpr -- setting canvas square: " + JSON.stringify([canvasHeight, canvasHeight]));
 //    }
+
+    let controlsAndRooms = document.getElementById("controls-and-rooms");
+    if (controlsAndRooms.scrollHeight > controlsAndRooms.offsetHeight) {
+        controlsAndRooms.style.overflow = '';
+    } else {
+        controlsAndRooms.style.overflow = 'hidden';
+    }
 };
 
 CanvasControl.prototype.draw = function() {
