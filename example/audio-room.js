@@ -223,6 +223,7 @@ $(()=>{
 
 $("#username").change(function (e) {
     options.username = $("#username").val();
+    $("#local-player-name").text(options.username);
 
     // if already connected, update my name
     setUsername(options.username)
