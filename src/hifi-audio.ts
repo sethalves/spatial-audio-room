@@ -1,10 +1,22 @@
 
-import { RemoteSource, TransportManager, RTCRtpSenderIS, RTCRtpReceiverIS,
-         MicrophoneConfig, CameraConfig,
-         RTCRtpScriptTransform, LocalTrack } from "./hifi-transport.js";
+import { RemoteSource, TransportManager, MicrophoneConfig, CameraConfig, LocalTrack } from "./hifi-transport.js";
 
-// import { TransportManagerP2P } from "./hifi-transport-p2p.js";
-// import { TransportManagerAgora } from "./hifi-transport-agora.js";
+
+export declare class RTCRtpScriptTransform {
+    constructor(worker : Worker, options : any);
+};
+
+
+// RTC with insertable stream support
+export interface RTCRtpSenderIS extends RTCRtpSender {
+    createEncodedStreams? : Function,
+    transform? : RTCRtpScriptTransform
+}
+export interface RTCRtpReceiverIS extends RTCRtpReceiver {
+    createEncodedStreams? : Function,
+    transform? : RTCRtpScriptTransform
+}
+
 
 import { checkSupported } from "./check-supported.js";
 import { fastAtan2 } from "./fast-atan2.js"
@@ -76,13 +88,11 @@ let subscribedToVideo : { [uid: string] : boolean; } = {};
 
 
 interface HifiOptions {
-    appid?: string | undefined,
     channel?: string | undefined,
-    tokenProvider?: string /* Function */ | undefined,
     uid?: string | undefined,
     thresholdValue?: number | undefined,
     thresholdSet?: boolean | undefined,
-    video? : boolean | undefined,
+    enableVideo? : boolean | undefined,
     enableMetadata? : boolean | undefined
 }
 let hifiOptions : HifiOptions = {};
@@ -268,11 +278,6 @@ export function setLocalMetaData(e : MetaData) : void {
 }
 
 
-export function setNewToken(token: string) : void {
-    client.renewToken(token);
-}
-
-
 export function on(eventName : string, callback : Function) {
     if (eventName == "remote-position-updated") {
         onUpdateRemotePosition = callback;
@@ -291,20 +296,16 @@ export function on(eventName : string, callback : Function) {
 
 
 export async function join(transport : TransportManager,
-                           appID : string,
                            uid : string,
-                           tokenProvider : string /* Function */,
                            channel : string,
                            initialPosition : MetaData,
                            initialThresholdValue : number,
-                           video : boolean,
+                           enableVideo : boolean,
                            enableMetadata : boolean) {
 
     client = transport;
 
-    hifiOptions.appid = appID;
     hifiOptions.uid = uid;
-    hifiOptions.tokenProvider = tokenProvider;
     hifiOptions.channel = channel;
     if (initialPosition) {
         hifiPosition.x = initialPosition.x;
@@ -315,7 +316,7 @@ export async function join(transport : TransportManager,
         hifiOptions.thresholdValue = initialThresholdValue;
         hifiOptions.thresholdSet = true;
     }
-    hifiOptions.video = video;
+    hifiOptions.enableVideo = enableVideo;
     hifiOptions.enableMetadata = enableMetadata;
 
     if (enableMetadata) {
@@ -347,14 +348,14 @@ export async function joinTransportRoom() {
         }
     };
 
-    if (hifiOptions.video) {
+    if (hifiOptions.enableVideo) {
         let videoConfig : CameraConfig = {
             encoderConfig: "240p_1"
         };
 
         // Join a channel and create local tracks. Best practice is to use Promise.all and run them concurrently.
         [hifiOptions.uid, localTracks.audioTrack, localTracks.videoTrack] = await Promise.all([
-            client.join(hifiOptions.appid, hifiOptions.channel, hifiOptions.tokenProvider || null, hifiOptions.uid || null),
+            client.join(hifiOptions.channel, hifiOptions.uid),
             client.createMicrophoneAudioTrack(audioConfig),
             client.createCameraVideoTrack(videoConfig)
         ]);
@@ -363,7 +364,7 @@ export async function joinTransportRoom() {
         delete localTracks.videoTrack;
 
         [hifiOptions.uid, localTracks.audioTrack] = await Promise.all([
-            client.join(hifiOptions.appid, hifiOptions.channel, hifiOptions.tokenProvider || null, hifiOptions.uid || null),
+            client.join(hifiOptions.channel, hifiOptions.uid),
             client.createMicrophoneAudioTrack(audioConfig)
         ]);
     }
@@ -520,10 +521,10 @@ async function subscribe(user : RemoteSource, mediaType : string) {
         subscribedToVideo[ "" + uid ] = true;
     }
 
-    if (hifiOptions.video && subscribedToAudio[ "" + uid ] && subscribedToVideo[ "" + uid ]) {
+    if (hifiOptions.enableVideo && subscribedToAudio[ "" + uid ] && subscribedToVideo[ "" + uid ]) {
         onRemoteUserJoined("" + uid);
     }
-    if (!hifiOptions.video && subscribedToAudio[ "" + uid ]) {
+    if (!hifiOptions.enableVideo && subscribedToAudio[ "" + uid ]) {
         onRemoteUserJoined("" + uid);
     }
 }

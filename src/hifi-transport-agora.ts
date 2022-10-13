@@ -1,8 +1,6 @@
 import {
     RemoteSource,
     TransportManager,
-    RTCRtpSenderIS,
-    RTCRtpReceiverIS,
     MicrophoneConfig,
     CameraConfig,
     LocalTrack
@@ -45,14 +43,16 @@ interface AgoraUserVolume {
 
 
 interface AgoraRemoteUser extends IAgoraRTCRemoteUser {
-    getSender: () => RTCRtpSenderIS,
-    getReceiver: () => RTCRtpReceiverIS
+    getSender: () => RTCRtpSender,
+    getReceiver: () => RTCRtpReceiver
 }
 
 
 export class TransportManagerAgora implements TransportManager {
 
     private client : IAgoraRTCClientOpen;
+    private appID : string;
+    private token : string;
 
     private debugRTC = false;
 
@@ -69,10 +69,12 @@ export class TransportManagerAgora implements TransportManager {
     private micTrack : MediaStream;
     private cameraTrack : MediaStream;
     
-    constructor() {
+    constructor(appID : string, token : string) {
+        this.appID = appID;
+        this.token = token;
     }
 
-    async join(appID : string, channel : string, token : string, uid : string) : Promise<string> {
+    async join(channel : string, uid : string) : Promise<string> {
 
         this.localUID = uid;
 
@@ -177,7 +179,7 @@ export class TransportManagerAgora implements TransportManager {
             }
         });
 
-        await this.client.join(appID, channel, token, uid);
+        await this.client.join(this.appID, channel, this.token, uid);
 
         return new Promise<string>((resolve) => {
             resolve(this.localUID);
@@ -190,8 +192,8 @@ export class TransportManagerAgora implements TransportManager {
         (user as unknown as RemoteSource).getAudioReceiver = () => {
             let mediaStreamTrack = user.audioTrack.getMediaStreamTrack();
             let trackID = mediaStreamTrack.id;
-            let receivers : Array<RTCRtpReceiverIS> = this.client._p2pChannel.connection.peerConnection.getReceivers();
-            let receiver : RTCRtpReceiverIS = receivers.find(e => e.track?.id === trackID && e.track?.kind === 'audio');
+            let receivers : Array<RTCRtpReceiver> = this.client._p2pChannel.connection.peerConnection.getReceivers();
+            let receiver : RTCRtpReceiver = receivers.find(e => e.track?.id === trackID && e.track?.kind === 'audio');
             return receiver;
         };
         (user as unknown as RemoteSource).getAudioTrack = () => {
@@ -295,13 +297,13 @@ export class TransportManagerAgora implements TransportManager {
     }
 
 
-    getSharedAudioReceiver() : RTCRtpReceiverIS {
+    getSharedAudioReceiver() : RTCRtpReceiver {
         return null;
     }
 
-    getSharedAudioSender() : RTCRtpSenderIS {
+    getSharedAudioSender() : RTCRtpSender {
         let senders = this.client._p2pChannel.connection.peerConnection.getSenders();
-        let sender = senders.find((e : RTCRtpSenderIS) => e.track?.kind === 'audio');
+        let sender = senders.find((e : RTCRtpSender) => e.track?.kind === 'audio');
         return sender;
     }
 
@@ -337,6 +339,7 @@ export class TransportManagerAgora implements TransportManager {
     }
 
     renewToken(token : string) : Promise<void> {
+        this.token = token;
         return this.client.renewToken(token);
     }
 }

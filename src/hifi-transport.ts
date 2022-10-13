@@ -1,38 +1,39 @@
 
-export declare class RTCRtpScriptTransform {
-    constructor(worker : Worker, options : any);
-};
-
-
-// RTC with insertable stream support
-export interface RTCRtpSenderIS extends RTCRtpSender {
-    createEncodedStreams? : Function,
-    transform? : RTCRtpScriptTransform
-}
-export interface RTCRtpReceiverIS extends RTCRtpReceiver {
-    createEncodedStreams? : Function,
-    transform? : RTCRtpScriptTransform
-}
-
-
 /**
  * Represents a remote audio and/or video source
  *
- * @param uid - unique identifier for this user.
  */
 export interface RemoteSource {
+    /** The unique identifier for this remote source */
     uid : string,
-    getAudioSender? : () => RTCRtpSenderIS,
-    getAudioReceiver? : () => RTCRtpReceiverIS,
-    getAudioTrack? : () => RemoteTrack,
-    getVideoTrack? : () => RemoteTrack,
+    /** Get the RTCRtpSender from this source's PeerConnection */
+    getAudioSender : () => RTCRtpSender,
+    /** Get the RTCRtpReceiver from this source's PeerConnection */
+    getAudioReceiver : () => RTCRtpReceiver,
+    /** Get the audio-track being sent by this remote source */
+    getAudioTrack : () => RemoteTrack,
+    /** Get the video-track being sent by this remote source */
+    getVideoTrack : () => RemoteTrack,
+    /** True if this source is sending audio */
     hasAudio : boolean,
+    /** True if this source is sending video */
     hasVideo : boolean
 }
 
 
+/**
+ * Abstract interface for transport-managers.
+ * This type is passed to an AudioManager instance so that it can send and receive
+ * audio, video, and other data.
+ *
+ * @example
+ * ```
+ * let transport = new TransportManagerAgora();
+ * ```
+ *
+ */
 export interface TransportManager {
-    join : (appID : string, channel : string, token : string, uid : string) => Promise<string>,
+    join : (channel : string, uid : string) => Promise<string>,
     leave : (willRestart? : boolean) => Promise<void>,
     rejoin : () => Promise<void>,
     on : (eventName : string, callback : Function) => void,
@@ -43,11 +44,8 @@ export interface TransportManager {
     subscribe : (user : RemoteSource, mediaType : string) => Promise<void>,
     unsubscribe : (user : RemoteSource) => Promise<void>,
     sendBroadcastMessage : (msg : Uint8Array) => boolean,
-
-    getSharedAudioReceiver : () => RTCRtpReceiverIS,
-    getSharedAudioSender : () => RTCRtpSenderIS,
-
-    renewToken : (token : string) => Promise<void>
+    getSharedAudioReceiver : () => RTCRtpReceiver,
+    getSharedAudioSender : () => RTCRtpSender,
 }
 
 export interface MicrophoneConfig {

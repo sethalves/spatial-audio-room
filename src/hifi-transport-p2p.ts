@@ -4,8 +4,6 @@ import {
     TransportManager,
     MicrophoneConfig,
     CameraConfig,
-    RTCRtpReceiverIS,
-    RTCRtpSenderIS,
     LocalTrack,
     RemoteTrack
 } from "./hifi-transport.js"
@@ -50,7 +48,7 @@ export class TransportManagerP2P implements TransportManager {
         this.signalingURL.protocol = "wss";
     }
 
-    join(appID : string, channel : string, token : string, uid : string) : Promise<string> {
+    join(channel : string, uid : string) : Promise<string> {
 
         this.localUID = uid;
 
@@ -95,10 +93,10 @@ export class TransportManagerP2P implements TransportManager {
                             return this.peerConnection.getSenders()[0];
                         },
                         getAudioReceiver : function() {
-                            let receivers : Array<RTCRtpReceiverIS> = this.peerConnection.getReceivers();
+                            let receivers : Array<RTCRtpReceiver> = this.peerConnection.getReceivers();
                             let trackID = this.audioTrack.getMediaStreamTrack().id;
-                            let receiver : RTCRtpReceiverIS =
-                                receivers.find((e : RTCRtpReceiverIS) => {
+                            let receiver : RTCRtpReceiver =
+                                receivers.find((e : RTCRtpReceiver) => {
                                     return e.track?.id === trackID && e.track?.kind === 'audio'
                                 });
                             return receiver;
@@ -280,11 +278,11 @@ export class TransportManagerP2P implements TransportManager {
     }
 
 
-    getSharedAudioReceiver() : RTCRtpReceiverIS {
+    getSharedAudioReceiver() : RTCRtpReceiver {
         return null;
     }
 
-    getSharedAudioSender() : RTCRtpSenderIS {
+    getSharedAudioSender() : RTCRtpSender {
         return null;
     }
 
@@ -619,12 +617,5 @@ export class TransportManagerP2P implements TransportManager {
         }
 
         return true;
-    }
-
-
-    renewToken(token : string) : Promise<void> {
-        return new Promise<void>((resolve) => {
-            resolve();
-        });
     }
 }
