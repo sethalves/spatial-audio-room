@@ -571,8 +571,8 @@ async function joinRoom() {
 
     clampCharacterPosition();
 
-    let transport = new HiFiTransportAgora() /* as HiFiTransport */;
-    // let transport = new HiFiTransportP2P() /* as HiFiTransport */;
+    // let transport = new HiFiTransportAgora() /* as HiFiTransport */;
+    let transport = new HiFiTransportP2P() /* as HiFiTransport */;
 
     await HiFiAudio.join(transport,
                          options.appid,

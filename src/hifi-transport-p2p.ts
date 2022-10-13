@@ -290,7 +290,7 @@ export class HiFiTransportP2P implements HiFiTransport {
         });
 
         let micTrack = {
-            stop : () => { /* audioTrack.stop(); */ },
+            stop : () => { audioTrack.getAudioTracks()[0].stop(); },
             close : () => { /* audioTrack.close(); */ },
             play : (videoEltID : string) => { },
             getMediaStreamTrack : () => { return audioTrack.getAudioTracks()[0]; },
@@ -309,16 +309,20 @@ export class HiFiTransportP2P implements HiFiTransport {
     }
 
     async createCameraVideoTrack(videoConfig : HiFiCameraVideoTrackInitConfig) : Promise<LocalTrack> {
-        let audioTrack : MediaStream = await navigator.mediaDevices.getUserMedia({
+       let videoTrack : MediaStream = await navigator.mediaDevices.getUserMedia({
             audio: false,
             video: true
         });
 
-        let videoTrack = {
-            stop : () => { /* audioTrack.stop(); */ },
-            close : () => { /* audioTrack.close(); */ },
-            play : (videoEltID : string) => { },
-            getMediaStreamTrack : () => { return audioTrack.getAudioTracks()[0]; },
+        let cameraTrack = {
+            stop : () => { videoTrack.getVideoTracks()[0].stop(); },
+            close : () => { /* videoTrack.close(); */ },
+            play : (videoEltID : string) => {
+                let videoElt = document.getElementById(videoEltID) as HTMLVideoElement;
+                videoElt.autoplay = true;
+                videoElt.srcObject = videoTrack;
+            },
+            getMediaStreamTrack : () => { return videoTrack.getVideoTracks()[0]; },
             updateOriginMediaStreamTrack : (replacement : MediaStreamTrack) => {
                 // not supported for video
                 return new Promise<void>((resolve) => {
@@ -328,7 +332,7 @@ export class HiFiTransportP2P implements HiFiTransport {
         };
 
         return new Promise<LocalTrack>((resolve) => {
-            resolve(videoTrack);
+            resolve(cameraTrack);
         });
     }
 
