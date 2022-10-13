@@ -21,40 +21,6 @@ interface RTCRemoteUser extends HiFiRemoteUser {
 }
 
 
-// export class P2PLocalCameraVideoTrack extends MediaStream implements LocalCameraVideoTrack {
-//     stop : () => {
-//     },
-
-//     close : () => {
-//     },
-
-//     play : (videoEltID : string) => {
-//     }
-// }
-
-
-// export class P2PLocalMicrophoneAudioTrack extends MediaStream implements LocalMicrophoneAudioTrack {
-//     getMediaStreamTrack : () => {
-//         return this.getAudioTracks()[0]
-//     },
-
-//     stop : () => {
-//     },
-
-//     close : () => {
-//     },
-
-//     updateOriginMediaStreamTrack : (replacement : MediaStreamTrack) => {
-//         this.removeTrack(this.getMediaStreamTrack());
-//         this.addTrack(destinationTrack);
-//         return new Promise<void>((resolve) => {
-//             resolve();
-//         });
-//     }
-// }
-
-
-
 export class HiFiTransportP2P implements HiFiTransport {
 
     private debugRTC = false;
@@ -320,7 +286,7 @@ export class HiFiTransportP2P implements HiFiTransport {
                 sampleRate: 48000,
                 channelCount: { exact:1 }
             },
-            video: false // video
+            video: false
         });
 
         let micTrack = {
@@ -343,8 +309,26 @@ export class HiFiTransportP2P implements HiFiTransport {
     }
 
     async createCameraVideoTrack(videoConfig : HiFiCameraVideoTrackInitConfig) : Promise<LocalTrack> {
+        let audioTrack : MediaStream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: true
+        });
+
+        let videoTrack = {
+            stop : () => { /* audioTrack.stop(); */ },
+            close : () => { /* audioTrack.close(); */ },
+            play : (videoEltID : string) => { },
+            getMediaStreamTrack : () => { return audioTrack.getAudioTracks()[0]; },
+            updateOriginMediaStreamTrack : (replacement : MediaStreamTrack) => {
+                // not supported for video
+                return new Promise<void>((resolve) => {
+                    resolve();
+                });
+            }
+        };
+
         return new Promise<LocalTrack>((resolve) => {
-            resolve(null);
+            resolve(videoTrack);
         });
     }
 

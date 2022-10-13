@@ -531,13 +531,12 @@ async function subscribe(user : HiFiRemoteUser, mediaType : string) {
 
 export async function playVideo(uid : string, videoEltID : string) {
     if (uid == hifiOptions.uid) {
-        // await localTracks.videoTrack.play(videoEltID);
+        await localTracks.videoTrack.play(videoEltID);
     } else {
-        // XXX
-        // let user = remoteUsers[ "" + uid ];
-        // if (user.videoTrack) {
-        //     await user.videoTrack.play(videoEltID);
-        // }
+        let user = remoteUsers[ "" + uid ];
+        if (user.videoTrack) {
+            await user.videoTrack.play(videoEltID);
+        }
     }
 }
 

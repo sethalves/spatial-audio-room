@@ -40,6 +40,7 @@ export interface HiFiTransport {
     unsubscribe : (user : HiFiRemoteUser) => Promise<void>,
     sendBroadcastMessage : (msg : Uint8Array) => boolean,
 
+    getSharedAudioReceiver : () => RTCRtpReceiverIS,
     getSharedAudioSender : () => RTCRtpSenderIS,
 
     renewToken : (token : string) => Promise<void>
@@ -58,7 +59,7 @@ export interface HiFiMicrophoneAudioTrackInitConfig {
 }
 
 export interface HiFiCameraVideoTrackInitConfig {
-    encoderConfig: string
+    encoderConfig: any
 }
 
 

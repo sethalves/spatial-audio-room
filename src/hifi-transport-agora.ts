@@ -50,22 +50,6 @@ interface AgoraRemoteUser extends IAgoraRTCRemoteUser {
 }
 
 
-// interface AgoraLocalCameraVideoTrack extends ICameraVideoTrack {
-// }
-
-// interface AgoraLocalMicrophoneAudioTrack extends IMicrophoneAudioTrackOpen {
-//     getMediaStreamTrack : () => MediaStreamTrack,
-//     updateOriginMediaStreamTrack : (replacement : MediaStreamTrack) => Promise<void>
-
-//     // async updateOriginMediaStreamTrack(replacement : MediaStreamTrack) {
-//     //     await this._updateOriginMediaStreamTrack(replacement, false);
-//     //     return new Promise<void>((resolve) => {
-//     //         resolve();
-//     //     });
-//     // }
-// }
-
-
 export class HiFiTransportAgora implements HiFiTransport {
 
     private client : IAgoraRTCClientOpen;
@@ -295,7 +279,6 @@ export class HiFiTransportAgora implements HiFiTransport {
 
     async subscribe(user : HiFiRemoteUser, mediaType : string) : Promise<void> {
         if (mediaType == "audio" || mediaType == "video") {
-            // let remoteTrack : IRemoteTrack =
             await this.client.subscribe(user as unknown as IAgoraRTCRemoteUser, mediaType);
         }
         return new Promise<void>((resolve) => {
@@ -309,13 +292,9 @@ export class HiFiTransportAgora implements HiFiTransport {
     }
 
 
-    // getSharedAudioReceiver() : RTCRtpReceiverIS {
-    //     let receivers : Array<RTCRtpReceiverIS> = this.client._p2pChannel.connection.peerConnection.getReceivers();
-    //     let receiver : RTCRtpReceiverIS =
-    //         receivers.find(e => e.track?.id === mediaStreamTrack.id && e.track?.kind === 'audio');
-    //     return reciever;
-    // }
-
+    getSharedAudioReceiver() : RTCRtpReceiverIS {
+        return null;
+    }
 
     getSharedAudioSender() : RTCRtpSenderIS {
         let senders = this.client._p2pChannel.connection.peerConnection.getSenders();
@@ -339,10 +318,10 @@ export class HiFiTransportAgora implements HiFiTransport {
     }
 
     async createCameraVideoTrack(videoConfig : HiFiCameraVideoTrackInitConfig) : Promise<LocalTrack> {
-        // let videoTrack = await AgoraRTC.createCameraVideoTrack(videoConfig)
+        let videoTrack = await AgoraRTC.createCameraVideoTrack(videoConfig)
 
         return new Promise<LocalTrack>((resolve) => {
-            resolve(null);
+            resolve(videoTrack);
         });
     }
 
