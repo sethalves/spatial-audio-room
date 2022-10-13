@@ -17,6 +17,7 @@ export function CanvasControl(canvas, elements, usernames, callbackFunc, backgro
 
   this._context = this._canvas.getContext('2d');
   this._cursorDown = false;
+  this._previousCursorY = 0;
 
   this._selected = {
     index: -1,
@@ -45,6 +46,21 @@ export function CanvasControl(canvas, elements, usernames, callbackFunc, backgro
   });
 
   canvas.addEventListener('touchmove', function(event) {
+
+    if (that._selected.index < 0) {
+        // suppress pull-to-refresh on mobile devices
+        // chrome supports "overscroll-behavior: contain;" and safari does not.
+        let cursorPosition = that.getCursorPosition(event);
+        let changeY = cursorPosition.y - that._previousCursorY;
+        that._previousCursorY = cursorPosition.y;
+        if (window.scrollY <= 0 && changeY > 0) {
+            document.body.style.overflow = 'hidden';
+            return absorbEvent(event);
+        } else {
+            document.body.style.overflow = '';
+        }
+    }
+
     let currentEventTime = Date.now();
     if (currentEventTime - that._lastMoveEventTime > that._minimumThreshold) {
       that._lastMoveEventTime = currentEventTime;
@@ -64,6 +80,7 @@ export function CanvasControl(canvas, elements, usernames, callbackFunc, backgro
 
   document.addEventListener('touchend', function(event) {
     that._cursorUpFunc(event);
+    document.body.style.overflow = ''; // part of disable pull-to-refresh
   });
 
   document.addEventListener('mouseup', function(event) {
@@ -264,7 +281,10 @@ CanvasControl.prototype._cursorDownFunc = function(event) {
   let cursorPosition = this.getCursorPosition(event);
   this._selected = this.getNearestElement(cursorPosition);
   this._cursorUpdateFunc(cursorPosition);
-  return absorbEvent(event);
+
+  if (this._selected.index > -1) {
+      return absorbEvent(event);
+  }
 };
 
 CanvasControl.prototype._cursorUpFunc = function(event) {
