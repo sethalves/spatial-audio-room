@@ -473,6 +473,37 @@ async function joinTransportRoom() {
         }
     });
 
+    client.on("reconnected", (uid : string) => {
+        if (uid == hifiOptions.uid) {
+            console.warn('RECONNECT for local audioTrack:', uid);
+            if (hifiOptions.enableMetadata) {
+                installSenderTransform(client.getSharedAudioSender());
+            }
+
+        } else {
+            let user = remoteUsers["" + uid];
+            if (user !== undefined) {
+
+                console.warn('RECONNECT for remote audioTrack:', uid);
+
+                // sourceNode for new WebRTC track
+                let mediaStreamTrack = user.getAudioTrack().getMediaStreamTrack();
+                let mediaStream = new MediaStream([mediaStreamTrack]);
+                let sourceNode = audioContext.createMediaStreamSource(mediaStream);
+
+                // connect to existing hifiSource
+                sourceNode.connect(hifiSources[uid]);
+
+                if (hifiOptions.enableMetadata) {
+                    installReceiverTransform(client.getSharedAudioReceiver(), uid);
+                }
+            } else {
+                console.log("Warning -- got 'reconnected' for unknown user: " + uid);
+            }
+        }
+    });
+
+
     return "" + hifiOptions.uid;
 }
 

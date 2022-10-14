@@ -52,7 +52,7 @@ export class TransportManagerAgora implements TransportManager {
 
     private client : IAgoraRTCClientOpen;
     private appID : string;
-    private token : string;
+    private tokenProvider : Function;
 
     private debugRTC = false;
 
@@ -64,15 +64,16 @@ export class TransportManagerAgora implements TransportManager {
     private onUserUnpublished : any;
     private onStreamMessage : any;
     private onVolumeLevelChange : any;
+    private onReconnect : any;
 
     private remoteUsers : { [uid: string] : RemoteSource; } = {};
 
     private micTrack : MediaStream;
     private cameraTrack : MediaStream;
     
-    constructor(appID : string, token : string) {
+    constructor(appID : string, tokenProvider : Function) {
         this.appID = appID;
-        this.token = token;
+        this.tokenProvider = tokenProvider;
     }
 
     async join(channel : string, uid : string) : Promise<string> {
@@ -108,63 +109,29 @@ export class TransportManagerAgora implements TransportManager {
             }
         });
 
-/*
-
         // When Agora performs a "tryNext" reconnect, a new SFU peer connection is created and all
         // tracks and transceivers will change. The new tracks are quietly republished/resubscribed
         // and no "user-published" callbacks are triggered. This callback finishes configuring the
         // new tracks and transceivers.
         this.client.on("media-reconnect-end", async (uid : UID) => {
-            if (uid == this.client.uid) {
-
-                console.warn('RECONNECT for local audioTrack:', uid);
-
-                if (hifiOptions.enableMetadata) {
-                    installSenderTransform(client._p2pChannel.connection.peerConnection.getSenders());
-                }
-
-            } else {
-
-                let user = remoteUsers[uid];
-                if (user !== undefined) {
-
-                    console.warn('RECONNECT for remote audioTrack:', uid);
-
-                    // sourceNode for new WebRTC track
-                    let mediaStreamTrack = user.audioTrack.getMediaStreamTrack();
-                    let mediaStream = new MediaStream([mediaStreamTrack]);
-                    let sourceNode = audioContext.createMediaStreamSource(mediaStream);
-
-                    // connect to existing hifiSource
-                    sourceNode.connect(hifiSources[uid]);
-
-                    if (hifiOptions.enableMetadata) {
-                        installReceiverTransform(client.getSharedAudioReceiver(), uid);
-                    }
-                }
+            if (this.onReconnect) {
+                this.onReconnect(uid);
             }
         });
 
-        client.on("token-privilege-will-expire", async () => {
+        this.client.on("token-privilege-will-expire", async () => {
             console.log("token will expire...");
-            // if (hifiOptions.tokenProvider) {
-            //     console.log("refreshing token...");
-            //     let token = await hifiOptions.tokenProvider(hifiOptions.uid, hifiOptions.channel, 1);
-            //     await client.renewToken(token);
-            // }
+            if (this.tokenProvider) {
+                console.log("refreshing token...");
+                let token = await this.tokenProvider(this.localUID, this.channel, 1);
+                await this.client.renewToken(token);
+            }
         });
 
-*/
 
         this.client.on("token-privilege-did-expire", async () => {
             console.log("token expired...");
         });
-
-        // let token : string;
-        // if (hifiOptions.tokenProvider) {
-        //     // token = await hifiOptions.tokenProvider(hifiOptions.uid, hifiOptions.channel, 1);
-        //     token = hifiOptions.tokenProvider;
-        // }
 
 
         //
@@ -181,7 +148,11 @@ export class TransportManagerAgora implements TransportManager {
             }
         });
 
-        await this.client.join(this.appID, channel, this.token, uid);
+        let token : string = null;
+        if (this.tokenProvider) {
+            token = await this.tokenProvider(this.localUID, channel, 1);
+        }
+        await this.client.join(this.appID, this.channel, token, this.localUID);
 
         return new Promise<string>((resolve) => {
             resolve(this.localUID);
@@ -276,6 +247,8 @@ export class TransportManagerAgora implements TransportManager {
             this.onStreamMessage = callback;
         } else if (eventName == "volume-level-change") {
             this.onVolumeLevelChange = callback;
+        } else if (eventName == "reconnected") {
+            this.onReconnect = callback;
         }
     }
 
@@ -343,11 +316,6 @@ export class TransportManagerAgora implements TransportManager {
         console.log("hifi-audio: send broadcast message: " + JSON.stringify(msgString));
         this.client.sendStreamMessage(msg);
         return true;
-    }
-
-    renewToken(token : string) : Promise<void> {
-        this.token = token;
-        return this.client.renewToken(token);
     }
 }
 

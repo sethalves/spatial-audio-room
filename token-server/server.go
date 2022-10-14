@@ -9,6 +9,7 @@ import (
 	"log"
 	"sync"
 	"strings"
+	"strconv"
 	"net/http"
 	"time"
 	"io/ioutil"
@@ -117,7 +118,9 @@ func handleTokenRequest(dat map[string]interface{}) map[string]interface{} {
 
 	var int_uid uint32 = 0
 	if _, ok := dat["uid"]; ok {
-		int_uid = uint32(dat["uid"].(float64))
+		id, err := strconv.Atoi(dat["uid"].(string));
+		checkError(err);
+		int_uid = uint32(id);
 	}
 
 	var expireTimeInSeconds uint32 = 86400

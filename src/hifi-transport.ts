@@ -46,6 +46,7 @@ export interface TransportManager {
         - user-unpublished - (user : RemoteSource) => void
         - broadcast-received - (uid : string, data : Uint8Array) => void
         - volume-level-change - (uid : string, level : number) => void
+        - reconnected - (uid : string) => void
      */
     on : (eventName : string, callback : Function) => void,
     /** Create a LocalTrack which carries data from the local microphone. */

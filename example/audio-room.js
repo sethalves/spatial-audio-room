@@ -98,8 +98,7 @@ let roomOptions = {
             { x: 0.707, y: -0.707, o: degToRad(315) }
         ],
         canvasDimensions: { width: 4, height: 4 },
-        background: "Table_semi-transparent_HF_Logo.svg",
-        token: null
+        background: "Table_semi-transparent_HF_Logo.svg"
     },
 
     "room-quad-music": {
@@ -107,8 +106,7 @@ let roomOptions = {
         metaData: true,
         positions: [],
         canvasDimensions: { width: 8, height: 8 },
-        background: "Semi-transparent_HF_Logo.svg",
-        token: null
+        background: "Semi-transparent_HF_Logo.svg"
     },
 
     "room-bar": {
@@ -116,8 +114,7 @@ let roomOptions = {
         metaData: true,
         positions: [],
         canvasDimensions: { width: 16, height: 16 },
-        background: "Semi-transparent_HF_Logo.svg",
-        token: null
+        background: "Semi-transparent_HF_Logo.svg"
     },
 
     "room-video": {
@@ -125,8 +122,7 @@ let roomOptions = {
         metaData: false,
         positions: [],
         canvasDimensions: { width: 8, height: 8 },
-        background: "Semi-transparent_HF_Logo.svg",
-        token: null
+        background: "Semi-transparent_HF_Logo.svg"
     }
 }
 
@@ -202,9 +198,9 @@ webSocket.onopen = async function (event) {
 
     options.channel = await getRoomNamePrefix();
 
-    for (const rID of roomIDs) {
-        roomOptions[ rID ].token = await fetchToken(parseInt(localUid), options.channel + ":" + rID, 1);
-    }
+    // for (const rID of roomIDs) {
+    //     roomOptions[ rID ].token = await fetchToken(parseInt(localUid), options.channel + ":" + rID, 1);
+    // }
     getCurrentRoom();
     updateRoomsUI();
 }
@@ -571,7 +567,7 @@ async function joinRoom() {
 
     clampCharacterPosition();
 
-    let transport = new TransportManagerAgora(options.appid, ropts.token /* fetchToken */) /* as TransportManager */;
+    let transport = new TransportManagerAgora(options.appid, fetchToken) /* as TransportManager */;
     // let transport = new TransportManagerP2P() /* as TransportManager */;
 
     await HiFiAudio.join(transport,

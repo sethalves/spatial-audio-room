@@ -34,6 +34,7 @@ export class TransportManagerP2P implements TransportManager {
     private onUserUnpublished : any;
     private onStreamMessage : any;
     private onVolumeLevelChange : any;
+    private onReconnect : any;
 
     private remoteUsers : { [uid: string] : RTCRemoteSource; } = {};
 
@@ -226,6 +227,8 @@ export class TransportManagerP2P implements TransportManager {
             this.onStreamMessage = callback;
         } else if (eventName == "volume-level-change") {
             this.onVolumeLevelChange = callback;
+        } else if (eventName == "reconnected") {
+            this.onReconnect = callback;
         }
     }
 
