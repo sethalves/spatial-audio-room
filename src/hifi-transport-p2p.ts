@@ -84,7 +84,6 @@ export class TransportManagerP2P implements TransportManager {
                         peerConnection: undefined,
                         toPeer : undefined,
                         fromPeer : (peerID : string, data : Uint8Array) => {
-                            console.log("XXXXX got data-channel data from peer " + otherUID);
                             if (this.onStreamMessage) {
                                 this.onStreamMessage(otherUID, data);
                             }
@@ -120,36 +119,61 @@ export class TransportManagerP2P implements TransportManager {
                 }
 
                 this.contactPeer(remoteUser,
+                                 // on audio-track
                                  async (peerID : string, event : RTCTrackEvent) => {
-                                     // on audio-track
                                      console.log("got audio track from peer, " + peerID);
                                      remoteUser.audioTrack = {
-                                         play: (videoEltID : string) => { console.log("XXX write p2p playVideo"); },
+                                         play: (videoEltID : string) => {
+                                             let videoElt = document.getElementById(videoEltID) as HTMLVideoElement;
+                                             videoElt.autoplay = true;
+                                             videoElt.srcObject = event.streams[0];
+                                         },
                                          getMediaStreamTrack: () => { return event.track; }
                                      }
                                      remoteUser.hasAudio = true;
-
                                      if (this.onUserPublished) {
                                          this.onUserPublished(remoteUser, "audio");
                                      }
 
                                  },
+                                 // on video-track
+                                 async (peerID : string, event : RTCTrackEvent) => {
+                                     console.log("got video track from peer, " + peerID);
+                                     remoteUser.videoTrack = {
+                                         play: (videoEltID : string) => {
+                                             console.log("XXX write p2p playVideo");
+                                         },
+                                         getMediaStreamTrack: () => { return event.track; }
+                                     }
+                                     remoteUser.hasVideo = true;
+                                     if (this.onUserPublished) {
+                                         this.onUserPublished(remoteUser, "video");
+                                     }
+
+                                 },
+                                 // on data-channel
                                  (peerID : string, event : RTCDataChannelEvent) => {
-                                     // on data-channel
-                                     console.log("XXXXX got data-channel event from " + peerID + ": "+ JSON.stringify(event));
                                  });
 
 
                 // this triggers negotiation-needed on the peer-connection
-                // localTracks.audioTrack.getAudioTracks().forEach(track => {
-                //     remoteUser.peerConnection.addTrack(track, localTracks.audioTrack);
-                // });
                 if (this.micTrack) {
-                    console.log("adding track to peer-connection (A) for " + uid);
+                    console.log("adding audio track to peer-connection (A) for " + uid);
+                    // localTracks.audioTrack.getAudioTracks().forEach(track => {
+                    //     remoteUser.peerConnection.addTrack(track, localTracks.audioTrack);
+                    // });
                     remoteUser.peerConnection.addTrack(this.micTrack.getAudioTracks()[ 0 ]);
                 } else {
                     console.log("no mic track yet");
                 }
+
+                if (this.cameraTrack) {
+                    console.log("adding video track to peer-connection (A) for " + uid);
+                    remoteUser.peerConnection.addTrack(this.cameraTrack.getVideoTracks()[ 0 ]);
+                } else {
+                    console.log("no camera track yet");
+                }
+
 
             } else if (msg["message-type"] == "ice-candidate") {
                 let fromUID = msg["from-uid"];
@@ -242,22 +266,29 @@ export class TransportManagerP2P implements TransportManager {
 
 
     publish(localTracks : Array<LocalTrack>) : Promise<void> {
-        console.log("in publish mic-track...");
-
         for (let localTrack of localTracks) {
             let track = localTrack.getMediaStreamTrack();
             console.log("  track.kind=" + track.kind);
-            if (true || track.kind == "audio") { // XXX
+            if (track.kind == "audio") {
                 if (!this.micTrack) {
                     this.micTrack = new MediaStream();
                 }
-
                 this.micTrack.addTrack(track);
-
                 for (let uid in this.remoteUsers) {
                     let remoteUser = this.remoteUsers[ uid ];
-                    console.log("adding track to peer-connection (B) for " + uid);
+                    console.log("adding audio track to peer-connection (B) for " + uid);
                     remoteUser.peerConnection.addTrack(this.micTrack.getAudioTracks()[ 0 ]);
+                }
+            }
+            if (track.kind == "video") {
+                if (!this.cameraTrack) {
+                    this.cameraTrack = new MediaStream();
+                }
+                this.cameraTrack.addTrack(track);
+                for (let uid in this.remoteUsers) {
+                    let remoteUser = this.remoteUsers[ uid ];
+                    console.log("adding video track to peer-connection (B) for " + uid);
+                    remoteUser.peerConnection.addTrack(this.cameraTrack.getVideoTracks()[ 0 ]);
                 }
             }
         }
@@ -269,7 +300,6 @@ export class TransportManagerP2P implements TransportManager {
 
 
     unpublish(localTracks : Array<LocalTrack>) : Promise<void> {
-        console.log("XXX write p2p unpublish");
         return new Promise<void>((resolve) => {
             resolve();
         });
@@ -361,6 +391,7 @@ export class TransportManagerP2P implements TransportManager {
     
     private contactPeer(remoteUser : RTCRemoteSource,
                         onAudioTrack : (peerID : string, event : RTCTrackEvent) => void,
+                        onVideoTrack : (peerID : string, event : RTCTrackEvent) => void,
                         onDataChannel : (peerID : string, event : RTCDataChannelEvent) => void) {
 
         let iceQueue : RTCIceCandidate[] = [];
@@ -448,7 +479,13 @@ export class TransportManagerP2P implements TransportManager {
 
 
         remoteUser.peerConnection.ontrack = (event : RTCTrackEvent) => {
-            onAudioTrack(remoteUser.uid, event);
+            if (event.track.kind == "audio") {
+                onAudioTrack(remoteUser.uid, event);
+            } else if (event.track.kind == "video") {
+                onVideoTrack(remoteUser.uid, event);
+            } else {
+                console.log("Error -- p2p transport got unknown track type: " + event.track.kind);
+            }
         };
 
 
@@ -497,9 +534,9 @@ export class TransportManagerP2P implements TransportManager {
 
 
         remoteUser.peerConnection.addEventListener("negotiationneeded", ev => {
-            //        if (debugRTC) {
-            console.log("got negotiationneeded for remoteUser " + remoteUser.uid);
-            //        }
+            if (this.debugRTC) {
+                console.log("got negotiationneeded for remoteUser " + remoteUser.uid);
+            }
 
             if (remoteUser.uid > this.localUID) { // avoid glare
                 if (this.debugRTC) {
