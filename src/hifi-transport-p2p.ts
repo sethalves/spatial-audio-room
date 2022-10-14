@@ -175,7 +175,7 @@ export class TransportManagerP2P implements TransportManager {
     }
 
 
-    async leave(willRestart? : boolean) : Promise<void> {
+    async leave() : Promise<void> {
 
         if (this.webSocket) {
             this.webSocket.close();

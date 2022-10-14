@@ -58,6 +58,7 @@ export class TransportManagerAgora implements TransportManager {
 
     private webSocket : WebSocket;
     private localUID : string;
+    private channel : string;
 
     private onUserPublished : any;
     private onUserUnpublished : any;
@@ -77,6 +78,7 @@ export class TransportManagerAgora implements TransportManager {
     async join(channel : string, uid : string) : Promise<string> {
 
         this.localUID = uid;
+        this.channel = channel
 
         this.client = AgoraRTC.createClient({
             mode: "rtc",
@@ -204,7 +206,7 @@ export class TransportManagerAgora implements TransportManager {
         };
     }
 
-    async leave(willRestart? : boolean) : Promise<void> {
+    async leaveInternal(willRestart? : boolean) : Promise<void> {
 
         let meter = document.getElementById('my-peak-meter');
         if (meter) {
@@ -251,9 +253,14 @@ export class TransportManagerAgora implements TransportManager {
     }
 
 
-    async rejoin() : Promise<void> {
-        console.log("XXX write agora rejoin");
+    async leave() : Promise<void> {
+        return this.leaveInternal(false);
+    }
 
+
+    async rejoin() : Promise<void> {
+        await this.leaveInternal(true);
+        await this.join(this.channel, this.localUID);
         return new Promise<void>((resolve) => {
             resolve();
         });

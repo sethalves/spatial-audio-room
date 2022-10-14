@@ -19,7 +19,7 @@ all:
 
 
 docs:
-	./node_modules/typedoc/bin/typedoc --out dist/docs src/hifi-transport.ts
+	./node_modules/typedoc/bin/typedoc --disableSources --out dist/docs src/hifi-transport.ts src/hifi-audio.ts
 
 webpack-dev:
 	${WEBPACK} --env buildEnv=dev

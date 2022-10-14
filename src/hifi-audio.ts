@@ -2,16 +2,19 @@
 import { RemoteSource, TransportManager, MicrophoneConfig, CameraConfig, LocalTrack } from "./hifi-transport.js";
 
 
+/** @ignore */
 export declare class RTCRtpScriptTransform {
     constructor(worker : Worker, options : any);
 };
 
 
 // RTC with insertable stream support
+/** @ignore */
 export interface RTCRtpSenderIS extends RTCRtpSender {
     createEncodedStreams? : Function,
     transform? : RTCRtpScriptTransform
 }
+/** @ignore */
 export interface RTCRtpReceiverIS extends RTCRtpReceiver {
     createEncodedStreams? : Function,
     transform? : RTCRtpScriptTransform
@@ -134,6 +137,10 @@ function installReceiverTransform(receiver : RTCRtpReceiverIS, uid : string) {
 }
 
 
+/**
+   Send a message to all the remote listeners which are connected to the current room.  They can receive the message by hooking the "broadcast-received" callback.
+   @param msg - Binary data to transmit to all remote listeners.
+*/
 export function sendBroadcastMessage(msg : Uint8Array) : boolean {
 
     var msgString = new TextDecoder().decode(msg);
@@ -168,7 +175,7 @@ function listenerMetadata(position : MetaData) {
     }
 }
 
-export function sourceMetadata(buffer : ArrayBuffer, uid : string) : void {
+function sourceMetadata(buffer : ArrayBuffer, uid : string) : void {
     let data = new DataView(buffer);
 
     let x = data.getInt16(0) * (1/256.0);
@@ -193,15 +200,25 @@ export function sourceMetadata(buffer : ArrayBuffer, uid : string) : void {
 }
 
 
+/**
+   Return true if the browser is based on chromium
+*/
 export function isChrome() {
     return browserIsChrome;
 }
 
 
 let aecEnabled = false;
+/**
+   Return true if audio-echo-cancelation is enabled.
+*/
 export function isAecEnabled() : boolean {
     return aecEnabled;
 }
+/**
+   Enable or Disable AEC.
+   @param v - Enable audio-echo-cancelation `true`, else disable it.
+*/
 export async function setAecEnabled(v : boolean) : Promise<string> {
     console.log("hifi-audio: setAecEnabled(" + v + ")");
 
@@ -216,9 +233,16 @@ export async function setAecEnabled(v : boolean) : Promise<string> {
 
 
 let muteEnabled = false;
+/**
+   Return true if the local source is muted (audio isn't being sent from the local source to remote listeners).
+*/
 export function isMutedEnabled() : boolean {
     return muteEnabled;
 }
+/**
+   Control muting of the local source.
+   @param v - Mute the local source if `true`, else unmute it.
+*/
 export function setMutedEnabled(v : boolean) {
     console.log("hifi-audio: setMutedEnabled(" + v + "), thresholdValue=" + hifiOptions.thresholdValue);
 
@@ -228,6 +252,10 @@ export function setMutedEnabled(v : boolean) {
     }
 }
 
+/**
+   Set the noise-gate's cut-off level.
+   @param value - A negative value between -80 and 0 which indicates a minimum decible level for the noise-gate to stop suppressing audio.
+*/
 export function setThreshold(value : number) {
     console.log("hifi-audio: setThreshold(" + value + ")");
 
@@ -235,6 +263,9 @@ export function setThreshold(value : number) {
     hifiOptions.thresholdSet = true;
     setMutedEnabled(muteEnabled);
 }
+/**
+   Return the current noise-gate cutoff level in decibels.
+*/
 export function getThreshold() {
     return hifiOptions.thresholdValue;
 }
@@ -245,7 +276,12 @@ function angleWrap(angle : number) {
 }
 
 
-export function setAzimuth(uid : string, azimuth : number) {
+/**
+   Set the direction from which the local listener will perceive a remote source.
+   @param uid - the ID of a remote source.
+   @param - An angle in radians from which a remote source's audio will seem to arrive.
+*/
+export function setSourceAzimuth(uid : string, azimuth : number) {
     let hifiSource = hifiSources[uid];
     if (hifiSource !== undefined) {
         hifiSource.parameters.get('azimuth').value = azimuth;
@@ -268,7 +304,11 @@ function setPositionFromMetadata(hifiSource : AudioWorkletNodeMeta) {
 }
 
 
-export function setLocalMetaData(e : MetaData) : void {
+/**
+   Set the position of the local audio source.  If `join` was called with `enableMetadata`=`true`, this position will be encoded and sent along with the local source's audio.  Remote listeners will receive the position and can update their world-view.
+   @param e - The new position for the local source, to be transmitted to remote listeners.
+*/
+export function setPosition(e : MetaData) : void {
     hifiPosition.x = e.x;
     hifiPosition.y = e.y;
     hifiPosition.o = e.o;
@@ -278,6 +318,15 @@ export function setLocalMetaData(e : MetaData) : void {
 }
 
 
+/**
+   Connect an app's callback function to a named event hook.  The named hooks are:
+   - remote-position-updated - (uid : string, x : number, y : number, o : number) => void -- A remote source has moved.
+   - broadcast-received - (uid : string, data : Uint8Array) => void -- receive the data that a remote source sent with `sendBroadcastMessage`
+   - remote-volume-updated - (uid : string, level : number) => void -- The current momentary loudness of remote source is updated.  `level` is a number which will be larger when the other client is louder.
+   - remote-client-joined - (uid : string) => void -- A new remote source has joined the room.
+   - remote-client-left - (uid : string) -- A remote source has left the room.
+
+*/
 export function on(eventName : string, callback : Function) {
     if (eventName == "remote-position-updated") {
         onUpdateRemotePosition = callback;
@@ -295,6 +344,16 @@ export function on(eventName : string, callback : Function) {
 }
 
 
+/**
+   Use the provided TransportManager to join a room.  Returns a promise for the ID of the local source (which will be the same as the `uid` parameter, unless it was null).
+   @param transport - An instantiation of a TransportManager.
+   @param uid - The unique ID to use for the local source.
+   @param channel - The name of the room to join.  This is interpretted by the specific TransportManager.
+   @param initialPosition - Where to locate this local source in the virtual space of the room. `x` and `y` are in meters, `o` is in radians.
+   @param initialThresholdValue - The initial setting for the noise-gate.  The value should be in decibels in the range -80 to 0.
+   @param enableVideo - `true` if video from the local camera should be sent to the room.
+   @param enableMetadata - `true` if the local source's position in the virtual space should be sent along with its audio stream.
+*/
 export async function join(transport : TransportManager,
                            uid : string,
                            channel : string,
@@ -329,7 +388,7 @@ export async function join(transport : TransportManager,
 }
 
 
-export async function joinTransportRoom() {
+async function joinTransportRoom() {
 
     await startSpatialAudio();
 
@@ -408,10 +467,20 @@ export async function joinTransportRoom() {
         }
     });
 
+    client.on("volume-level-change", (uid : string, level : number) => {
+        if (onUpdateVolumeIndicator) {
+            onUpdateVolumeIndicator(uid, level);
+        }
+    });
+
     return "" + hifiOptions.uid;
 }
 
 
+/**
+   Leave a previously joined room.
+   @param willRestart - If `true`, don't destroy the audio-context.  This can be used to avoid requiring a new "gesture" from the user while starting new audio.
+*/
 export async function leave(willRestart : boolean) {
 
     if (!client) {
@@ -530,6 +599,7 @@ async function subscribe(user : RemoteSource, mediaType : string) {
 }
 
 
+/** @ignore */
 export async function playVideo(uid : string, videoEltID : string) {
     if (uid == hifiOptions.uid) {
         await localTracks.videoTrack.play(videoEltID);
@@ -651,6 +721,7 @@ function stopSpatialAudio(willRestart : boolean) {
     worker = undefined;
 }
 
+/** @ignore */
 export async function playSoundEffect(buffer : ArrayBuffer, loop : boolean) : Promise<AudioBufferSourceNode> {
     console.log("hifi-audio: playSoundEffect()");
 
@@ -664,6 +735,7 @@ export async function playSoundEffect(buffer : ArrayBuffer, loop : boolean) : Pr
 }
 
 
+/** @ignore */
 export async function playSoundEffectFromURL(url : string, loop : boolean) : Promise<AudioBufferSourceNode> {
     console.log("hifi-audio: playSoundEffectFromURL()");
 

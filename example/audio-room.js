@@ -319,7 +319,7 @@ function updatePositions(elts) {
         setCharacterPositionY(-(e.y - 0.5) * ropts.canvasDimensions.height);
         characterPosition.o = e.o;
         clampCharacterPosition();
-        HiFiAudio.setLocalMetaData(getCharacterPositionInAudioSpace());
+        HiFiAudio.setPosition(getCharacterPositionInAudioSpace());
     }
 }
 
@@ -352,7 +352,7 @@ function updateVideoPositions() {
             let azimuth = (Math.PI / 2) * (x / xmax);   // linear, not atan(x)
 
             // update hifiSource
-            HiFiAudio.setAzimuth(uid, azimuth);
+            HiFiAudio.setSourceAzimuth(uid, azimuth);
             console.log("Set uid =", uid, "to azimuth =", (azimuth * 180) / Math.PI);
         }
     });
