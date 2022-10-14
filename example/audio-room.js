@@ -548,8 +548,8 @@ async function joinRoom() {
     HiFiAudio.on("remote-position-updated", updateRemotePosition);
     HiFiAudio.on("broadcast-received", receiveBroadcast);
     HiFiAudio.on("remote-volume-updated", updateVolumeIndicator);
-    HiFiAudio.on("remote-client-joined", onUserPublished);
-    HiFiAudio.on("remote-client-left", onUserUnpublished);
+    HiFiAudio.on("remote-source-connected", onUserPublished);
+    HiFiAudio.on("remote-source-disconnected", onUserUnpublished);
 
     if (!HiFiAudio.isChrome()) {
         HiFiAudio.setAecEnabled(true);

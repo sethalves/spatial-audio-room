@@ -60,11 +60,11 @@ export class TransportManagerAgora implements TransportManager {
     private localUID : string;
     private channel : string;
 
-    private onUserPublished : any;
-    private onUserUnpublished : any;
-    private onStreamMessage : any;
-    private onVolumeLevelChange : any;
-    private onReconnect : any;
+    private onUserPublished : (user : RemoteSource, mediaType : string) => void;
+    private onUserUnpublished : (user : RemoteSource, mediaType : string) => void;
+    private onStreamMessage : (uid : string, data : Uint8Array) => void;
+    private onVolumeLevelChange : (uid : string, level : number) => void;
+    private onReconnect : (uid : string) => void;
 
     private remoteUsers : { [uid: string] : RemoteSource; } = {};
 
@@ -76,28 +76,39 @@ export class TransportManagerAgora implements TransportManager {
         this.tokenProvider = tokenProvider;
     }
 
+
+    async reset() {
+        this.client = undefined;
+        return new Promise<void>((resolve) => {
+            resolve();
+        });
+    }
+
+
     async join(channel : string, uid : string) : Promise<string> {
 
         this.localUID = uid;
         this.channel = channel
 
-        this.client = AgoraRTC.createClient({
-            mode: "rtc",
-            codec: "vp8"
-        });
+        if (!this.client) {
+            this.client = AgoraRTC.createClient({
+                mode: "rtc",
+                codec: "vp8"
+            });
+        }
 
         // add event listener to play remote tracks when remote user publishs.
         this.client.on("user-published", (user : IAgoraRTCRemoteUser, mediaType : string) => {
+            let remoteSource = this.addUserAccessors(user);
             if (this.onUserPublished) {
-                this.addUserAccessors(user);
-                this.onUserPublished(user, mediaType);
+                this.onUserPublished(remoteSource, mediaType);
             }
-            this.remoteUsers[ user.uid ] = user as RemoteSource;
+            this.remoteUsers[ user.uid ] = remoteSource;
         });
-        this.client.on("user-unpublished", (user : IAgoraRTCRemoteUser) => {
+        this.client.on("user-unpublished", (user : IAgoraRTCRemoteUser, mediaType : string) => {
+            let remoteSource = this.addUserAccessors(user);
             if (this.onUserUnpublished) {
-                this.addUserAccessors(user);
-                this.onUserUnpublished(user);
+                this.onUserUnpublished(remoteSource, mediaType);
             }
             delete this.remoteUsers[ user.uid ];
         });
@@ -111,11 +122,11 @@ export class TransportManagerAgora implements TransportManager {
 
         // When Agora performs a "tryNext" reconnect, a new SFU peer connection is created and all
         // tracks and transceivers will change. The new tracks are quietly republished/resubscribed
-        // and no "user-published" callbacks are triggered. This callback finishes configuring the
+        // and no "source-published" callbacks are triggered. This callback finishes configuring the
         // new tracks and transceivers.
         this.client.on("media-reconnect-end", async (uid : UID) => {
             if (this.onReconnect) {
-                this.onReconnect(uid);
+                this.onReconnect("" + uid);
             }
         });
 
@@ -152,7 +163,7 @@ export class TransportManagerAgora implements TransportManager {
         if (this.tokenProvider) {
             token = await this.tokenProvider(this.localUID, channel, 1);
         }
-        await this.client.join(this.appID, this.channel, token, this.localUID);
+        await this.client.join(this.appID, this.channel, token, parseInt(this.localUID));
 
         return new Promise<string>((resolve) => {
             resolve(this.localUID);
@@ -160,7 +171,7 @@ export class TransportManagerAgora implements TransportManager {
     }
 
 
-    addUserAccessors(user: IAgoraRTCRemoteUser) {
+    addUserAccessors(user: IAgoraRTCRemoteUser) : RemoteSource {
         (user as unknown as RemoteSource).getAudioSender = () => { return null; };
         (user as unknown as RemoteSource).getAudioReceiver = () => {
             let mediaStreamTrack = user.audioTrack.getMediaStreamTrack();
@@ -175,9 +186,11 @@ export class TransportManagerAgora implements TransportManager {
         (user as unknown as RemoteSource).getVideoTrack = () => {
             return user.videoTrack;
         };
+
+        return user as RemoteSource;
     }
 
-    async leaveInternal(willRestart? : boolean) : Promise<void> {
+    async leave() : Promise<void> {
 
         let meter = document.getElementById('my-peak-meter');
         if (meter) {
@@ -212,7 +225,12 @@ export class TransportManagerAgora implements TransportManager {
 
         if (this.onUserUnpublished) {
             for (let uid in this.remoteUsers) {
-                this.onUserUnpublished("" + uid);
+                if (this.remoteUsers[ uid ].hasAudio) {
+                    this.onUserUnpublished(this.remoteUsers[ uid ], "audio");
+                }
+                if (this.remoteUsers[ uid ].hasVideo) {
+                    this.onUserUnpublished(this.remoteUsers[ uid ], "video");
+                }
             }
         }
 
@@ -224,45 +242,45 @@ export class TransportManagerAgora implements TransportManager {
     }
 
 
-    async leave() : Promise<void> {
-        return this.leaveInternal(false);
-    }
-
-
-    async rejoin() : Promise<void> {
-        await this.leaveInternal(true);
-        await this.join(this.channel, this.localUID);
-        return new Promise<void>((resolve) => {
-            resolve();
-        });
-    }
-
-
     on(eventName : string, callback : Function) {
-        if (eventName == "user-published") {
-            this.onUserPublished = callback;
-        } else if (eventName == "user-unpublished") {
-            this.onUserUnpublished = callback;
+        if (eventName == "source-published") {
+            this.onUserPublished = callback as (user: RemoteSource, mediaType: string) => void;
+        } else if (eventName == "source-unpublished") {
+            this.onUserUnpublished = callback as (user: RemoteSource, mediaType: string) => void;
         } else if (eventName == "broadcast-received") {
-            this.onStreamMessage = callback;
+            this.onStreamMessage = callback as (uid: string, data: Uint8Array) => void;
         } else if (eventName == "volume-level-change") {
-            this.onVolumeLevelChange = callback;
+            this.onVolumeLevelChange = callback as (uid: string, level: number) => void;
         } else if (eventName == "reconnected") {
-            this.onReconnect = callback;
+            this.onReconnect = callback as (uid: string) => void;
+        } else {
+            console.log("Error -- agora transport can't register unknown event: " + eventName);
         }
     }
 
     async publish(localTracks : Array<LocalTrack>) : Promise<void> {
+        if (!this.client) {
+            console.log("Error -- Agora can't publish track until client has joined room.");
+            return;
+        }
         return this.client.publish(localTracks as unknown as ILocalTrack[]);
     }
 
 
     async unpublish(localTracks : Array<LocalTrack>) : Promise<void> {
+        if (!this.client) {
+            console.log("Error -- Agora can't unpublish track until client has joined room.");
+            return;
+        }
         return this.client.unpublish(localTracks as unknown as ILocalTrack[]);
     }
 
 
     async subscribe(user : RemoteSource, mediaType : string) : Promise<void> {
+        if (!this.client) {
+            console.log("Error -- Agora can't subscribe to remote source until client has joined room.");
+            return;
+        }
         if (mediaType == "audio" || mediaType == "video") {
             await this.client.subscribe(user as unknown as IAgoraRTCRemoteUser, mediaType);
         }
@@ -273,6 +291,10 @@ export class TransportManagerAgora implements TransportManager {
 
 
     async unsubscribe(user : RemoteSource) : Promise<void> {
+        if (!this.client) {
+            console.log("Error -- Agora can't unsubscribe from remote source until client has joined room.");
+            return;
+        }
         return this.client.unsubscribe(user as unknown as IAgoraRTCRemoteUser);
     }
 
@@ -282,6 +304,10 @@ export class TransportManagerAgora implements TransportManager {
     }
 
     getSharedAudioSender() : RTCRtpSender {
+        if (!this.client) {
+            console.log("Error -- Agora can't get senders until client has joined room.");
+            return;
+        }
         let senders = this.client._p2pChannel.connection.peerConnection.getSenders();
         let sender = senders.find((e : RTCRtpSender) => e.track?.kind === 'audio');
         return sender;
@@ -312,6 +338,10 @@ export class TransportManagerAgora implements TransportManager {
 
 
     sendBroadcastMessage(msg : Uint8Array) : boolean {
+        if (!this.client) {
+            console.log("Error -- Agora broadcast message until client has joined room.");
+            return;
+        }
         var msgString = new TextDecoder().decode(msg);
         console.log("hifi-audio: send broadcast message: " + JSON.stringify(msgString));
         this.client.sendStreamMessage(msg);

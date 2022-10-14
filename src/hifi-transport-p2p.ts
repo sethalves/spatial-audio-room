@@ -30,11 +30,11 @@ export class TransportManagerP2P implements TransportManager {
     private webSocket : WebSocket;
     private localUID : string;
 
-    private onUserPublished : any;
-    private onUserUnpublished : any;
-    private onStreamMessage : any;
-    private onVolumeLevelChange : any;
-    private onReconnect : any;
+    private onUserPublished : (user : RemoteSource, mediaType : string) => void;
+    private onUserUnpublished : (user : RemoteSource, mediaType : string) => void;
+    private onStreamMessage : (uid : string, data : Uint8Array) => void;
+    private onVolumeLevelChange : (uid : string, level : number) => void;
+    private onReconnect : (uid : string) => void;
 
     private remoteUsers : { [uid: string] : RTCRemoteSource; } = {};
 
@@ -47,6 +47,12 @@ export class TransportManagerP2P implements TransportManager {
         this.signalingURL = new URL(window.location.href)
         this.signalingURL.pathname = "/token-server";
         this.signalingURL.protocol = "wss";
+    }
+
+    async reset() {
+        return new Promise<void>((resolve) => {
+            resolve();
+        });
     }
 
     join(channel : string, uid : string) : Promise<string> {
@@ -163,10 +169,15 @@ export class TransportManagerP2P implements TransportManager {
 
             } else if (msg["message-type"] == "disconnect-from-peer") {
                 let otherUID = msg["uid"];
-                delete this.remoteUsers[ otherUID ];
                 if (this.onUserUnpublished) {
-                    this.onUserUnpublished("" + otherUID);
+                    if (this.remoteUsers[ otherUID ].hasAudio) {
+                        this.onUserUnpublished(this.remoteUsers[ otherUID ], "audio");
+                    }
+                    if (this.remoteUsers[ otherUID ].hasVideo) {
+                        this.onUserUnpublished(this.remoteUsers[ otherUID ], "video");
+                    }
                 }
+                delete this.remoteUsers[ otherUID ];
             }
         }
 
@@ -189,7 +200,6 @@ export class TransportManagerP2P implements TransportManager {
             }
         }
 
-
         console.log("hifi-audio: leave()");
 
         this.micTrack = undefined;
@@ -197,7 +207,12 @@ export class TransportManagerP2P implements TransportManager {
 
         if (this.onUserUnpublished) {
             for (let uid in this.remoteUsers) {
-                this.onUserUnpublished("" + uid);
+                if (this.remoteUsers[ uid ].hasAudio) {
+                    this.onUserUnpublished(this.remoteUsers[ uid ], "audio");
+                }
+                if (this.remoteUsers[ uid ].hasVideo) {
+                    this.onUserUnpublished(this.remoteUsers[ uid ], "video");
+                }
             }
         }
 
@@ -209,28 +224,22 @@ export class TransportManagerP2P implements TransportManager {
     }
 
 
-    async rejoin() : Promise<void> {
-        console.log("XXX write p2p rejoin");
-
-        return new Promise<void>((resolve) => {
-            resolve();
-        });
-    }
-
-
     on(eventName : string, callback : Function) {
-        if (eventName == "user-published") {
-            this.onUserPublished = callback;
-        } else if (eventName == "user-unpublished") {
-            this.onUserUnpublished = callback;
+        if (eventName == "source-published") {
+            this.onUserPublished = callback as (user: RemoteSource, mediaType: string) => void;
+        } else if (eventName == "source-unpublished") {
+            this.onUserUnpublished = callback as (user: RemoteSource, mediaType: string) => void;
         } else if (eventName == "broadcast-received") {
-            this.onStreamMessage = callback;
+            this.onStreamMessage = callback as (uid: string, data: Uint8Array) => void;
         } else if (eventName == "volume-level-change") {
-            this.onVolumeLevelChange = callback;
+            this.onVolumeLevelChange = callback as (uid: string, level: number) => void;
         } else if (eventName == "reconnected") {
-            this.onReconnect = callback;
+            this.onReconnect = callback as (uid: string) => void;
+        } else {
+            console.log("Error -- p2p transport can't register unknown event: " + eventName);
         }
     }
+
 
     publish(localTracks : Array<LocalTrack>) : Promise<void> {
         console.log("in publish mic-track...");

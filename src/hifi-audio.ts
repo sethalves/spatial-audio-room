@@ -59,7 +59,7 @@ interface LocalTracks {
 
 let loopback : RTCPeerConnection[];
 
-let client : TransportManager;
+let transport : TransportManager;
 
 let localTracks : LocalTracks = {
     // videoTrack: null,
@@ -146,8 +146,8 @@ export function sendBroadcastMessage(msg : Uint8Array) : boolean {
     var msgString = new TextDecoder().decode(msg);
     console.log("hifi-audio: send broadcast message: " + JSON.stringify(msgString));
 
-    if (client && localTracks.audioTrack) {
-        client.sendBroadcastMessage(msg);
+    if (transport && localTracks.audioTrack) {
+        transport.sendBroadcastMessage(msg);
         return true;
     }
     return false;
@@ -225,7 +225,8 @@ export async function setAecEnabled(v : boolean) : Promise<string> {
     if (aecEnabled != v) {
         aecEnabled = v;
         if (localTracks.audioTrack) {
-            await client.rejoin();
+            await leave(true);
+            await joinTransportRoom();
         }
     }
     return "" + hifiOptions.uid;
@@ -322,9 +323,9 @@ export function setPosition(e : MetaData) : void {
    Connect an app's callback function to a named event hook.  The named hooks are:
    - remote-position-updated - (uid : string, x : number, y : number, o : number) => void -- A remote source has moved.
    - broadcast-received - (uid : string, data : Uint8Array) => void -- receive the data that a remote source sent with `sendBroadcastMessage`
-   - remote-volume-updated - (uid : string, level : number) => void -- The current momentary loudness of remote source is updated.  `level` is a number which will be larger when the other client is louder.
-   - remote-client-joined - (uid : string) => void -- A new remote source has joined the room.
-   - remote-client-left - (uid : string) -- A remote source has left the room.
+   - remote-volume-updated - (uid : string, level : number) => void -- The current momentary loudness of remote source is updated.  `level` is a number which will be larger when the other audio source is louder.
+   - remote-source-connected - (uid : string) => void -- A new remote source has joined the room.
+   - remote-source-disconnected - (uid : string) -- A remote source has left the room.
 
 */
 export function on(eventName : string, callback : Function) {
@@ -334,9 +335,9 @@ export function on(eventName : string, callback : Function) {
         onReceiveBroadcast = callback;
     } else if (eventName == "remote-volume-updated") {
         onUpdateVolumeIndicator = callback;
-    } else if (eventName == "remote-client-joined") {
+    } else if (eventName == "remote-source-connected") {
         onRemoteUserJoined = callback;
-    } else if (eventName == "remote-client-left") {
+    } else if (eventName == "remote-source-disconnected") {
         onRemoteUserLeft = callback;
     } else {
         console.log("Error: unknown event-name: " + eventName);
@@ -354,7 +355,7 @@ export function on(eventName : string, callback : Function) {
    @param enableVideo - `true` if video from the local camera should be sent to the room.
    @param enableMetadata - `true` if the local source's position in the virtual space should be sent along with its audio stream.
 */
-export async function join(transport : TransportManager,
+export async function join(setTransport : TransportManager,
                            uid : string,
                            channel : string,
                            initialPosition : MetaData,
@@ -362,7 +363,7 @@ export async function join(transport : TransportManager,
                            enableVideo : boolean,
                            enableMetadata : boolean) {
 
-    client = transport;
+    transport = setTransport;
 
     hifiOptions.uid = uid;
     hifiOptions.channel = channel;
@@ -390,10 +391,12 @@ export async function join(transport : TransportManager,
 
 async function joinTransportRoom() {
 
+    transport.reset();
+
     await startSpatialAudio();
 
-    client.on("user-published", (user : RemoteSource, mediaType : string) => { handleUserPublished(user, mediaType); });
-    client.on("user-unpublished", (user : RemoteSource) => { handleUserUnpublished(user); });
+    transport.on("source-published", (user : RemoteSource, mediaType : string) => { handleUserPublished(user, mediaType); });
+    transport.on("source-unpublished", (user : RemoteSource, mediaType : string) => { handleUserUnpublished(user, mediaType); });
 
     let audioConfig : MicrophoneConfig = {
         AEC: aecEnabled,
@@ -414,17 +417,17 @@ async function joinTransportRoom() {
 
         // Join a channel and create local tracks. Best practice is to use Promise.all and run them concurrently.
         [hifiOptions.uid, localTracks.audioTrack, localTracks.videoTrack] = await Promise.all([
-            client.join(hifiOptions.channel, hifiOptions.uid),
-            client.createMicrophoneAudioTrack(audioConfig),
-            client.createCameraVideoTrack(videoConfig)
+            transport.join(hifiOptions.channel, hifiOptions.uid),
+            transport.createMicrophoneAudioTrack(audioConfig),
+            transport.createCameraVideoTrack(videoConfig)
         ]);
 
     } else {
         delete localTracks.videoTrack;
 
         [hifiOptions.uid, localTracks.audioTrack] = await Promise.all([
-            client.join(hifiOptions.channel, hifiOptions.uid),
-            client.createMicrophoneAudioTrack(audioConfig)
+            transport.join(hifiOptions.channel, hifiOptions.uid),
+            transport.createMicrophoneAudioTrack(audioConfig)
         ]);
     }
 
@@ -453,31 +456,31 @@ async function joinTransportRoom() {
     localTracks.audioTrack.replaceMediaStreamTrack(destinationTrack);
 
     // publish local tracks to channel
-    await client.publish(Object.values(localTracks));
+    await transport.publish(Object.values(localTracks));
     console.log("publish success");
 
     if (hifiOptions.enableMetadata) {
-        installSenderTransform(client.getSharedAudioSender());
+        installSenderTransform(transport.getSharedAudioSender());
     }
 
     // handle broadcast from remote user
-    client.on("broadcast-received", (uid : string, data : Uint8Array) => {
+    transport.on("broadcast-received", (uid : string, data : Uint8Array) => {
         if (onReceiveBroadcast) {
             onReceiveBroadcast("" + uid, data);
         }
     });
 
-    client.on("volume-level-change", (uid : string, level : number) => {
+    transport.on("volume-level-change", (uid : string, level : number) => {
         if (onUpdateVolumeIndicator) {
             onUpdateVolumeIndicator(uid, level);
         }
     });
 
-    client.on("reconnected", (uid : string) => {
+    transport.on("reconnected", (uid : string) => {
         if (uid == hifiOptions.uid) {
             console.warn('RECONNECT for local audioTrack:', uid);
             if (hifiOptions.enableMetadata) {
-                installSenderTransform(client.getSharedAudioSender());
+                installSenderTransform(transport.getSharedAudioSender());
             }
 
         } else {
@@ -495,7 +498,7 @@ async function joinTransportRoom() {
                 sourceNode.connect(hifiSources[uid]);
 
                 if (hifiOptions.enableMetadata) {
-                    installReceiverTransform(client.getSharedAudioReceiver(), uid);
+                    installReceiverTransform(transport.getSharedAudioReceiver(), uid);
                 }
             } else {
                 console.log("Warning -- got 'reconnected' for unknown user: " + uid);
@@ -514,13 +517,13 @@ async function joinTransportRoom() {
 */
 export async function leave(willRestart : boolean) {
 
-    if (!client) {
+    if (!transport) {
         return;
     }
 
     console.log("hifi-audio: leave()");
 
-    await client.unpublish(Object.values(localTracks));
+    await transport.unpublish(Object.values(localTracks));
 
     if (localTracks.audioTrack) {
         localTracks.audioTrack.stop();
@@ -535,7 +538,7 @@ export async function leave(willRestart : boolean) {
     }
 
     // leave the channel
-    await client.leave();
+    await transport.leave();
 
     hifiSources = {};
     hifiNoiseGate = undefined;
@@ -545,7 +548,7 @@ export async function leave(willRestart : boolean) {
     loopback = [];
 
     stopSpatialAudio(willRestart);
-    client = undefined;
+    transport.reset();
 
     for (var uid in remoteUsers) {
         if (onRemoteUserLeft) {
@@ -559,6 +562,7 @@ export async function leave(willRestart : boolean) {
 }
 
 function handleUserPublished(user : RemoteSource, mediaType : string) {
+    console.log("handleUserPublished user=" + JSON.stringify(user) + " mediaType=" + mediaType);
 
     if (hifiOptions.enableMetadata) {
         installSenderTransform(user.getAudioSender());
@@ -570,7 +574,9 @@ function handleUserPublished(user : RemoteSource, mediaType : string) {
     subscribe(user, mediaType);
 }
 
-function handleUserUnpublished(user : RemoteSource) {
+function handleUserUnpublished(user : RemoteSource, mediaType : string) {
+    console.log("handleUserUnpublished user=" + JSON.stringify(user) + " mediaType=" + mediaType);
+
     const uid = user.uid;
     delete remoteUsers["" + uid];
     if (onRemoteUserLeft) {
@@ -585,7 +591,7 @@ async function subscribe(user : RemoteSource, mediaType : string) {
     if (mediaType === 'audio') {
 
         // subscribe to a remote user
-        await client.subscribe(user, mediaType);
+        await transport.subscribe(user, mediaType);
         console.log("subscribe uid:", uid);
 
         subscribedToAudio[ "" + uid ] = true;
@@ -615,7 +621,7 @@ async function subscribe(user : RemoteSource, mediaType : string) {
     if (mediaType === 'video') {
 
         // subscribe to a remote user
-        await client.subscribe(user, mediaType);
+        await transport.subscribe(user, mediaType);
         console.log("subscribe uid:", uid);
 
         subscribedToVideo[ "" + uid ] = true;

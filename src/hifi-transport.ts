@@ -39,11 +39,12 @@ export interface TransportManager {
     join : (channel : string, uid : string) => Promise<string>,
     /** Leave a room that was previously joined. */
     leave : () => Promise<void>,
-    /** Leave a room and then immediatly rejoin it, without destroying the AudioContext */
-    rejoin : () => Promise<void>,
+    /** Cause a transport-manager to free any resources it's holding.
+     */
+    reset : () => Promise<void>,
     /** Register a callback function.  The named callbacks which can be registered are:
-        - user-published - (user : RemoteSource, mediaType : string) => void
-        - user-unpublished - (user : RemoteSource) => void
+        - source-published - (user : RemoteSource, mediaType : string) => void
+        - source-unpublished - (user : RemoteSource, mediaType : string) => void
         - broadcast-received - (uid : string, data : Uint8Array) => void
         - volume-level-change - (uid : string, level : number) => void
         - reconnected - (uid : string) => void

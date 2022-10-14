@@ -268,10 +268,12 @@ CanvasControl.prototype._cursorUpdateFunc = function(cursorPosition) {
   } else {
     // rotate listener to lookat(cursorPosition)
     let i = this._elements.findIndex(e => e.clickable === true);
-    let dx = cursorPosition.x - this._elements[i].x * this._canvas.width;
-    let dy = cursorPosition.y - this._elements[i].y * this._canvas.height;
-    this._elements[i].o = fastAtan2(dx, -dy);
-    this.invokeCallback();
+    if (i >= 0) {
+      let dx = cursorPosition.x - this._elements[i].x * this._canvas.width;
+      let dy = cursorPosition.y - this._elements[i].y * this._canvas.height;
+      this._elements[i].o = fastAtan2(dx, -dy);
+      this.invokeCallback();
+    }
   }
   //this.draw();
 };
