@@ -229,12 +229,16 @@ $("#username").change(function (e) {
 })
 
 $("#join-form").submit(async function(e) {
+    $("#leave").attr("disabled", true);
+    $("#join").attr("disabled", true);
     e.preventDefault();
     await joinRoom();
 })
 
-$("#leave").click(function(e) {
-    leaveRoom(false);
+$("#leave").click(async function(e) {
+    $("#leave").attr("disabled", true);
+    $("#join").attr("disabled", true);
+    await leaveRoom(false);
 })
 
 
@@ -540,7 +544,6 @@ async function fetchToken(uid /*: UID*/, channelName /*: string*/, tokenRole /*:
 
 
 async function joinRoom() {
-
     options.appid = $("#appid").val();
     options.token = $("#token").val();
     options.username = $("#username").val();

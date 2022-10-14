@@ -163,6 +163,7 @@ export class TransportManagerAgora implements TransportManager {
         if (this.tokenProvider) {
             token = await this.tokenProvider(this.localUID, channel, 1);
         }
+        console.log("agora transport calling join with ID " + JSON.stringify(this.localUID) + " = " + parseInt(this.localUID));
         await this.client.join(this.appID, this.channel, token, parseInt(this.localUID));
 
         return new Promise<string>((resolve) => {
@@ -221,6 +222,7 @@ export class TransportManagerAgora implements TransportManager {
         }
 
         // leave the channel
+        console.log("agora transport calling leave with ID " + JSON.stringify(this.localUID) + " = " + parseInt(this.localUID));
         await this.client.leave();
 
         if (this.onUserUnpublished) {

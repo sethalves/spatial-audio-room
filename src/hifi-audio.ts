@@ -361,7 +361,7 @@ export async function join(setTransport : TransportManager,
                            initialPosition : MetaData,
                            initialThresholdValue : number,
                            enableVideo : boolean,
-                           enableMetadata : boolean) {
+                           enableMetadata : boolean) : Promise<string> {
 
     transport = setTransport;
 
@@ -385,11 +385,11 @@ export async function join(setTransport : TransportManager,
         RTCPeerConnection = _RTCPeerConnectionWithoutMetadata;
     }
 
-    return await joinTransportRoom();
+    return joinTransportRoom();
 }
 
 
-async function joinTransportRoom() {
+async function joinTransportRoom() : Promise<string> {
 
     transport.reset();
 
@@ -461,6 +461,7 @@ async function joinTransportRoom() {
 
     if (hifiOptions.enableMetadata) {
         installSenderTransform(transport.getSharedAudioSender());
+        listenerMetadata(hifiPosition);
     }
 
     // handle broadcast from remote user
@@ -481,6 +482,7 @@ async function joinTransportRoom() {
             console.warn('RECONNECT for local audioTrack:', uid);
             if (hifiOptions.enableMetadata) {
                 installSenderTransform(transport.getSharedAudioSender());
+                listenerMetadata(hifiPosition);
             }
 
         } else {
@@ -506,8 +508,9 @@ async function joinTransportRoom() {
         }
     });
 
-
-    return "" + hifiOptions.uid;
+    return new Promise<string>((resolve) => {
+        resolve("" + hifiOptions.uid);
+    });
 }
 
 
@@ -566,6 +569,7 @@ function handleUserPublished(user : RemoteSource, mediaType : string) {
 
     if (hifiOptions.enableMetadata) {
         installSenderTransform(user.getAudioSender());
+        listenerMetadata(hifiPosition);
     }
 
     const id = user.uid;
@@ -749,8 +753,10 @@ function stopSpatialAudio(willRestart : boolean) {
 
     stopEchoCancellation();
 
-    audioContext.close();
-    audioContext = undefined;
+    if (audioContext) {
+        audioContext.close();
+        audioContext = undefined;
+    }
 
     if (willRestart) audioContext = new AudioContext({ sampleRate: 48000 });
 
