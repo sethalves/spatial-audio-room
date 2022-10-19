@@ -1,4 +1,21 @@
 
+// hifi-autio.ts
+/**
+   This module manipulates local audio streams, and works with a swappable transport-manager which handles sending and receiving audio, video, and other data across the network.
+
+   In the local browser, the transport-manager uses {@link https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia | getUserMedia} to access the default local microphone (and possibly camera) and audio-output device.  The transport-manager also handles connecting to transport services and any WebRTC-style signaling that's needed.
+
+   hifi-audio works with {@link https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API | Web Audio}.  The hifi-audio library creates an {@link https://developer.mozilla.org/en-US/docs/Web/API/AudioContext | AudioContext} and uses an {@link https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet | AudioWorklet} to manipulate audio.  Several {@link https://developer.mozilla.org/en-US/docs/Web/API/AudioWorkletNode | AudioWorkletNodes}, written in {@link https://webassembly.org/ | WebAssembly}, handle the work.  One uses an {@link https://en.wikipedia.org/wiki/Head-related_transfer_function | HRTF} algorithm to mix the available spatialized audio-source streams into a single stream.  Another takes this stream and applies a limiter to avoid clipping or other artifacts.  There is also a node which provides an adjustable {@link https://en.wikipedia.org/wiki/Noise_gate | noise-gate} for the local microphone.  These nodes use a higher {@link https://en.wikipedia.org/wiki/Dynamic_range | dynamic range} than Web Audio normally provides.  This means that when multiple audio-sources are sending at the same time, individual sources will remain intelligible.
+
+   hifi-audio provides an API for setting audio-source and audio-listener positions within the virtual audio-space, as well as a way to optionally synchronize them across the network.  WebRTC has {@link https://developer.mozilla.org/en-US/docs/Web/API/RTCRtpSender | senders} and {@link https://developer.mozilla.org/en-US/docs/Web/API/RTCRtpReceiver | receivers} for moving data.  Using either RTCRtpScriptTransform or TransformStreams (depending on browser support), the senders are modified to embed the spatial positions of audio-sources into their audio-streams.  The receivers extract this meta-data and pass the original unmodified audio-stream to the Web Audio nodes.  The meta-data is used by the HRTF AudioWorkletNode to position remote sources, and is also delivered to the web application via a previously registered {@link on | callback}.  This means that the audio data and the position data are synchronized and a very high update rate is possible.
+
+   Binary or textual data can also be sent between connected browsers.  hifi-audio provides {@link sendBroadcastMessage} and a way to {@link on | register a callback} to receive data from others.  This channel doesn't update as quickly as the meta-data, but can be useful for setting usernames or other occasional data exchanges.
+
+   @module HiFiAudio
+ */
+
+
+/** ignore this comment */
 import { RemoteSource, TransportManager, MicrophoneConfig, CameraConfig, LocalTrack } from "./hifi-transport.js";
 
 
@@ -25,7 +42,7 @@ import { checkSupported } from "./check-supported.js";
 import { fastAtan2 } from "./fast-atan2.js"
 let [ simdSupported, encodedTransformSupported, browserIsChrome ] = checkSupported();
 
-let webAudioPeakMeter = require("web-audio-peak-meter");
+// let webAudioPeakMeter = require("web-audio-peak-meter");
 
 import { patchRTCPeerConnection } from "./patchRTCPeerConnection.js";
 let _RTCPeerConnection = RTCPeerConnection;
@@ -44,9 +61,15 @@ interface AudioWorkletNodeMeta extends AudioWorkletNode {
 }
 
 
-interface MetaData {
+/**
+   MetaData holds information which can be encoded and sent along with audio streams.
+*/
+export interface MetaData {
+    /** x position in meters within the virtual audio space. */
     x? : number,
+    /** y position in meters within the virtual audio space. */
     y? : number,
+    /** direction an audio source is facing in radians. */
     o? : number
 }
 
@@ -442,9 +465,9 @@ async function joinTransportRoom() : Promise<string> {
     let sourceNode = audioContext.createMediaStreamSource(mediaStream);
     let destinationNode = audioContext.createMediaStreamDestination();
 
-    var myMeterElement = document.getElementById('my-peak-meter');
-    var meterNode = webAudioPeakMeter.createMeterNode(sourceNode, audioContext);
-    webAudioPeakMeter.createMeter(myMeterElement, meterNode, {});
+    // var myMeterElement = document.getElementById('my-peak-meter');
+    // var meterNode = webAudioPeakMeter.createMeterNode(sourceNode, audioContext);
+    // webAudioPeakMeter.createMeter(myMeterElement, meterNode, {});
 
     hifiNoiseGate = new AudioWorkletNode(audioContext, 'wasm-noise-gate');
     console.log("hifi-audio: setting initial threshold to " + hifiOptions.thresholdValue);

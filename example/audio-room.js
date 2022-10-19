@@ -570,8 +570,8 @@ async function joinRoom() {
 
     clampCharacterPosition();
 
-    let transport = new TransportManagerAgora(options.appid, fetchToken) /* as TransportManager */;
-    // let transport = new TransportManagerP2P() /* as TransportManager */;
+    // let transport = new TransportManagerAgora(options.appid, fetchToken) /* as TransportManager */;
+    let transport = new TransportManagerP2P() /* as TransportManager */;
 
     await HiFiAudio.join(transport,
                          localUid,

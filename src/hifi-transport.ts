@@ -1,5 +1,9 @@
 
 /**
+   @module TransportManager
+*/
+
+/**
  * Represents a remote audio and/or video source
  *
  */

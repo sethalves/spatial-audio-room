@@ -193,12 +193,12 @@ export class TransportManagerAgora implements TransportManager {
 
     async leave() : Promise<void> {
 
-        let meter = document.getElementById('my-peak-meter');
-        if (meter) {
-            while (meter.firstChild) {
-                meter.removeChild(meter.firstChild);
-            }
-        }
+        // let meter = document.getElementById('my-peak-meter');
+        // if (meter) {
+        //     while (meter.firstChild) {
+        //         meter.removeChild(meter.firstChild);
+        //     }
+        // }
 
         if (!this.client) {
             return;

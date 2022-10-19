@@ -1,0 +1,36 @@
+
+#### features
+
+- spatialized audio
+- metadata
+- near field what's it?
+- high dynamic range
+- adaptive limiter
+- adjustable noise-gate
+
+
+#### Spatialized Audio
+
+The Core Audio Engine defines a virtual 2D audio space.  Within the space are audio-sources and a listener, and each has a position within the virtual audio space.  The audio from each source is fed into an HRTF algorithm where it is manipulates to sound to the listener as if it comes from the source's relative direction and distance.  The web application can set or change the positions of sources and the listener, as well as the direction the listener is facing.
+
+Optionally, changes to source positions can be synchronized across the network to other instances of the application.
+
+#### Metadata
+
+This library supports tight coupling and a high update-rate for a source's positional data.  If metadata is enabled, the audio stream from a local source will be modified to include the position of the source.  A TransportManager will send the modified stream across the network.  Other instances of the application will be able to extract the position of the source along with audio-data.  This allows for a very high rate for position updates and avoids any distracting desynchronization between how a source sounds and where its icon or character appears to be.
+
+#### Near Field
+
+We do something that sounds right if a source is very close to the listener
+
+#### High Dynamic Range
+
+All audio within this library is handled as 32-bit floats, which allows for an unlimited dynamic range.  This is important in applications where several or many sources may be producing sound at the same time.  More conventional handling of this mixed audio is likely to result in clipping and other artifacts.
+
+#### Adaptive Limiter
+
+When it's time to deliver audio from this library to the application, the higher dynamic-range data must be brought within the expected range.  This is the job of the Limiter.  It works by looking ahead several frames and very quickly adjusting the overall volume of the output stream.  This look-ahead allows the limiter to cap the loudness of the output without causing clicks or distortion.
+
+#### Adjustable Noise Gate
+
+The Adjustable Noise Gate can be placed between a microphone's output stream and the TransportManager's sender.  It works by squashing any audio that fails to cross an adjustable loudness threshold.  Any quiet background sound the mic may be picking up will be sent as total silence.  When a user speaks into their mic, the audio level will jump past the threshold and their voice will be transmitted.

@@ -217,12 +217,12 @@ export class TransportManagerP2P implements TransportManager {
             this.webSocket.close();
         }
 
-        let meter = document.getElementById('my-peak-meter');
-        if (meter) {
-            while (meter.firstChild) {
-                meter.removeChild(meter.firstChild);
-            }
-        }
+        // let meter = document.getElementById('my-peak-meter');
+        // if (meter) {
+        //     while (meter.firstChild) {
+        //         meter.removeChild(meter.firstChild);
+        //     }
+        // }
 
         console.log("hifi-audio: leave()");
 
