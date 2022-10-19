@@ -1,5 +1,7 @@
 
-#### features
+# Introduction
+
+#### Features
 
 - spatialized audio
 - metadata
@@ -34,3 +36,77 @@ When it's time to deliver audio from this library to the application, the higher
 #### Adjustable Noise Gate
 
 The Adjustable Noise Gate can be placed between a microphone's output stream and the TransportManager's sender.  It works by squashing any audio that fails to cross an adjustable loudness threshold.  Any quiet background sound the mic may be picking up will be sent as total silence.  When a user speaks into their mic, the audio level will jump past the threshold and their voice will be transmitted.
+
+# Installation
+
+use npm somehow
+
+# Getting Started
+
+1. Include Agora's Client Javascript SDK
+  ```html
+  <script src="AgoraRTC_N-4.12.2.js"></script>
+  ```
+
+  More information can be found in Agora's quick-start documentation.
+ 
+2. In the webpage, provide a "Join" button
+  ```html
+  <button id="join" type="submit" ">Join</button>
+  ```
+
+  Some browsers won't allow a web-page to start playing audio unless a user gesture triggers it. Chrome is one example. 
+
+3. In the javascript portion of the web app, include the HiFiAudio library
+
+  ```typescript
+  import * as HiFiAudio from './hifi-audio.js'
+  ```
+
+4. Select a random Agora UID
+
+  ```typescript
+  let localUid = HiFiAudio.generateUniqueID();
+  ```
+
+5. Set up callbacks
+
+  To know when other users have joined or departed from the Agora room, register callbacks with the HiFiAudio library:
+
+  ```typescript
+  HiFiAudio.on("remote-client-joined", (uid) => { ... });
+  HiFiAudio.on("remote-client-left", (uid) => { ... });
+  ```
+
+  There are additional callbacks that can be used for more advanced features. Request a demo or a trial license to learn more.
+ 
+6. Call join
+
+  ```typescript
+  document.querySelector('join').addEventListener('click', async function() {
+      await HiFiAudio.join(agoraAppID,
+                           parseInt(localUid),
+                           agoraToken,
+                           agoraChannelName,
+                           { x: 2, y: 3, o: 0 }, // initial character position
+                           thresholdValue,
+                           enableVideo,
+                           enableMetaData);
+  });
+  ```
+ 
+  Calling HiFiAudio.join will connect to an Agora room and wrap the connection with HRTF spatialization.  After joining the room, a character's position can be updated with
+
+  ```typescript
+  HiFiAudio.setLocalMetaData({ x: ..., y: ..., o: ...})
+  ```
+
+  More information about the agoraAppID, agoraToken, and agoraChannelName parameters can be found in Agora's quick-start documentation.
+ 
+7. When finished, call leave
+
+  Once the user's session is complete, disconnect from the Agora channel by calling
+
+  ```typescript
+  await HiFiAudio.leave();
+  ```

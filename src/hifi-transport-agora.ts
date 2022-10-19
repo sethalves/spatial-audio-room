@@ -85,6 +85,11 @@ export class TransportManagerAgora implements TransportManager {
     }
 
 
+    generateUniqueID() : string {
+        return "" + (((Math.random()*4294967296)>>>0));
+    }
+
+
     async join(channel : string, uid : string) : Promise<string> {
 
         this.localUID = uid;

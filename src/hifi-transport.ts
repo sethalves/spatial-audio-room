@@ -36,9 +36,15 @@ export interface RemoteSource {
  *
  */
 export interface TransportManager {
+
+    /**
+       Generate a unique local-ID.  This is used when you need a local-ID before join is called.
+     */
+    generateUniqueID : () => string,
+
     /** Join a room with the given channel name and ID
-     * @param {string} channel - A name for a channel.  This is interpretted by the instantiated TransportManager.
-     * @param {string} uid - A unique ID for the local source.  Use `null` if the TransportManager should generate one.
+        @param {string} channel - A name for a channel.  This is interpretted by the instantiated TransportManager.
+        @param {string} uid - A unique ID for the local source.  Use `null` if the TransportManager should generate one.
      */
     join : (channel : string, uid : string) => Promise<string>,
     /** Leave a room that was previously joined. */

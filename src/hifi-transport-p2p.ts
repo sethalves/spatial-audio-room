@@ -55,6 +55,10 @@ export class TransportManagerP2P implements TransportManager {
         });
     }
 
+    generateUniqueID() : string {
+        return "" + (((Math.random()*4294967296)>>>0));
+    }
+
     join(channel : string, uid : string) : Promise<string> {
 
         this.localUID = uid;

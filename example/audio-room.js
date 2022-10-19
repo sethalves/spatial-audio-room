@@ -22,7 +22,7 @@ function degToRad(d) {
 let options = {};
 let canvasControl;
 let elements = [];
-let localUid = "" + (((Math.random()*4294967296)>>>0));
+let localUid;
 let usernames = {};
 let joined = false;
 
@@ -572,6 +572,8 @@ async function joinRoom() {
 
     // let transport = new TransportManagerAgora(options.appid, fetchToken) /* as TransportManager */;
     let transport = new TransportManagerP2P() /* as TransportManager */;
+
+    localUid = transport.generateUniqueID();
 
     await HiFiAudio.join(transport,
                          localUid,
