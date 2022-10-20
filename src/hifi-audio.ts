@@ -16,7 +16,7 @@
 
 
 /** ignore this comment */
-import { Source, TransportManager, MicrophoneConfig, CameraConfig, LocalTrack } from "./hifi-transport.js";
+import { Source, TransportManager, MicrophoneConfig, CameraConfig, Track } from "./hifi-transport.js";
 
 
 /** @ignore */
@@ -74,9 +74,9 @@ export interface MetaData {
 }
 
 
-interface LocalTracks {
-    videoTrack?: LocalTrack,
-    audioTrack: LocalTrack
+interface Tracks {
+    videoTrack?: Track,
+    audioTrack: Track
 }
 
 
@@ -84,7 +84,7 @@ let loopback : RTCPeerConnection[];
 
 let transport : TransportManager;
 
-let localTracks : LocalTracks = {
+let localTracks : Tracks = {
     // videoTrack: null,
     audioTrack: null
 };

@@ -9,16 +9,16 @@
  *
  */
 export interface Source {
-    /** The unique identifier for this remote source */
+    /** The unique identifier for this source */
     uid : string,
     /** Get the RTCRtpSender from this source's PeerConnection */
     getAudioSender : () => RTCRtpSender,
     /** Get the RTCRtpReceiver from this source's PeerConnection */
     getAudioReceiver : () => RTCRtpReceiver,
-    /** Get the audio-track being sent by this remote source */
-    getAudioTrack : () => RemoteTrack,
-    /** Get the video-track being sent by this remote source */
-    getVideoTrack : () => RemoteTrack,
+    /** Get the audio-track being provided by this source */
+    getAudioTrack : () => Track,
+    /** Get the video-track being provided by this source */
+    getVideoTrack : () => Track,
     /** True if this source is sending audio */
     hasAudio : boolean,
     /** True if this source is sending video */
@@ -65,14 +65,14 @@ export interface TransportManager {
         - reconnected - (uid : string) => void
      */
     on : (eventName : string, callback : Function) => void,
-    /** Create a LocalTrack which carries data from the local microphone. */
-    createMicrophoneAudioTrack : (audioConfig : MicrophoneConfig) => Promise<LocalTrack>,
-    /** Create a LocalTrack which carries data from the local camera. */
-    createCameraVideoTrack : (videoConfig : CameraConfig) => Promise<LocalTrack>,
-    /** Start transmitting a LocalTrack -- become a Source for remote listeners. */
-    publish : (streams : Array<LocalTrack>) => Promise<void>,
-    /** Stop transmitting a LocalTrack. */
-    unpublish : (streams : Array<LocalTrack>) => Promise<void>,
+    /** Create a Track which carries data from the local microphone. */
+    createMicrophoneAudioTrack : (audioConfig : MicrophoneConfig) => Promise<Track>,
+    /** Create a Track which carries data from the local camera. */
+    createCameraVideoTrack : (videoConfig : CameraConfig) => Promise<Track>,
+    /** Start transmitting a Track -- become a Source for remote listeners. */
+    publish : (streams : Array<Track>) => Promise<void>,
+    /** Stop transmitting a Track. */
+    unpublish : (streams : Array<Track>) => Promise<void>,
     /** Begin to consume data from a Source */
     subscribe : (remoteSource : Source, mediaType : string) => Promise<void>,
     /** Stop consuming data from a Source */
@@ -103,21 +103,12 @@ export interface CameraConfig {
 
 
 /**
- * LocalTrack is a compatibilty wrapper which holds a local MediaStreamTrack (from a mic or camera) in whatever form the instantiated TransportManager keeps it.
+ * Track is a compatibilty wrapper which holds a local MediaStreamTrack (from a mic or camera) in whatever form the instantiated TransportManager keeps it.
  */
-export interface LocalTrack {
+export interface Track {
     stop : () => void,
     close : () => void,
     play : (videoEltID : string) => void
     getMediaStreamTrack : () => MediaStreamTrack,
     replaceMediaStreamTrack? : (replacement : MediaStreamTrack) => Promise<void>
-}
-
-
-/**
- * RemoteTrack is a compatibilty wrapper which holds a MediaStreamTrack which is received over the network.
- */
-export interface RemoteTrack {
-    play : (videoEltID : string) => void
-    getMediaStreamTrack : () => MediaStreamTrack,
 }

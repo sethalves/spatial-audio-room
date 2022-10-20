@@ -3,7 +3,7 @@ import {
     TransportManager,
     MicrophoneConfig,
     CameraConfig,
-    LocalTrack
+    Track
 } from "./hifi-transport.js"
 
 import type {
@@ -187,10 +187,14 @@ export class TransportManagerAgora implements TransportManager {
             return receiver;
         };
         (user as unknown as Source).getAudioTrack = () => {
-            return user.audioTrack;
+            let track = user.audioTrack as unknown as Track;
+            track.close = () => { };
+            return track;
         };
         (user as unknown as Source).getVideoTrack = () => {
-            return user.videoTrack;
+            let track = user.audioTrack as unknown as Track;
+            track.close = () => { };
+            return track;
         };
 
         return user as Source;
@@ -265,7 +269,7 @@ export class TransportManagerAgora implements TransportManager {
         }
     }
 
-    async publish(localTracks : Array<LocalTrack>) : Promise<void> {
+    async publish(localTracks : Array<Track>) : Promise<void> {
         if (!this.client) {
             console.log("Error -- Agora can't publish track until client has joined room.");
             return;
@@ -274,7 +278,7 @@ export class TransportManagerAgora implements TransportManager {
     }
 
 
-    async unpublish(localTracks : Array<LocalTrack>) : Promise<void> {
+    async unpublish(localTracks : Array<Track>) : Promise<void> {
         if (!this.client) {
             console.log("Error -- Agora can't unpublish track until client has joined room.");
             return;
@@ -321,24 +325,24 @@ export class TransportManagerAgora implements TransportManager {
     }
 
 
-    async createMicrophoneAudioTrack(audioConfig : MicrophoneConfig) : Promise<LocalTrack> {
+    async createMicrophoneAudioTrack(audioConfig : MicrophoneConfig) : Promise<Track> {
         let micTrack : IMicrophoneAudioTrackOpen = await AgoraRTC.createMicrophoneAudioTrack(audioConfig);
-        (micTrack as LocalTrack).replaceMediaStreamTrack = async (replacement : MediaStreamTrack) => {
+        (micTrack as Track).replaceMediaStreamTrack = async (replacement : MediaStreamTrack) => {
             await micTrack._updateOriginMediaStreamTrack(replacement, false);
             return new Promise<void>((resolve) => {
                 resolve();
             });
         }
 
-        return new Promise<LocalTrack>((resolve) => {
+        return new Promise<Track>((resolve) => {
             resolve(micTrack);
         });
     }
 
-    async createCameraVideoTrack(videoConfig : CameraConfig) : Promise<LocalTrack> {
+    async createCameraVideoTrack(videoConfig : CameraConfig) : Promise<Track> {
         let videoTrack = await AgoraRTC.createCameraVideoTrack(videoConfig)
 
-        return new Promise<LocalTrack>((resolve) => {
+        return new Promise<Track>((resolve) => {
             resolve(videoTrack);
         });
     }

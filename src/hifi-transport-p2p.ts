@@ -4,8 +4,7 @@ import {
     TransportManager,
     MicrophoneConfig,
     CameraConfig,
-    LocalTrack,
-    RemoteTrack
+    Track
 } from "./hifi-transport.js"
 
 
@@ -17,8 +16,8 @@ interface RTCSource extends Source {
     sdp : (sdpType: string, sdp: string /*RTCSessionDescriptionInit*/) => void;
     ice : (candidate: string, sdpMid: string, sdpMLineIndex: number) => void;
     doStop : boolean;
-    audioTrack : RemoteTrack;
-    videoTrack : RemoteTrack;
+    audioTrack : Track;
+    videoTrack : Track;
 }
 
 
@@ -134,7 +133,9 @@ export class TransportManagerP2P implements TransportManager {
                                              videoElt.autoplay = true;
                                              videoElt.srcObject = event.streams[0];
                                          },
-                                         getMediaStreamTrack: () => { return event.track; }
+                                         getMediaStreamTrack: () => { return event.track; },
+                                         stop: () => { },
+                                         close: () => { }
                                      }
                                      remoteSource.hasAudio = true;
                                      if (this.onUserPublished) {
@@ -146,10 +147,10 @@ export class TransportManagerP2P implements TransportManager {
                                  async (peerID : string, event : RTCTrackEvent) => {
                                      console.log("got video track from peer, " + peerID);
                                      remoteSource.videoTrack = {
-                                         play: (videoEltID : string) => {
-                                             console.log("XXX write p2p playVideo");
-                                         },
-                                         getMediaStreamTrack: () => { return event.track; }
+                                         play: (videoEltID : string) => { },
+                                         getMediaStreamTrack: () => { return event.track; },
+                                         stop: () => { },
+                                         close: () => { }
                                      }
                                      remoteSource.hasVideo = true;
                                      if (this.onUserPublished) {
@@ -271,7 +272,7 @@ export class TransportManagerP2P implements TransportManager {
     }
 
 
-    publish(localTracks : Array<LocalTrack>) : Promise<void> {
+    publish(localTracks : Array<Track>) : Promise<void> {
         for (let localTrack of localTracks) {
             let track = localTrack.getMediaStreamTrack();
             console.log("  track.kind=" + track.kind);
@@ -305,7 +306,7 @@ export class TransportManagerP2P implements TransportManager {
     }
 
 
-    unpublish(localTracks : Array<LocalTrack>) : Promise<void> {
+    unpublish(localTracks : Array<Track>) : Promise<void> {
         return new Promise<void>((resolve) => {
             resolve();
         });
@@ -335,7 +336,7 @@ export class TransportManagerP2P implements TransportManager {
     }
 
 
-    async createMicrophoneAudioTrack(audioConfig : MicrophoneConfig) : Promise<LocalTrack> {
+    async createMicrophoneAudioTrack(audioConfig : MicrophoneConfig) : Promise<Track> {
         let audioTrack : MediaStream = await navigator.mediaDevices.getUserMedia({
             audio: {
                 echoCancellation: true,
@@ -361,12 +362,12 @@ export class TransportManagerP2P implements TransportManager {
             }
         };
 
-        return new Promise<LocalTrack>((resolve) => {
+        return new Promise<Track>((resolve) => {
             resolve(micTrack);
         });
     }
 
-    async createCameraVideoTrack(videoConfig : CameraConfig) : Promise<LocalTrack> {
+    async createCameraVideoTrack(videoConfig : CameraConfig) : Promise<Track> {
        let videoTrack : MediaStream = await navigator.mediaDevices.getUserMedia({
             audio: false,
             video: true
@@ -389,7 +390,7 @@ export class TransportManagerP2P implements TransportManager {
             }
         };
 
-        return new Promise<LocalTrack>((resolve) => {
+        return new Promise<Track>((resolve) => {
             resolve(cameraTrack);
         });
     }
