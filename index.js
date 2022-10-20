@@ -621,9 +621,17 @@ function stopSpatialAudio() {
 let audioBuffer = null;
 async function playSoundEffect() {
 
-    // force a 'tryNext' mode gateway reconnect
-    client._p2pChannel.disconnectForReconnect();
-    client._p2pChannel.requestReconnect();
+    // load on first play
+    if (!audioBuffer) {
+        let response = await fetch('https://raw.githubusercontent.com/kencooke/spatial-audio-room/master/sound.wav');
+        let buffer = await response.arrayBuffer();
+        audioBuffer = await audioContext.decodeAudioData(buffer);
+    }
+
+    let sourceNode = new AudioBufferSourceNode(audioContext);
+    sourceNode.buffer = audioBuffer;
+    sourceNode.connect(hifiLimiter);
+    sourceNode.start();
 }
 
 // collect and display stats
