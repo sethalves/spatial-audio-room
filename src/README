@@ -29,6 +29,11 @@ We do something that sounds right if a source is very close to the listener
 
 All audio within this library is handled as 32-bit floats, which allows for an unlimited dynamic range.  This is important in applications where several or many sources may be producing sound at the same time.  More conventional handling of this mixed audio is likely to result in clipping and other artifacts.
 
+
+WebRTC internally uses a 16-bit audio pipeline, and any stage that goes over, gets clipped. This sounds bad.
+Web Audio uses floats and a pipeline of audio nodes can avoid this. But this still defers the problem. When you connect to a destination (audio device) it clips the floats to int16_t and sounds bad.
+Our HDR solution uses Web Audio to process as floats, and has a tool at the end (a specialized lookahead peak-limiter) that does the final compression to 16-bit in a very high-quality way. It can handle huge overloads with almost no audible distortion.
+
 #### Adaptive Limiter
 
 When it's time to deliver audio from this library to the application, the higher dynamic-range data must be brought within the expected range.  This is the job of the Limiter.  It works by looking ahead several frames and very quickly adjusting the overall volume of the output stream.  This look-ahead allows the limiter to cap the loudness of the output without causing clicks or distortion.
@@ -44,69 +49,67 @@ use npm somehow
 # Getting Started
 
 1. Include Agora's Client Javascript SDK
-  ```html
-  <script src="AgoraRTC_N-4.12.2.js"></script>
-  ```
+    ```html
+    <script src="AgoraRTC_N-4.12.2.js"></script>
+    ```
 
-  More information can be found in Agora's quick-start documentation.
+    More information can be found in Agora's quick-start documentation.
  
 2. In the webpage, provide a "Join" button
-  ```html
-  <button id="join" type="submit" ">Join</button>
-  ```
+   ```html
+   <button id="join" type="submit" ">Join</button>
+   ```
 
-  Some browsers won't allow a web-page to start playing audio unless a user gesture triggers it. Chrome is one example. 
+   Some browsers won't allow a web-page to start playing audio unless a user gesture triggers it. Chrome is one example. 
 
-3. In the javascript portion of the web app, include the HiFiAudio library
+3. In the javascript portion of the web app, include the HiFiAudio library and a TransportManager.
 
-  ```typescript
-  import * as HiFiAudio from './hifi-audio.js'
-  ```
+    ```typescript
+    import * as HiFiAudio from './hifi-audio.js'
+    import { TransportManagerAgora } from "./hifi-transport-agora.js";
+    ```
 
-4. Select a random Agora UID
+4. Set up callbacks
 
-  ```typescript
-  let localUid = HiFiAudio.generateUniqueID();
-  ```
+    To know when other users have joined or departed from the Agora room, register callbacks with the HiFiAudio library:
 
-5. Set up callbacks
+    ```typescript
+    HiFiAudio.on("remote-source-connected", (uid) => { ... });
+    HiFiAudio.on("remote-source-disconnected", (uid) => { ... });
+    ```
 
-  To know when other users have joined or departed from the Agora room, register callbacks with the HiFiAudio library:
-
-  ```typescript
-  HiFiAudio.on("remote-client-joined", (uid) => { ... });
-  HiFiAudio.on("remote-client-left", (uid) => { ... });
-  ```
-
-  There are additional callbacks that can be used for more advanced features. Request a demo or a trial license to learn more.
+    There are additional callbacks that can be used for more advanced features.
  
-6. Call join
+5. Call join
 
-  ```typescript
-  document.querySelector('join').addEventListener('click', async function() {
-      await HiFiAudio.join(agoraAppID,
-                           parseInt(localUid),
-                           agoraToken,
-                           agoraChannelName,
-                           { x: 2, y: 3, o: 0 }, // initial character position
-                           thresholdValue,
-                           enableVideo,
-                           enableMetaData);
-  });
-  ```
+   Instantiate a specific TransportManager, and then call join.
+
+    ```typescript
+    document.querySelector('join').addEventListener('click', async function() {
+        let transport = new TransportManagerAgora(appID, () => { return token; })
+        let localUid = transport.generateUniqueID();
+        await HiFiAudio.join(transport,
+                             localUid,
+                             channelName,
+                             { x: 2, y: 3, o: 0 }, // initial character position
+                             thresholdValue,
+                             enableVideo,
+                             enableMetaData);
+    });
+    ```
  
-  Calling HiFiAudio.join will connect to an Agora room and wrap the connection with HRTF spatialization.  After joining the room, a character's position can be updated with
+    Calling HiFiAudio.join will connect to an Agora room and wrap the connection with HRTF spatialization.  After joining the room, a character's position can be updated with
 
-  ```typescript
-  HiFiAudio.setLocalMetaData({ x: ..., y: ..., o: ...})
-  ```
+    ```typescript
+    HiFiAudio.setPosition({ x: ..., y: ..., o: ...})
+    ```
 
-  More information about the agoraAppID, agoraToken, and agoraChannelName parameters can be found in Agora's quick-start documentation.
+    More information about the agoraAppID, agoraToken, and agoraChannelName parameters can be found in Agora's quick-start documentation.
  
-7. When finished, call leave
+6. When finished, call leave
 
-  Once the user's session is complete, disconnect from the Agora channel by calling
+    Once the user's session is complete, disconnect from the Agora channel by calling
 
-  ```typescript
-  await HiFiAudio.leave();
-  ```
+    ```typescript
+    await HiFiAudio.leave();
+    ```
