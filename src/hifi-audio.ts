@@ -16,7 +16,7 @@
 
 
 /** ignore this comment */
-import { RemoteSource, TransportManager, MicrophoneConfig, CameraConfig, LocalTrack } from "./hifi-transport.js";
+import { Source, TransportManager, MicrophoneConfig, CameraConfig, LocalTrack } from "./hifi-transport.js";
 
 
 /** @ignore */
@@ -96,7 +96,7 @@ let onUpdateVolumeIndicator : any;
 let onRemoteUserJoined : any;
 let onRemoteUserLeft : any;
 
-let remoteUsers : { [uid: string] : RemoteSource; } = {};
+let remoteUsers : { [uid: string] : Source; } = {};
 let worker : Worker = undefined;
 
 let hifiSources: { [name: string]: AudioWorkletNodeMeta } = {};
@@ -418,8 +418,8 @@ async function joinTransportRoom() : Promise<string> {
 
     await startSpatialAudio();
 
-    transport.on("source-published", (user : RemoteSource, mediaType : string) => { handleUserPublished(user, mediaType); });
-    transport.on("source-unpublished", (user : RemoteSource, mediaType : string) => { handleUserUnpublished(user, mediaType); });
+    transport.on("source-published", (user : Source, mediaType : string) => { handleUserPublished(user, mediaType); });
+    transport.on("source-unpublished", (user : Source, mediaType : string) => { handleUserUnpublished(user, mediaType); });
 
     let audioConfig : MicrophoneConfig = {
         AEC: aecEnabled,
@@ -587,7 +587,7 @@ export async function leave(willRestart : boolean) {
     remoteUsers = {};
 }
 
-function handleUserPublished(user : RemoteSource, mediaType : string) {
+function handleUserPublished(user : Source, mediaType : string) {
     console.log("handleUserPublished user=" + JSON.stringify(user) + " mediaType=" + mediaType);
 
     if (hifiOptions.enableMetadata) {
@@ -601,7 +601,7 @@ function handleUserPublished(user : RemoteSource, mediaType : string) {
     subscribe(user, mediaType);
 }
 
-function handleUserUnpublished(user : RemoteSource, mediaType : string) {
+function handleUserUnpublished(user : Source, mediaType : string) {
     console.log("handleUserUnpublished user=" + JSON.stringify(user) + " mediaType=" + mediaType);
 
     const uid = user.uid;
@@ -612,7 +612,7 @@ function handleUserUnpublished(user : RemoteSource, mediaType : string) {
     unsubscribe(user);
 }
 
-async function subscribe(user : RemoteSource, mediaType : string) {
+async function subscribe(user : Source, mediaType : string) {
     const uid = user.uid;
 
     if (mediaType === 'audio') {
@@ -676,7 +676,7 @@ export async function playVideo(uid : string, videoEltID : string) {
 }
 
 
-async function unsubscribe(user: RemoteSource) {
+async function unsubscribe(user: Source) {
     const uid = user.uid;
 
     delete hifiSources[ uid ];

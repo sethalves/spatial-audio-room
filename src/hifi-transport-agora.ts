@@ -1,5 +1,5 @@
 import {
-    RemoteSource,
+    Source,
     TransportManager,
     MicrophoneConfig,
     CameraConfig,
@@ -60,13 +60,13 @@ export class TransportManagerAgora implements TransportManager {
     private localUID : string;
     private channel : string;
 
-    private onUserPublished : (user : RemoteSource, mediaType : string) => void;
-    private onUserUnpublished : (user : RemoteSource, mediaType : string) => void;
+    private onUserPublished : (user : Source, mediaType : string) => void;
+    private onUserUnpublished : (user : Source, mediaType : string) => void;
     private onStreamMessage : (uid : string, data : Uint8Array) => void;
     private onVolumeLevelChange : (uid : string, level : number) => void;
     private onReconnect : (uid : string) => void;
 
-    private remoteUsers : { [uid: string] : RemoteSource; } = {};
+    private remoteUsers : { [uid: string] : Source; } = {};
 
     private micTrack : MediaStream;
     private cameraTrack : MediaStream;
@@ -177,23 +177,23 @@ export class TransportManagerAgora implements TransportManager {
     }
 
 
-    addUserAccessors(user: IAgoraRTCRemoteUser) : RemoteSource {
-        (user as unknown as RemoteSource).getAudioSender = () => { return null; };
-        (user as unknown as RemoteSource).getAudioReceiver = () => {
+    addUserAccessors(user: IAgoraRTCRemoteUser) : Source {
+        (user as unknown as Source).getAudioSender = () => { return null; };
+        (user as unknown as Source).getAudioReceiver = () => {
             let mediaStreamTrack = user.audioTrack.getMediaStreamTrack();
             let trackID = mediaStreamTrack.id;
             let receivers : Array<RTCRtpReceiver> = this.client._p2pChannel.connection.peerConnection.getReceivers();
             let receiver : RTCRtpReceiver = receivers.find(e => e.track?.id === trackID && e.track?.kind === 'audio');
             return receiver;
         };
-        (user as unknown as RemoteSource).getAudioTrack = () => {
+        (user as unknown as Source).getAudioTrack = () => {
             return user.audioTrack;
         };
-        (user as unknown as RemoteSource).getVideoTrack = () => {
+        (user as unknown as Source).getVideoTrack = () => {
             return user.videoTrack;
         };
 
-        return user as RemoteSource;
+        return user as Source;
     }
 
     async leave() : Promise<void> {
@@ -251,9 +251,9 @@ export class TransportManagerAgora implements TransportManager {
 
     on(eventName : string, callback : Function) {
         if (eventName == "source-published") {
-            this.onUserPublished = callback as (user: RemoteSource, mediaType: string) => void;
+            this.onUserPublished = callback as (user: Source, mediaType: string) => void;
         } else if (eventName == "source-unpublished") {
-            this.onUserUnpublished = callback as (user: RemoteSource, mediaType: string) => void;
+            this.onUserUnpublished = callback as (user: Source, mediaType: string) => void;
         } else if (eventName == "broadcast-received") {
             this.onStreamMessage = callback as (uid: string, data: Uint8Array) => void;
         } else if (eventName == "volume-level-change") {
@@ -283,7 +283,7 @@ export class TransportManagerAgora implements TransportManager {
     }
 
 
-    async subscribe(user : RemoteSource, mediaType : string) : Promise<void> {
+    async subscribe(user : Source, mediaType : string) : Promise<void> {
         if (!this.client) {
             console.log("Error -- Agora can't subscribe to remote source until client has joined room.");
             return;
@@ -297,7 +297,7 @@ export class TransportManagerAgora implements TransportManager {
     }
 
 
-    async unsubscribe(user : RemoteSource) : Promise<void> {
+    async unsubscribe(user : Source) : Promise<void> {
         if (!this.client) {
             console.log("Error -- Agora can't unsubscribe from remote source until client has joined room.");
             return;

@@ -1,6 +1,6 @@
 
 import {
-    RemoteSource,
+    Source,
     TransportManager,
     MicrophoneConfig,
     CameraConfig,
@@ -9,7 +9,7 @@ import {
 } from "./hifi-transport.js"
 
 
-interface RTCRemoteSource extends RemoteSource {
+interface RTCSource extends Source {
     contacted : boolean;
     peerConnection : RTCPeerConnection;
     toPeer : RTCDataChannel;
@@ -30,13 +30,13 @@ export class TransportManagerP2P implements TransportManager {
     private webSocket : WebSocket;
     private localUID : string;
 
-    private onUserPublished : (user : RemoteSource, mediaType : string) => void;
-    private onUserUnpublished : (user : RemoteSource, mediaType : string) => void;
+    private onUserPublished : (user : Source, mediaType : string) => void;
+    private onUserUnpublished : (user : Source, mediaType : string) => void;
     private onStreamMessage : (uid : string, data : Uint8Array) => void;
     private onVolumeLevelChange : (uid : string, level : number) => void;
     private onReconnect : (uid : string) => void;
 
-    private remoteUsers : { [uid: string] : RTCRemoteSource; } = {};
+    private remoteUsers : { [uid: string] : RTCSource; } = {};
 
     private micTrack : MediaStream;
     private cameraTrack : MediaStream;
@@ -77,12 +77,12 @@ export class TransportManagerP2P implements TransportManager {
             let msg = JSON.parse(event.data);
             if (msg["message-type"] == "connect-with-peer") {
                 let otherUID = msg["uid"];
-                let remoteUser : RTCRemoteSource;
+                let remoteSource : RTCSource;
                 if (this.remoteUsers[ otherUID ]) {
                     console.log("found existing remote-user " + otherUID);
                     return;
                 } else {
-                    remoteUser = {
+                    remoteSource = {
                         uid: otherUID,
                         contacted: false,
                         peerConnection: undefined,
@@ -97,8 +97,6 @@ export class TransportManagerP2P implements TransportManager {
                         doStop : false,
                         audioTrack : undefined,
                         videoTrack : undefined,
-                        hasAudio : false,
-                        hasVideo : false,
                         getAudioSender : function() {
                             return this.peerConnection.getSenders()[0];
                         },
@@ -116,17 +114,21 @@ export class TransportManagerP2P implements TransportManager {
                         },
                         getVideoTrack : function() {
                             return this.videoTrack;
-                        }
+                        },
+                        hasAudio : false,
+                        hasVideo : false,
+                        isRemote : true,
+                        isLocal : false
                     };
                     console.log("created new remote-user " + otherUID);
-                    this.remoteUsers[ otherUID ] = remoteUser;
+                    this.remoteUsers[ otherUID ] = remoteSource;
                 }
 
-                this.contactPeer(remoteUser,
+                this.contactPeer(remoteSource,
                                  // on audio-track
                                  async (peerID : string, event : RTCTrackEvent) => {
                                      console.log("got audio track from peer, " + peerID);
-                                     remoteUser.audioTrack = {
+                                     remoteSource.audioTrack = {
                                          play: (videoEltID : string) => {
                                              let videoElt = document.getElementById(videoEltID) as HTMLVideoElement;
                                              videoElt.autoplay = true;
@@ -134,24 +136,24 @@ export class TransportManagerP2P implements TransportManager {
                                          },
                                          getMediaStreamTrack: () => { return event.track; }
                                      }
-                                     remoteUser.hasAudio = true;
+                                     remoteSource.hasAudio = true;
                                      if (this.onUserPublished) {
-                                         this.onUserPublished(remoteUser, "audio");
+                                         this.onUserPublished(remoteSource, "audio");
                                      }
 
                                  },
                                  // on video-track
                                  async (peerID : string, event : RTCTrackEvent) => {
                                      console.log("got video track from peer, " + peerID);
-                                     remoteUser.videoTrack = {
+                                     remoteSource.videoTrack = {
                                          play: (videoEltID : string) => {
                                              console.log("XXX write p2p playVideo");
                                          },
                                          getMediaStreamTrack: () => { return event.track; }
                                      }
-                                     remoteUser.hasVideo = true;
+                                     remoteSource.hasVideo = true;
                                      if (this.onUserPublished) {
-                                         this.onUserPublished(remoteUser, "video");
+                                         this.onUserPublished(remoteSource, "video");
                                      }
 
                                  },
@@ -164,16 +166,16 @@ export class TransportManagerP2P implements TransportManager {
                 if (this.micTrack) {
                     console.log("adding audio track to peer-connection (A) for " + uid);
                     // localTracks.audioTrack.getAudioTracks().forEach(track => {
-                    //     remoteUser.peerConnection.addTrack(track, localTracks.audioTrack);
+                    //     remoteSource.peerConnection.addTrack(track, localTracks.audioTrack);
                     // });
-                    remoteUser.peerConnection.addTrack(this.micTrack.getAudioTracks()[ 0 ]);
+                    remoteSource.peerConnection.addTrack(this.micTrack.getAudioTracks()[ 0 ]);
                 } else {
                     console.log("no mic track yet");
                 }
 
                 if (this.cameraTrack) {
                     console.log("adding video track to peer-connection (A) for " + uid);
-                    remoteUser.peerConnection.addTrack(this.cameraTrack.getVideoTracks()[ 0 ]);
+                    remoteSource.peerConnection.addTrack(this.cameraTrack.getVideoTracks()[ 0 ]);
                 } else {
                     console.log("no camera track yet");
                 }
@@ -254,9 +256,9 @@ export class TransportManagerP2P implements TransportManager {
 
     on(eventName : string, callback : Function) {
         if (eventName == "source-published") {
-            this.onUserPublished = callback as (user: RemoteSource, mediaType: string) => void;
+            this.onUserPublished = callback as (user: Source, mediaType: string) => void;
         } else if (eventName == "source-unpublished") {
-            this.onUserUnpublished = callback as (user: RemoteSource, mediaType: string) => void;
+            this.onUserUnpublished = callback as (user: Source, mediaType: string) => void;
         } else if (eventName == "broadcast-received") {
             this.onStreamMessage = callback as (uid: string, data: Uint8Array) => void;
         } else if (eventName == "volume-level-change") {
@@ -279,9 +281,9 @@ export class TransportManagerP2P implements TransportManager {
                 }
                 this.micTrack.addTrack(track);
                 for (let uid in this.remoteUsers) {
-                    let remoteUser = this.remoteUsers[ uid ];
+                    let remoteSource = this.remoteUsers[ uid ];
                     console.log("adding audio track to peer-connection (B) for " + uid);
-                    remoteUser.peerConnection.addTrack(this.micTrack.getAudioTracks()[ 0 ]);
+                    remoteSource.peerConnection.addTrack(this.micTrack.getAudioTracks()[ 0 ]);
                 }
             }
             if (track.kind == "video") {
@@ -290,9 +292,9 @@ export class TransportManagerP2P implements TransportManager {
                 }
                 this.cameraTrack.addTrack(track);
                 for (let uid in this.remoteUsers) {
-                    let remoteUser = this.remoteUsers[ uid ];
+                    let remoteSource = this.remoteUsers[ uid ];
                     console.log("adding video track to peer-connection (B) for " + uid);
-                    remoteUser.peerConnection.addTrack(this.cameraTrack.getVideoTracks()[ 0 ]);
+                    remoteSource.peerConnection.addTrack(this.cameraTrack.getVideoTracks()[ 0 ]);
                 }
             }
         }
@@ -310,14 +312,14 @@ export class TransportManagerP2P implements TransportManager {
     }
 
 
-    subscribe(user : RemoteSource, mediaType : string) : Promise<void> {
+    subscribe(user : Source, mediaType : string) : Promise<void> {
         return new Promise<void>((resolve) => {
             resolve();
         });
     }
 
 
-    unsubscribe(user : RemoteSource) : Promise<void> {
+    unsubscribe(user : Source) : Promise<void> {
         return new Promise<void>((resolve) => {
             resolve();
         });
@@ -393,32 +395,32 @@ export class TransportManagerP2P implements TransportManager {
     }
 
     
-    private contactPeer(remoteUser : RTCRemoteSource,
+    private contactPeer(remoteSource : RTCSource,
                         onAudioTrack : (peerID : string, event : RTCTrackEvent) => void,
                         onVideoTrack : (peerID : string, event : RTCTrackEvent) => void,
                         onDataChannel : (peerID : string, event : RTCDataChannelEvent) => void) {
 
         let iceQueue : RTCIceCandidate[] = [];
 
-        if (remoteUser.contacted) {
+        if (remoteSource.contacted) {
             return;
         }
-        remoteUser.contacted = true;
+        remoteSource.contacted = true;
 
-        console.log("I am " + this.localUID + ", contacting peer " + remoteUser.uid);
+        console.log("I am " + this.localUID + ", contacting peer " + remoteSource.uid);
 
         let sendQueuedBroadcasts = () => {
-            if (this.broadcastQueue[ remoteUser.uid ]) {
-                console.log("sending " + this.broadcastQueue[ remoteUser.uid ].length + " queued messages to peer " +
-                    remoteUser.uid);
-                for (let msg of this.broadcastQueue[ remoteUser.uid ]) {
-                    remoteUser.toPeer.send(msg);
+            if (this.broadcastQueue[ remoteSource.uid ]) {
+                console.log("sending " + this.broadcastQueue[ remoteSource.uid ].length + " queued messages to peer " +
+                    remoteSource.uid);
+                for (let msg of this.broadcastQueue[ remoteSource.uid ]) {
+                    remoteSource.toPeer.send(msg);
                 }
-                delete this.broadcastQueue[ remoteUser.uid ];
+                delete this.broadcastQueue[ remoteSource.uid ];
             }
         };
 
-        remoteUser.peerConnection = new RTCPeerConnection({
+        remoteSource.peerConnection = new RTCPeerConnection({
 	        iceServers: [
 		        {
 			        urls: "stun:stun.l.google.com:19302",
@@ -433,9 +435,9 @@ export class TransportManagerP2P implements TransportManager {
 	        ],
         });
 
-        remoteUser.peerConnection.onconnectionstatechange = (event) => {
+        remoteSource.peerConnection.onconnectionstatechange = (event) => {
             if (this.debugRTC) {
-                switch(remoteUser.peerConnection.connectionState) {
+                switch(remoteSource.peerConnection.connectionState) {
                     case "connected":
                         // The connection has become fully connected
                         console.log("connection-state is now connected");
@@ -456,46 +458,46 @@ export class TransportManagerP2P implements TransportManager {
         }
 
 
-        remoteUser.peerConnection.ondatachannel = (event : RTCDataChannelEvent) => {
+        remoteSource.peerConnection.ondatachannel = (event : RTCDataChannelEvent) => {
 
-            remoteUser.toPeer = event.channel;
-            remoteUser.toPeer.binaryType = "arraybuffer";
+            remoteSource.toPeer = event.channel;
+            remoteSource.toPeer.binaryType = "arraybuffer";
 
-            remoteUser.toPeer.onmessage = (event : MessageEvent) => {
-                remoteUser.fromPeer(remoteUser.uid, new Uint8Array(event.data));
+            remoteSource.toPeer.onmessage = (event : MessageEvent) => {
+                remoteSource.fromPeer(remoteSource.uid, new Uint8Array(event.data));
             };
 
-            remoteUser.toPeer.onopen = (event) => {
+            remoteSource.toPeer.onopen = (event) => {
                 //if (this.debugRTC) {
                     console.log("data-channel is open A");
                 //}
                 sendQueuedBroadcasts();
             };
 
-            remoteUser.toPeer.onclose = (event) => {
+            remoteSource.toPeer.onclose = (event) => {
                 if (this.debugRTC) {
                     console.log("data-channel is closed");
                 }
             };
 
-            onDataChannel(remoteUser.uid, event);
+            onDataChannel(remoteSource.uid, event);
         };
 
 
-        remoteUser.peerConnection.ontrack = (event : RTCTrackEvent) => {
+        remoteSource.peerConnection.ontrack = (event : RTCTrackEvent) => {
             if (event.track.kind == "audio") {
-                onAudioTrack(remoteUser.uid, event);
+                onAudioTrack(remoteSource.uid, event);
             } else if (event.track.kind == "video") {
-                onVideoTrack(remoteUser.uid, event);
+                onVideoTrack(remoteSource.uid, event);
             } else {
                 console.log("Error -- p2p transport got unknown track type: " + event.track.kind);
             }
         };
 
 
-        remoteUser.peerConnection.addEventListener("icegatheringstatechange", ev => {
+        remoteSource.peerConnection.addEventListener("icegatheringstatechange", ev => {
             if (this.debugRTC) {
-                switch(remoteUser.peerConnection.iceGatheringState) {
+                switch(remoteSource.peerConnection.iceGatheringState) {
                     case "new":
                         /* gathering is either just starting or has been reset */
                         console.log("ice-gathering state-change to new: " + JSON.stringify(ev));
@@ -513,9 +515,9 @@ export class TransportManagerP2P implements TransportManager {
         });
 
 
-        remoteUser.peerConnection.onicecandidate = (event : RTCPeerConnectionIceEvent) => {
+        remoteSource.peerConnection.onicecandidate = (event : RTCPeerConnectionIceEvent) => {
             // the local WebRTC stack has discovered another possible address for the local machine.
-            // send this to the remoteUser so it can try this address out.
+            // send this to the remoteSource so it can try this address out.
             if (event.candidate) {
                 if (this.debugRTC) {
                     console.log("local ice candidate: " + JSON.stringify(event.candidate));
@@ -523,7 +525,7 @@ export class TransportManagerP2P implements TransportManager {
                 this.webSocket.send(JSON.stringify({
                     "message-type": "ice-candidate",
                     "from-uid": "" + this.localUID,
-                    "to-uid": remoteUser.uid,
+                    "to-uid": remoteSource.uid,
                     "candidate": event.candidate.candidate,
                     "sdpMid": event.candidate.sdpMid,
                     "sdpMLineIndex": event.candidate.sdpMLineIndex
@@ -537,23 +539,23 @@ export class TransportManagerP2P implements TransportManager {
         };
 
 
-        remoteUser.peerConnection.addEventListener("negotiationneeded", ev => {
+        remoteSource.peerConnection.addEventListener("negotiationneeded", ev => {
             if (this.debugRTC) {
-                console.log("got negotiationneeded for remoteUser " + remoteUser.uid);
+                console.log("got negotiationneeded for remoteSource " + remoteSource.uid);
             }
 
-            if (remoteUser.uid > this.localUID) { // avoid glare
+            if (remoteSource.uid > this.localUID) { // avoid glare
                 if (this.debugRTC) {
                     console.log("creating RTC offer SDP...");
                 }
-                remoteUser.peerConnection.createOffer()
+                remoteSource.peerConnection.createOffer()
                     .then((offer : RTCSessionDescription) => {
-                        remoteUser.peerConnection.setLocalDescription(offer)
+                        remoteSource.peerConnection.setLocalDescription(offer)
                             .then(() => {
                                 this.webSocket.send(JSON.stringify({
                                     "message-type": "sdp",
                                     "from-uid": "" + this.localUID,
-                                    "to-uid": remoteUser.uid,
+                                    "to-uid": remoteSource.uid,
                                     "sdp": offer.sdp,
                                     "offer": true
                                 }));
@@ -570,14 +572,14 @@ export class TransportManagerP2P implements TransportManager {
         }, false);
 
 
-        remoteUser.sdp = (sdpType: string, sdp: string /*RTCSessionDescriptionInit*/) => {
+        remoteSource.sdp = (sdpType: string, sdp: string /*RTCSessionDescriptionInit*/) => {
             if (this.debugRTC) {
-                console.log("got sdp from remoteUser: " + sdpType);
+                console.log("got sdp from remoteSource: " + sdpType);
             }
 
             // forceBitrateUp(sdp);
 
-            remoteUser.peerConnection.setRemoteDescription(new RTCSessionDescription({ type: sdpType as RTCSdpType, sdp: sdp }))
+            remoteSource.peerConnection.setRemoteDescription(new RTCSessionDescription({ type: sdpType as RTCSdpType, sdp: sdp }))
                 .then(() => {
                     if (this.debugRTC) {
                         console.log("remote description is set\n");
@@ -588,12 +590,12 @@ export class TransportManagerP2P implements TransportManager {
                         if (this.debugRTC) {
                             console.log("adding ice from queue: " + JSON.stringify(cndt));
                         }
-                        remoteUser.peerConnection.addIceCandidate(cndt);
+                        remoteSource.peerConnection.addIceCandidate(cndt);
                     }
 
 
                     if (sdpType == "offer") {
-                        remoteUser.peerConnection.createAnswer()
+                        remoteSource.peerConnection.createAnswer()
                             .then((answer : RTCSessionDescription) => {
                                 if (this.debugRTC) {
                                     console.log("answer is created\n");
@@ -602,11 +604,11 @@ export class TransportManagerP2P implements TransportManager {
                                     type: answer.type,
                                     sdp: answer.sdp // forceStereoDown(answer.sdp)
                                 });
-                                return remoteUser.peerConnection.setLocalDescription(stereoAnswer).then(() => {
+                                return remoteSource.peerConnection.setLocalDescription(stereoAnswer).then(() => {
                                     this.webSocket.send(JSON.stringify({
                                         "message-type": "sdp",
                                         "from-uid": "" + this.localUID,
-                                        "to-uid": remoteUser.uid,
+                                        "to-uid": remoteSource.uid,
                                         "sdp": stereoAnswer.sdp,
                                         "offer": false
                                     }));
@@ -617,9 +619,9 @@ export class TransportManagerP2P implements TransportManager {
         }
 
 
-        remoteUser.ice = (candidate : string, sdpMid : string, sdpMLineIndex : number) => {
+        remoteSource.ice = (candidate : string, sdpMid : string, sdpMLineIndex : number) => {
             if (this.debugRTC) {
-                console.log("got ice candidate from remoteUser: " + JSON.stringify(candidate));
+                console.log("got ice candidate from remoteSource: " + JSON.stringify(candidate));
             }
 
             let cndt = new RTCIceCandidate({
@@ -629,24 +631,24 @@ export class TransportManagerP2P implements TransportManager {
                 usernameFragment: "",
             });
 
-            if (!remoteUser.peerConnection ||
-                !remoteUser.peerConnection.remoteDescription ||
-                !remoteUser.peerConnection.remoteDescription.type) {
+            if (!remoteSource.peerConnection ||
+                !remoteSource.peerConnection.remoteDescription ||
+                !remoteSource.peerConnection.remoteDescription.type) {
                 iceQueue.push(cndt);
             } else {
-                remoteUser.peerConnection.addIceCandidate(cndt);
+                remoteSource.peerConnection.addIceCandidate(cndt);
             }
         }
 
 
-        if (remoteUser.uid > this.localUID) {
-            remoteUser.toPeer = remoteUser.peerConnection.createDataChannel(this.localUID + "-to-" + remoteUser.uid);
-            remoteUser.toPeer.onopen = (event) => {
+        if (remoteSource.uid > this.localUID) {
+            remoteSource.toPeer = remoteSource.peerConnection.createDataChannel(this.localUID + "-to-" + remoteSource.uid);
+            remoteSource.toPeer.onopen = (event) => {
                 console.log("data-channel is open B");
                 sendQueuedBroadcasts();
             }
-            remoteUser.toPeer.onmessage = (event : MessageEvent) => {
-                remoteUser.fromPeer(remoteUser.uid, new Uint8Array(event.data));
+            remoteSource.toPeer.onmessage = (event : MessageEvent) => {
+                remoteSource.fromPeer(remoteSource.uid, new Uint8Array(event.data));
             };
         }
     }

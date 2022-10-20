@@ -1,4 +1,5 @@
 
+// hifi-transport.ts
 /**
    @module TransportManager
 */
@@ -7,7 +8,7 @@
  * Represents a remote audio and/or video source
  *
  */
-export interface RemoteSource {
+export interface Source {
     /** The unique identifier for this remote source */
     uid : string,
     /** Get the RTCRtpSender from this source's PeerConnection */
@@ -21,7 +22,11 @@ export interface RemoteSource {
     /** True if this source is sending audio */
     hasAudio : boolean,
     /** True if this source is sending video */
-    hasVideo : boolean
+    hasVideo : boolean,
+    /** True if audio for this source is received over the network */
+    isRemote : boolean,
+    /** True if audio for this source locally injected */
+    isLocal : boolean
 }
 
 
@@ -53,8 +58,8 @@ export interface TransportManager {
      */
     reset : () => Promise<void>,
     /** Register a callback function.  The named callbacks which can be registered are:
-        - source-published - (user : RemoteSource, mediaType : string) => void
-        - source-unpublished - (user : RemoteSource, mediaType : string) => void
+        - source-published - (user : Source, mediaType : string) => void
+        - source-unpublished - (user : Source, mediaType : string) => void
         - broadcast-received - (uid : string, data : Uint8Array) => void
         - volume-level-change - (uid : string, level : number) => void
         - reconnected - (uid : string) => void
@@ -64,14 +69,14 @@ export interface TransportManager {
     createMicrophoneAudioTrack : (audioConfig : MicrophoneConfig) => Promise<LocalTrack>,
     /** Create a LocalTrack which carries data from the local camera. */
     createCameraVideoTrack : (videoConfig : CameraConfig) => Promise<LocalTrack>,
-    /** Start transmitting a LocalTrack -- become a RemoteSource for remote listeners. */
+    /** Start transmitting a LocalTrack -- become a Source for remote listeners. */
     publish : (streams : Array<LocalTrack>) => Promise<void>,
     /** Stop transmitting a LocalTrack. */
     unpublish : (streams : Array<LocalTrack>) => Promise<void>,
-    /** Begin to consume data from a RemoteSource */
-    subscribe : (remoteSource : RemoteSource, mediaType : string) => Promise<void>,
-    /** Stop consuming data from a RemoteSource */
-    unsubscribe : (remoteSource : RemoteSource) => Promise<void>,
+    /** Begin to consume data from a Source */
+    subscribe : (remoteSource : Source, mediaType : string) => Promise<void>,
+    /** Stop consuming data from a Source */
+    unsubscribe : (remoteSource : Source) => Promise<void>,
     /** Send a message to other participants in the joined room. */
     sendBroadcastMessage : (msg : Uint8Array) => boolean,
     /** Get the shared RTCRtpReceiver for this TransportManager, if there is one, else `null` is returned. This would be non-null for an MCU TransportManager, but null for a peer-to-peer one. */
