@@ -126,7 +126,12 @@ $("#mute").click(function(e) {
 })
 
 $("#sound").click(function(e) {
-    playSoundEffect();
+    $("#sound").attr("hidden", true);   // only start once
+
+    startLocalSound(-1, "sounds/campfire.wav", -3.2, -3, 0);
+    startLocalSound(-2, "sounds/owl.wav", -3, 3.5, 0);
+    startLocalSound(-3, "sounds/waterfall.wav", 2.5, 3.2, 0);
+    startLocalSound(-4, "sounds/thunder.wav", 3, -2.5, 0);
 })
 
 // threshold slider
@@ -254,8 +259,9 @@ function setPosition(hifiSource) {
 }
 
 function updatePositions(elements) {
-    // only update the listener
-    let e = elements.find(e => e.clickable === true);
+
+    // update the listener
+    let e = elements.find(e => e.uid === options.uid);
     if (e !== undefined) {
 
         // transform canvas to audio coordinates
@@ -264,6 +270,21 @@ function updatePositions(elements) {
         hifiPosition.o = e.o;
         listenerMetadata(hifiPosition);
     }
+
+    // update the local sources
+    elements.forEach(e => {
+        if (e.uid < 0) {
+            let hifiSource = hifiSources[e.uid];
+            if (hifiSource !== undefined) {
+
+                // transform canvas to audio coordinates
+                hifiSource._x = (e.x - 0.5) * canvasDimensions.width;
+                hifiSource._y = -(e.y - 0.5) * canvasDimensions.height;
+                hifiSource._o =  e.o;
+                setPosition(hifiSource);
+            }
+        }
+    });
 }
 
 function installSenderTransform() {
@@ -618,20 +639,50 @@ function stopSpatialAudio() {
     worker && worker.terminate();
 }
 
-let audioBuffer = null;
-async function playSoundEffect() {
+async function startLocalSound(uid, url, x, y, o) {
 
-    // load on first play
-    if (!audioBuffer) {
-        let response = await fetch('https://raw.githubusercontent.com/kencooke/spatial-audio-room/master/sound.wav');
-        let buffer = await response.arrayBuffer();
-        audioBuffer = await audioContext.decodeAudioData(buffer);
+    if (uid >= 0) {
+        console.warn("ERROR: Local source uid must be < 0!");
+        return;
     }
 
+    // load the audio file
+    let response = await fetch(url);
+    let buffer = await response.arrayBuffer();
+    let audioBuffer = await audioContext.decodeAudioData(buffer);
+
+    // create looping source node
     let sourceNode = new AudioBufferSourceNode(audioContext);
     sourceNode.buffer = audioBuffer;
-    sourceNode.connect(hifiLimiter);
+    sourceNode.loop = true;
+
+    // connect to new hifiSource
+    let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
+    hifiSources[uid] = hifiSource;
+    sourceNode.connect(hifiSource).connect(hifiListener);
+
+    // set hifiSource position
+    hifiSource._x = x;
+    hifiSource._y = y;
+    hifiSource._o = o;
+    setPosition(hifiSource);
+
+    // add GUI element
+    elements.push({
+        icon: 'soundIcon',
+        x: 0.5 + (x / canvasDimensions.width),
+        y: 0.5 - (y / canvasDimensions.height),
+        o: o,
+        radius: 0.02,
+        alpha: 0.5,
+        clickable: true,
+        uid,
+    });
+
+    usernames[uid] = url.substring(url.lastIndexOf("/")+1, url.lastIndexOf("."));
+
     sourceNode.start();
+    console.log('Started local sound:', url);
 }
 
 // collect and display stats
