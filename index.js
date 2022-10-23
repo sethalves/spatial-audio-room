@@ -686,7 +686,7 @@ async function startLocalSound(uid, url, x, y, o) {
 }
 
 // collect and display stats
-let statsInterval = setInterval(updateStats, 1000);
+//let statsInterval = setInterval(updateStats, 1000);
 
 function updateStats() {
     let statsText = "";
