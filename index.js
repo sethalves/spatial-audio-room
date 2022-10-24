@@ -466,7 +466,6 @@ async function leave() {
 
     elements.length = 0;
 
-    hifiSources = {};
     stopSpatialAudio();
 
     console.log("client leaves channel success");
@@ -536,11 +535,13 @@ async function subscribe(user, mediaType) {
 async function unsubscribe(user) {
     const uid = user.uid;
 
+    hifiSources[uid].disconnect();
     delete hifiSources[uid];
+    delete usernames[uid];
 
     // find and remove this uid
     let i = elements.findIndex(e => e.uid === uid);
-    elements.splice(i, 1);
+    if (i > -1) elements.splice(i, 1);
 
     console.log("unsubscribe uid:", uid);
 }
@@ -634,6 +635,10 @@ async function startSpatialAudio() {
 
 function stopSpatialAudio() {
     $("#sound").attr("hidden", true);
+
+    Object.values(hifiSources).forEach((hifiSource) => hifiSource.disconnect());
+    hifiSources = {};
+
     stopEchoCancellation();
     audioContext.close();
     worker && worker.terminate();
@@ -695,10 +700,11 @@ async function stopLocalSound(uid) {
 
     hifiSources[uid].disconnect();
     delete hifiSources[uid];
+    delete usernames[uid];
 
     // find and remove this uid
     let i = elements.findIndex(e => e.uid === uid);
-    elements.splice(i, 1);
+    if (i > -1) elements.splice(i, 1);
 
     console.log('Stopped local sound:', username);
 }
