@@ -685,6 +685,24 @@ async function startLocalSound(uid, url, x, y, o) {
     console.log('Started local sound:', url);
 }
 
+async function stopLocalSound(uid) {
+
+    if (uid >= 0) {
+        console.warn("ERROR: Local source uid must be < 0!");
+        return;
+    }
+    let username = usernames[uid];
+
+    hifiSources[uid].disconnect();
+    delete hifiSources[uid];
+
+    // find and remove this uid
+    let i = elements.findIndex(e => e.uid === uid);
+    elements.splice(i, 1);
+
+    console.log('Stopped local sound:', username);
+}
+
 // collect and display stats
 //let statsInterval = setInterval(updateStats, 1000);
 
