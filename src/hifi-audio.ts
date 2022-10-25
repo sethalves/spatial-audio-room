@@ -10,6 +10,8 @@
 
    Binary or textual data can also be sent between connected browsers.  The HiFiAudio module provides {@link sendBroadcastMessage} and a way to {@link on | register a callback} to receive data from others.  This channel doesn't update as quickly as the meta-data, but can be useful for setting usernames or other occasional data exchanges.
 
+   ![WebAudio Nodes](/spatial-audio-room/docs/hifi-audio-webaudio-nodes.png)
+
    @module HiFiAudio
  */
 
@@ -318,7 +320,10 @@ function setPositionFromMetadata(hifiSource : AudioWorkletNodeMeta) {
 
 
 /**
-   Set the direction from which the local listener will perceive a remote source.
+   Set the direction and distance from which the local listener will perceive a remote source.
+
+   ![WebAudio Nodes](/spatial-audio-room/docs/set-radial-source-position.png)
+
    @param uid - the ID of a remote source.
    @param azimuth - An angle in radians from which a remote source's audio will seem to arrive.
    @param distance - How far the Source is from the Listener.
@@ -336,8 +341,8 @@ export function setRadialSourcePosition(uid : string, azimuth : number, distance
 /**
    Set the absolute position of a Source in the virtual audio space
    @param uid - the ID of a remote source.
-   @param azimuth - An angle in radians from which a remote source's audio will seem to arrive.
-   @param distance - How far the Source is from the Listener.
+   @param azimuth - An angle in radians from which a remote source's audio will seem to arrive.  Positive values are clockwise from the listener's "straight ahead" direction.
+   @param distance - How far the Source is from the Listener, in meters.
 */
 export function setSourcePosition(uid : string, x : number, y : number, z : number) : void {
     let hifiSource = hifiSources[uid];

@@ -1,7 +1,5 @@
 // hifi-transport-agora.ts
 /**
-   TransportManagerAgora implements the TransportManager interface and allows HiFiAudio to work over Agora's SFU network.
-
    @module TransportManagerAgora
 */
 
@@ -55,6 +53,9 @@ interface AgoraRemoteUser extends IAgoraRTCRemoteUser {
 }
 
 
+/**
+   TransportManagerAgora implements the TransportManager interface and allows HiFiAudio to work over Agora's SFU network.  It wraps Agora's [Web SDK](https://docs.agora.io/en/video-calling/get-started/get-started-sdk) and adds spatial audio.
+*/
 export class TransportManagerAgora implements TransportManager {
 
     private client : IAgoraRTCClientOpen;

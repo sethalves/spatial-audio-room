@@ -20,6 +20,7 @@ all:
 
 docs:
 	./node_modules/typedoc/bin/typedoc --readme src/README --name "High Fidelity Core Audio Engine SDK" --hideGenerator --disableSources --out dist/docs src/hifi-audio.ts src/hifi-transport.ts src/hifi-transport-agora.ts src/hifi-transport-p2p.ts
+	cp doc-images/*.png dist/docs/
 
 webpack-dev:
 	${WEBPACK} --env buildEnv=dev
