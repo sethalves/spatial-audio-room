@@ -1,3 +1,10 @@
+// hifi-transport-agora.ts
+/**
+   TransportManagerAgora implements the TransportManager interface and allows HiFiAudio to work over Agora's SFU network.
+
+   @module TransportManagerAgora
+*/
+
 import {
     Source,
     TransportManager,
@@ -56,7 +63,6 @@ export class TransportManagerAgora implements TransportManager {
 
     private debugRTC = false;
 
-    private webSocket : WebSocket;
     private localUID : string;
     private channel : string;
 
@@ -71,7 +77,12 @@ export class TransportManagerAgora implements TransportManager {
     private micTrack : MediaStream;
     private cameraTrack : MediaStream;
     
-    constructor(appID : string, tokenProvider : Function) {
+    /**
+       @param appID - Agora app-ID
+       @param tokenProvider - A callback function which returns a Promise for an agora token.  This is called when this transport needs a new Agora token.
+    */
+    constructor(appID : string,
+                tokenProvider : (uid : string, channelName : string, tokenRole : number) => Promise<string>) {
         this.appID = appID;
         this.tokenProvider = tokenProvider;
     }
@@ -255,9 +266,9 @@ export class TransportManagerAgora implements TransportManager {
 
     on(eventName : string, callback : Function) {
         if (eventName == "source-published") {
-            this.onUserPublished = callback as (user: Source, mediaType: string) => void;
+            this.onUserPublished = callback as (source: Source, mediaType: string) => void;
         } else if (eventName == "source-unpublished") {
-            this.onUserUnpublished = callback as (user: Source, mediaType: string) => void;
+            this.onUserUnpublished = callback as (source: Source, mediaType: string) => void;
         } else if (eventName == "broadcast-received") {
             this.onStreamMessage = callback as (uid: string, data: Uint8Array) => void;
         } else if (eventName == "volume-level-change") {
@@ -287,13 +298,13 @@ export class TransportManagerAgora implements TransportManager {
     }
 
 
-    async subscribe(user : Source, mediaType : string) : Promise<void> {
+    async subscribe(source : Source, mediaType : string) : Promise<void> {
         if (!this.client) {
             console.log("Error -- Agora can't subscribe to remote source until client has joined room.");
             return;
         }
         if (mediaType == "audio" || mediaType == "video") {
-            await this.client.subscribe(user as unknown as IAgoraRTCRemoteUser, mediaType);
+            await this.client.subscribe(source as unknown as IAgoraRTCRemoteUser, mediaType);
         }
         return new Promise<void>((resolve) => {
             resolve();
@@ -301,19 +312,25 @@ export class TransportManagerAgora implements TransportManager {
     }
 
 
-    async unsubscribe(user : Source) : Promise<void> {
+    async unsubscribe(source : Source) : Promise<void> {
         if (!this.client) {
             console.log("Error -- Agora can't unsubscribe from remote source until client has joined room.");
             return;
         }
-        return this.client.unsubscribe(user as unknown as IAgoraRTCRemoteUser);
+        return this.client.unsubscribe(source as unknown as IAgoraRTCRemoteUser);
     }
 
 
+    /**
+       This transport has receivers for each remote source rather than a single shared one.  This always returns null.
+     */
     getSharedAudioReceiver() : RTCRtpReceiver {
         return null;
     }
 
+    /**
+       Returns the RTCRtpSender which sends audio from this Agora client to the SFU network.
+     */
     getSharedAudioSender() : RTCRtpSender {
         if (!this.client) {
             console.log("Error -- Agora can't get senders until client has joined room.");

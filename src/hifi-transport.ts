@@ -1,6 +1,8 @@
 
 // hifi-transport.ts
 /**
+   A TransportManager is used to move data across the network, and to connect with the local microphone and output device.  All specific TransportManagers share the same abstract interface, but may work with very different networking configurations.
+
    @module TransportManager
 */
 
@@ -25,20 +27,21 @@ export interface Source {
     hasVideo : boolean,
     /** True if audio for this source is received over the network */
     isRemote : boolean,
-    /** True if audio for this source locally injected */
+    /** True if audio for this source is locally injected */
     isLocal : boolean
 }
 
 
 /**
- * TransportManager is an abstract interface for transport-managers.  A specific subclass of this is passed to an AudioManager instance so that it can send and receive audio, video, and other data.
- *
- * @example
- * ```
- * let transport = new TransportManagerAgora(appID, token);
- * await HiFiAudio.join(transport, localUid, "room name", { x: 0, y: 0, o: 0 }, -40, false, true);
- * ```
- *
+   TransportManager is an abstract interface for transport-managers.  A specific TransportManager can be passed to a HifiAudio instance so that it can send and receive audio, video, and other data.
+
+   @example
+   ```
+   let transport = new TransportManagerAgora(appID, token);
+   let localUid = transport.generateUniqueID();
+   await HiFiAudio.join(transport, localUid, "room name", { x: 0, y: 0, o: 0 }, -40, false, true);
+   ```
+
  */
 export interface TransportManager {
 

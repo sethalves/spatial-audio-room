@@ -1,4 +1,3 @@
-
 // hifi-autio.ts
 /**
    This module manipulates local audio streams, and works with a swappable transport-manager which handles sending and receiving audio, video, and other data across the network.
@@ -57,6 +56,7 @@ import { metadata, senderTransform, receiverTransform } from "./transform.js";
 interface AudioWorkletNodeMeta extends AudioWorkletNode {
     _x? : number,
     _y? : number,
+    _z? : number,
     _o? : number
 }
 
@@ -69,6 +69,8 @@ export interface MetaData {
     x? : number,
     /** y position in meters within the virtual audio space. */
     y? : number,
+    /** z position in meters within the virtual audio space. */
+    z? : number,
     /** direction an audio source is facing in radians. */
     o? : number
 }
@@ -96,7 +98,7 @@ let onUpdateVolumeIndicator : any;
 let onRemoteUserJoined : any;
 let onRemoteUserLeft : any;
 
-let remoteUsers : { [uid: string] : Source; } = {};
+let remoteSources : { [uid: string] : Source; } = {};
 let worker : Worker = undefined;
 
 let hifiSources: { [name: string]: AudioWorkletNodeMeta } = {};
@@ -107,7 +109,7 @@ let hifiLimiter : AudioWorkletNode;    // additional sounds connect here
 let audioElement : HTMLAudioElement;
 let audioContext : AudioContext;
 
-let hifiPosition = { x: 0.0, y: 0.0, o: 0.0 };
+let hifiPosition = { x: 0.0, y: 0.0, z: 0.0, o: 0.0 };
 
 let subscribedToAudio : { [uid: string] : boolean; } = {};
 let subscribedToVideo : { [uid: string] : boolean; } = {};
@@ -224,7 +226,7 @@ function sourceMetadata(buffer : ArrayBuffer, uid : string) : void {
 
 
 /**
-   Return true if the browser is based on chromium
+   @ignore
 */
 export function isChrome() {
     return browserIsChrome;
@@ -300,19 +302,6 @@ function angleWrap(angle : number) {
 }
 
 
-/**
-   Set the direction from which the local listener will perceive a remote source.
-   @param uid - the ID of a remote source.
-   @param - An angle in radians from which a remote source's audio will seem to arrive.
-*/
-export function setSourceAzimuth(uid : string, azimuth : number) {
-    let hifiSource = hifiSources[uid];
-    if (hifiSource !== undefined) {
-        hifiSource.parameters.get('azimuth').value = azimuth;
-    }
-}
-
-
 function setPositionFromMetadata(hifiSource : AudioWorkletNodeMeta) {
     let dx = hifiSource._x - hifiPosition.x;
     let dy = hifiSource._y - hifiPosition.y;
@@ -329,12 +318,47 @@ function setPositionFromMetadata(hifiSource : AudioWorkletNodeMeta) {
 
 
 /**
+   Set the direction from which the local listener will perceive a remote source.
+   @param uid - the ID of a remote source.
+   @param azimuth - An angle in radians from which a remote source's audio will seem to arrive.
+   @param distance - How far the Source is from the Listener.
+*/
+export function setRadialSourcePosition(uid : string, azimuth : number, distance : number) : void {
+    let hifiSource = hifiSources[uid];
+    if (hifiSource !== undefined) {
+        hifiSource.parameters.get('azimuth').value = azimuth;
+        hifiSource.parameters.get('distance').value = distance;
+    }
+}
+
+
+
+/**
+   Set the absolute position of a Source in the virtual audio space
+   @param uid - the ID of a remote source.
+   @param azimuth - An angle in radians from which a remote source's audio will seem to arrive.
+   @param distance - How far the Source is from the Listener.
+*/
+export function setSourcePosition(uid : string, x : number, y : number, z : number) : void {
+    let hifiSource = hifiSources[uid];
+    if (hifiSource !== undefined) {
+        hifiSource._x = x;
+        hifiSource._y = y;
+        hifiSource._z = z;
+        setPositionFromMetadata(hifiSource);
+    }
+}
+
+
+
+/**
    Set the position of the local audio source.  If `join` was called with `enableMetadata`=`true`, this position will be encoded and sent along with the local source's audio.  Remote listeners will receive the position and can update their world-view.
    @param e - The new position for the local source, to be transmitted to remote listeners.
 */
-export function setPosition(e : MetaData) : void {
+export function setListenerPosition(e : MetaData) : void {
     hifiPosition.x = e.x;
     hifiPosition.y = e.y;
+    hifiPosition.z = e.z;
     hifiPosition.o = e.o;
     if (hifiOptions.enableMetadata) {
         listenerMetadata(hifiPosition);
@@ -373,7 +397,7 @@ export function on(eventName : string, callback : Function) {
    @param transport - An instantiation of a TransportManager.
    @param uid - The unique ID to use for the local source.
    @param channel - The name of the room to join.  This is interpretted by the specific TransportManager.
-   @param initialPosition - Where to locate this local source in the virtual space of the room. `x` and `y` are in meters, `o` is in radians.
+   @param initialPosition - Where to locate this local source in the virtual space of the room. `x`, `y`, and `z` are in meters, `o` is in radians around the Z axis.
    @param initialThresholdValue - The initial setting for the noise-gate.  The value should be in decibels in the range -80 to 0.
    @param enableVideo - `true` if video from the local camera should be sent to the room.
    @param enableMetadata - `true` if the local source's position in the virtual space should be sent along with its audio stream.
@@ -393,6 +417,7 @@ export async function join(setTransport : TransportManager,
     if (initialPosition) {
         hifiPosition.x = initialPosition.x;
         hifiPosition.y = initialPosition.y;
+        hifiPosition.z = initialPosition.z;
         hifiPosition.o = initialPosition.o;
     }
     if (!hifiOptions.thresholdSet) {
@@ -509,7 +534,7 @@ async function joinTransportRoom() : Promise<string> {
             }
 
         } else {
-            let user = remoteUsers["" + uid];
+            let user = remoteSources["" + uid];
             if (user !== undefined) {
 
                 console.warn('RECONNECT for remote audioTrack:', uid);
@@ -576,7 +601,7 @@ export async function leave(willRestart : boolean) {
     stopSpatialAudio(willRestart);
     transport.reset();
 
-    for (var uid in remoteUsers) {
+    for (var uid in remoteSources) {
         if (onRemoteUserLeft) {
             onRemoteUserLeft("" + uid);
         }
@@ -584,7 +609,7 @@ export async function leave(willRestart : boolean) {
         delete subscribedToVideo[ "" + uid ];
     }
 
-    remoteUsers = {};
+    remoteSources = {};
 }
 
 function handleUserPublished(user : Source, mediaType : string) {
@@ -596,7 +621,7 @@ function handleUserPublished(user : Source, mediaType : string) {
     }
 
     const id = user.uid;
-    remoteUsers["" + id] = user;
+    remoteSources["" + id] = user;
 
     subscribe(user, mediaType);
 }
@@ -605,7 +630,7 @@ function handleUserUnpublished(user : Source, mediaType : string) {
     console.log("handleUserUnpublished user=" + JSON.stringify(user) + " mediaType=" + mediaType);
 
     const uid = user.uid;
-    delete remoteUsers["" + uid];
+    delete remoteSources["" + uid];
     if (onRemoteUserLeft) {
         onRemoteUserLeft("" + uid);
     }
@@ -668,7 +693,7 @@ export async function playVideo(uid : string, videoEltID : string) {
     if (uid == hifiOptions.uid) {
         await localTracks.videoTrack.play(videoEltID);
     } else {
-        let user = remoteUsers[ "" + uid ];
+        let user = remoteSources[ "" + uid ];
         if (user.getVideoTrack()) {
             await user.getVideoTrack().play(videoEltID);
         }

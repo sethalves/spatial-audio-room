@@ -1,3 +1,9 @@
+// hifi-transport-p2p.ts
+/**
+   TransportManagerP2P implements the TransportManager interface and allows HiFiAudio to work over peer-to-peer WebRTC connections.
+
+   @module TransportManagerP2P
+*/
 
 import {
     Source,
@@ -21,6 +27,22 @@ interface RTCSource extends Source {
 }
 
 
+
+/**
+   TransportManagerP2P implements the TransportManager interface and allows HiFiAudio to work over peer-to-peer WebRTC connections.
+
+   @example
+   ```
+   let signalingURL = new URL(window.location.href)
+   signalingURL.pathname = "/signaling-server";
+   signalingURL.protocol = "wss";
+   let transport = new TransportManagerP2P(signalingURL);
+   let localUid = transport.generateUniqueID();
+   await HiFiAudio.join(transport, localUid, "room name", { x: 0, y: 0, o: 0 }, -40, false, true);
+   ```
+
+ */
+
 export class TransportManagerP2P implements TransportManager {
 
     private debugRTC = false;
@@ -42,10 +64,11 @@ export class TransportManagerP2P implements TransportManager {
 
     private broadcastQueue : { [uid: string] : Array<Uint8Array> } = {};
     
-    constructor() {
-        this.signalingURL = new URL(window.location.href)
-        this.signalingURL.pathname = "/token-server";
-        this.signalingURL.protocol = "wss";
+    /**
+       @param signalingURL - URL for signaling server
+    */
+    constructor(signalingURL : URL) {
+        this.signalingURL = signalingURL;
     }
 
     async reset() {

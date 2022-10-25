@@ -72,6 +72,7 @@ function getCharacterPositionInAudioSpace() {
     return {
         x: getCharacterPositionX(),
         y: getCharacterPositionY(),
+        z: 0,
         o: characterPosition.o
     };
 }
@@ -319,7 +320,7 @@ function updatePositions(elts) {
         setCharacterPositionY(-(e.y - 0.5) * ropts.canvasDimensions.height);
         characterPosition.o = e.o;
         clampCharacterPosition();
-        HiFiAudio.setPosition(getCharacterPositionInAudioSpace());
+        HiFiAudio.setListenerPosition(getCharacterPositionInAudioSpace());
     }
 }
 
@@ -352,7 +353,7 @@ function updateVideoPositions() {
             let azimuth = (Math.PI / 2) * (x / xmax);   // linear, not atan(x)
 
             // update hifiSource
-            HiFiAudio.setSourceAzimuth(uid, azimuth);
+            HiFiAudio.setRadialSourcePosition(uid, azimuth, 1.0);
             console.log("Set uid =", uid, "to azimuth =", (azimuth * 180) / Math.PI);
         }
     });
@@ -511,7 +512,7 @@ async function getCurrentRoom() {
 
 
 // https://docs.agora.io/en/Interactive%20Broadcast/token_server
-async function fetchToken(uid /*: UID*/, channelName /*: string*/, tokenRole /*: number*/) {
+async function fetchToken(uid /*: string */, channelName /*: string */, tokenRole /*: number */) {
 
     var resolve, reject;
 
@@ -570,8 +571,15 @@ async function joinRoom() {
 
     clampCharacterPosition();
 
-    // let transport = new TransportManagerAgora(options.appid, fetchToken) /* as TransportManager */;
-    let transport = new TransportManagerP2P() /* as TransportManager */;
+    let transport;
+    if (true) {
+        transport = new TransportManagerAgora(options.appid, fetchToken) /* as TransportManager */;
+    } else {
+        let signalingURL = new URL(window.location.href)
+        signalingURL.pathname = "/token-server";
+        signalingURL.protocol = "wss";
+        transport = new TransportManagerP2P(signalingURL) /* as TransportManager */;
+    }
 
     localUid = transport.generateUniqueID();
 

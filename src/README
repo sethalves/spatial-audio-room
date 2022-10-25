@@ -3,44 +3,41 @@
 
 #### Features
 
-- spatialized audio
+- spatial audio
 - metadata
-- near field what's it?
+- near field
 - high dynamic range
 - adaptive limiter
 - adjustable noise-gate
 
 
-#### Spatialized Audio
+#### Spatialize Audio
 
-The Core Audio Engine defines a virtual 2D audio space.  Within the space are audio-sources and a listener, and each has a position within the virtual audio space.  The audio from each source is fed into an HRTF algorithm where it is manipulates to sound to the listener as if it comes from the source's relative direction and distance.  The web application can set or change the positions of sources and the listener, as well as the direction the listener is facing.
+The Core Audio Engine defines a virtual 3D audio space for 2D or 3D applications. Within the virtual audio space are two types of endpoints: (1) sound sources and (2) listeners. Each of these endpoints has a position within the virtual audio space. The audio from each sound source is fed into High Fidelity’s head related transfer function (HRTF) algorithm so each listener hears the sound as if it was generated from the sound source's relative direction and distance to the listener. The web application can set or change the positions of sound sources and listeners, as well as the direction the listener is facing.
 
-Optionally, changes to source positions can be synchronized across the network to other instances of the application.
+Optionally, changes to sound source positions can be synchronized across the network to other instances of the application.
 
 #### Metadata
 
-This library supports tight coupling and a high update-rate for a source's positional data.  If metadata is enabled, the audio stream from a local source will be modified to include the position of the source.  A TransportManager will send the modified stream across the network.  Other instances of the application will be able to extract the position of the source along with audio-data.  This allows for a very high rate for position updates and avoids any distracting desynchronization between how a source sounds and where its icon or character appears to be.
+This library supports tight coupling and a high update-rate for a sound source's positional data. If metadata is enabled, the audio stream from a local sound source will be modified to include the position of the source. A TransportManager will send the modified stream across the network. Other instances of the application will be able to extract the position of the source along with audio-data. This allows for near real-time position updates and avoids any distracting desynchronization between how a source sounds and where its visual representation, such as an avatar of a person talking or the audio from a video, appears to be.
 
-#### Near Field
+#### Near Field Effects
 
-We do something that sounds right if a source is very close to the listener
+High Fidelity’s HRTF also adjusts the angle of a sound source to deliver ASMR-like nearfield effects, which means a sound source can appear to be really close to a listener’s ears by adjusting the XXXX -- think about someone whispering into your ear. 
 
 #### High Dynamic Range
 
 All audio within this library is handled as 32-bit floats, which allows for an unlimited dynamic range.  This is important in applications where several or many sources may be producing sound at the same time.  More conventional handling of this mixed audio is likely to result in clipping and other artifacts.
 
-
-WebRTC internally uses a 16-bit audio pipeline, and any stage that goes over, gets clipped. This sounds bad.
-Web Audio uses floats and a pipeline of audio nodes can avoid this. But this still defers the problem. When you connect to a destination (audio device) it clips the floats to int16_t and sounds bad.
-Our HDR solution uses Web Audio to process as floats, and has a tool at the end (a specialized lookahead peak-limiter) that does the final compression to 16-bit in a very high-quality way. It can handle huge overloads with almost no audible distortion.
+Internally, WebRTC uses a 16-bit audio pipeline.  Before audio is sent across the network, a specialized lookahead peak-limiter is applied to do the final compression to 16-bits in a high-quality way.  This peak-limiter can handle huge overloads with almost no audible distortion.
 
 #### Adaptive Limiter
 
-When it's time to deliver audio from this library to the application, the higher dynamic-range data must be brought within the expected range.  This is the job of the Limiter.  It works by looking ahead several frames and very quickly adjusting the overall volume of the output stream.  This look-ahead allows the limiter to cap the loudness of the output without causing clicks or distortion.
+When it's time to deliver audio from this library to the application, the higher dynamic-range data must be brought within the expected range. This is the job of the Adaptive Limiter. It works by looking ahead several frames and quickly adjusting the overall volume of the output stream. This allows the Adaptive Limiter to cap the loudness of the output without causing distortion or introducing artifacts.
 
-#### Adjustable Noise Gate
+#### Noise Gate
 
-The Adjustable Noise Gate can be placed between a microphone's output stream and the TransportManager's sender.  It works by squashing any audio that fails to cross an adjustable loudness threshold.  Any quiet background sound the mic may be picking up will be sent as total silence.  When a user speaks into their mic, the audio level will jump past the threshold and their voice will be transmitted.
+The Noise Gate is adjustable and can be placed between a microphone's output stream and the TransportManager's sender. It works by gating, or preventing, any audio that falls below a set loudness threshold. This eliminates any background noise that is quieter than the set threshold, but allows louder sounds, such as a speaker’s voice, to be transmitted clearly.
 
 # Installation
 
@@ -91,7 +88,7 @@ use npm somehow
         await HiFiAudio.join(transport,
                              localUid,
                              channelName,
-                             { x: 2, y: 3, o: 0 }, // initial character position
+                             { x: 2, y: 3, z: 0, o: 0 }, // initial character position
                              thresholdValue,
                              enableVideo,
                              enableMetaData);
@@ -101,7 +98,7 @@ use npm somehow
     Calling HiFiAudio.join will connect to an Agora room and wrap the connection with HRTF spatialization.  After joining the room, a character's position can be updated with
 
     ```typescript
-    HiFiAudio.setPosition({ x: ..., y: ..., o: ...})
+    HiFiAudio.setPosition({ x: ..., y: ..., z: ..., o: ...})
     ```
 
     More information about the agoraAppID, agoraToken, and agoraChannelName parameters can be found in Agora's quick-start documentation.
