@@ -1,5 +1,7 @@
 // hifi-transport-agora.ts
 /**
+   TransportManagerAgora implements the TransportManager interface by wrapping Agora's Web SDK.
+
    @module TransportManagerAgora
 */
 
