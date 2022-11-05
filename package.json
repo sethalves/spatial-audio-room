@@ -7,7 +7,7 @@
     "files": [
         "dist"
     ],
-    "private": true,
+    "private": false,
     "devDependencies": {
         "copy-webpack-plugin": "^10.2.4",
         "ts-loader": "^9.3.0",

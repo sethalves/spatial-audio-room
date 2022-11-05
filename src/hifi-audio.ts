@@ -10,7 +10,7 @@
 
    Binary or textual data can also be sent between connected browsers.  The HiFiAudio module provides {@link sendBroadcastMessage} and a way to {@link on | register a callback} to receive data from others.  This channel doesn't update as quickly as the meta-data, but can be useful for setting usernames or other occasional data exchanges.
 
-   ![WebAudio Nodes](/spatial-audio-room/docs/hifi-audio-webaudio-nodes.png)
+   ![WebAudio Nodes](/spatial-audio-room/docs/High-Fidelity-Audio-Engine.png)
 
    @module HiFiAudio
  */
@@ -58,7 +58,6 @@ import { metadata, senderTransform, receiverTransform } from "./transform.js";
 interface AudioWorkletNodeMeta extends AudioWorkletNode {
     _x? : number,
     _y? : number,
-    _z? : number,
     _o? : number
 }
 
@@ -322,13 +321,13 @@ function setPositionFromMetadata(hifiSource : AudioWorkletNodeMeta) {
 /**
    Set the direction and distance from which the local listener will perceive a remote source.
 
-   ![WebAudio Nodes](/spatial-audio-room/docs/set-radial-source-position.png)
+   ![WebAudio Nodes](/spatial-audio-room/docs/Azimuth-and-Distance-Diagram.png)
 
    @param uid - the ID of a remote source.
    @param azimuth - An angle in radians from which a remote source's audio will seem to arrive.
    @param distance - How far the Source is from the Listener.
 */
-export function setRadialSourcePosition(uid : string, azimuth : number, distance : number) : void {
+export function setPolarSourcePosition(uid : string, azimuth : number, distance : number) : void {
     let hifiSource = hifiSources[uid];
     if (hifiSource !== undefined) {
         hifiSource.parameters.get('azimuth').value = azimuth;
@@ -349,7 +348,6 @@ export function setSourcePosition(uid : string, x : number, y : number, z : numb
     if (hifiSource !== undefined) {
         hifiSource._x = x;
         hifiSource._y = y;
-        hifiSource._z = z;
         setPositionFromMetadata(hifiSource);
     }
 }
@@ -363,7 +361,6 @@ export function setSourcePosition(uid : string, x : number, y : number, z : numb
 export function setListenerPosition(e : MetaData) : void {
     hifiPosition.x = e.x;
     hifiPosition.y = e.y;
-    hifiPosition.z = e.z;
     hifiPosition.o = e.o;
     if (hifiOptions.enableMetadata) {
         listenerMetadata(hifiPosition);
@@ -422,7 +419,6 @@ export async function join(setTransport : TransportManager,
     if (initialPosition) {
         hifiPosition.x = initialPosition.x;
         hifiPosition.y = initialPosition.y;
-        hifiPosition.z = initialPosition.z;
         hifiPosition.o = initialPosition.o;
     }
     if (!hifiOptions.thresholdSet) {

@@ -3,12 +3,12 @@
 
 #### Features
 
-- spatial audio
-- metadata
-- near field
-- high dynamic range
-- adaptive limiter
-- adjustable noise-gate
+- Spatial Audio
+- Metadata
+- Near Field
+- High Dynamic Range Peak-Limiter
+- Noise-Gate
+- Compatible with WebAudio
 
 
 #### Spatialize Audio
@@ -23,21 +23,23 @@ This library supports tight coupling and a high update-rate for a sound source's
 
 #### Near Field Effects
 
-High Fidelity’s HRTF also adjusts the angle of a sound source to deliver ASMR-like nearfield effects, which means a sound source can appear to be really close to a listener’s ears by adjusting the XXXX -- think about someone whispering into your ear. 
+When a source and listener are within 1 meter of each other, an alternate "near-field" HRTF is used.  This includes a head occlusion algorithm and can help deliver ASMR-like effects.  Nearby audio sources sound convincingly close.
 
-#### High Dynamic Range
+#### High Dynamic Range Peak-Limiter
 
 All audio within this library is handled as 32-bit floats, which allows for an unlimited dynamic range.  This is important in applications where several or many sources may be producing sound at the same time.  More conventional handling of this mixed audio is likely to result in clipping and other artifacts.
 
-Internally, WebRTC uses a 16-bit audio pipeline.  Before audio is sent across the network, a specialized lookahead peak-limiter is applied to do the final compression to 16-bits in a high-quality way.  This peak-limiter can handle huge overloads with almost no audible distortion.
+Internally, WebRTC uses a 16-bit audio pipeline.  Before audio is sent across the network or delivered to an output device, a specialized look-ahead peak-limiter is applied to do the final compression to 16-bits in a high-quality way.  
 
-#### Adaptive Limiter
-
-When it's time to deliver audio from this library to the application, the higher dynamic-range data must be brought within the expected range. This is the job of the Adaptive Limiter. It works by looking ahead several frames and quickly adjusting the overall volume of the output stream. This allows the Adaptive Limiter to cap the loudness of the output without causing distortion or introducing artifacts.
+When it's time to deliver audio from this library to the application, the higher dynamic-range data must be brought within the expected range. This is the job of the Peak Limiter. It works by looking ahead several frames and quickly adjusting the overall volume of the output stream. This allows the Limiter to cap the loudness of the output without introducing artifacts.  It can handle huge overloads with almost no audible distortion.
 
 #### Noise Gate
 
-The Noise Gate is adjustable and can be placed between a microphone's output stream and the TransportManager's sender. It works by gating, or preventing, any audio that falls below a set loudness threshold. This eliminates any background noise that is quieter than the set threshold, but allows louder sounds, such as a speaker’s voice, to be transmitted clearly.
+The Noise Gate node has an adjustable threshold (or can be disabled).  It can be placed between a microphone's output stream and the TransportManager's sender.  It works by gating, or preventing, any audio that falls below the set loudness threshold.  The Noise Gate eliminates most background noise, frees network resources, and reduces CPU load.  Louder sounds, such as a speaker’s voice, are transmitted clearly.
+
+#### Compatible with WebAudio
+
+The nodes in this package are compatible with standard WebAudio nodes.  They can be arranged as needed to take advantage of WebAudio's flexible modular design.  If all audio sources use 48 kHz, resampling is avoided and the best audio quality will be delivered.
 
 # Installation
 
@@ -88,17 +90,17 @@ use npm somehow
         await HiFiAudio.join(transport,
                              localUid,
                              channelName,
-                             { x: 2, y: 3, z: 0, o: 0 }, // initial character position
+                             { x: 2, y: 3, o: 0 }, // initial source position
                              thresholdValue,
                              enableVideo,
                              enableMetaData);
     });
     ```
  
-    Calling HiFiAudio.join will connect to an Agora room and wrap the connection with HRTF spatialization.  After joining the room, a character's position can be updated with
+    Calling HiFiAudio.join will connect to an Agora room and wrap the connection with HRTF spatialization.  After joining the room, a source's position can be updated with
 
     ```typescript
-    HiFiAudio.setPosition({ x: ..., y: ..., z: ..., o: ...})
+    HiFiAudio.setPosition({ x: ..., y: ..., o: ...})
     ```
 
     More information about the agoraAppID, agoraToken, and agoraChannelName parameters can be found in Agora's quick-start documentation.

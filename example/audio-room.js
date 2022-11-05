@@ -353,7 +353,7 @@ function updateVideoPositions() {
             let azimuth = (Math.PI / 2) * (x / xmax);   // linear, not atan(x)
 
             // update hifiSource
-            HiFiAudio.setRadialSourcePosition(uid, azimuth, 1.0);
+            HiFiAudio.setPolarSourcePosition(uid, azimuth, 1.0);
             console.log("Set uid =", uid, "to azimuth =", (azimuth * 180) / Math.PI);
         }
     });
