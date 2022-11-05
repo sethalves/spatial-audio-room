@@ -22,7 +22,7 @@ function degToRad(d) {
 let options = {};
 let canvasControl;
 let elements = [];
-let localUid;
+let listenerUid;
 let usernames = {};
 let joined = false;
 
@@ -255,7 +255,7 @@ $("#aec").click(async function(e) {
     updateAudioControlsUI();
     let ropts = roomOptions[ currentRoomID ];
     if (ropts.video) {
-        await HiFiAudio.playVideo(localUid, "local-player");
+        await HiFiAudio.playVideo(listenerUid, "local-player");
     }
 })
 
@@ -315,18 +315,25 @@ function clampCharacterPosition() {
 }
 
 
-// called when the user drags around their own dot...
+// called when the user drags around dots on the canvas
 function updatePositions(elts) {
-    // only update the listener
-    let e = elts.find(e => e.clickable === true);
-    if (e !== undefined) {
-        let ropts = roomOptions[ currentRoomID ];
-        // transform canvas to audio coordinates
-        setCharacterPositionX((e.x - 0.5) * ropts.canvasDimensions.width);
-        setCharacterPositionY(-(e.y - 0.5) * ropts.canvasDimensions.height);
-        characterPosition.o = e.o;
-        clampCharacterPosition();
-        HiFiAudio.setListenerPosition(getCharacterPositionInAudioSpace());
+
+    let ropts = roomOptions[ currentRoomID ];
+
+    for (let e of elts) {
+        // transform from canvas to audio coordinates
+        let x = (e.x - 0.5) * ropts.canvasDimensions.width;
+        let y = -(e.y - 0.5) * ropts.canvasDimensions.height;
+
+        if (e.uid === listenerUid) {
+            setCharacterPositionX(x);
+            setCharacterPositionY(y);
+            characterPosition.o = e.o;
+            clampCharacterPosition();
+            HiFiAudio.setListenerPosition(getCharacterPositionInAudioSpace());
+        } else if (e.clickable) {
+            HiFiAudio.setSourcePosition(e.uid, x, y);
+        }
     }
 }
 
@@ -587,10 +594,10 @@ async function joinRoom() {
         transport = new TransportManagerP2P(signalingURL) /* as TransportManager */;
     }
 
-    localUid = transport.generateUniqueID();
+    listenerUid = transport.generateUniqueID();
 
     await HiFiAudio.join(transport,
-                         localUid,
+                         listenerUid,
                          options.channel + ":" + currentRoomID,
                          getCharacterPositionInAudioSpace(),
                          threshold.value,
@@ -598,7 +605,7 @@ async function joinRoom() {
                          ropts.metaData);
 
     joined = true;
-    usernames[ localUid ] = options.username;
+    usernames[ listenerUid ] = options.username;
 
     if (ropts.video) {
         if (!options.username || options.username == "") {
@@ -608,7 +615,7 @@ async function joinRoom() {
         }
         readyVideoSortable();
         // Play the local video track
-        HiFiAudio.playVideo(localUid, "local-player");
+        HiFiAudio.playVideo(listenerUid, "local-player");
     } else {
         sortable = null;
         resizeObserver = null;
@@ -626,7 +633,7 @@ async function joinRoom() {
             radius: 0.02,
             alpha: 0.5,
             clickable: true,
-            uid: localUid
+            uid: listenerUid
         });
 
         canvasControl = new CanvasControl(canvas, elements, usernames, updatePositions, ropts.background);
@@ -660,21 +667,21 @@ async function leaveRoom(willRestart) {
 
 
 function sendUsername() {
-    if (!usernames[localUid]) {
+    if (!usernames[listenerUid]) {
         return;
     }
 
     // broadcast my name
     let msg = {
         type: "username",
-        username: usernames[localUid]
+        username: usernames[listenerUid]
     };
     HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(JSON.stringify(msg)));
 }
 
 
 function setUsername(username) {
-    usernames[localUid] = username;
+    usernames[listenerUid] = username;
     if (joined) {
         sendUsername();
     }
@@ -750,7 +757,7 @@ function setOwnPosition(p) {
     console.log("SET OWN POSITION: " + JSON.stringify(p));
     setCharacterPositionFromAudioSpace(p);
 
-    let e = elements.find(e => e.uid === localUid);
+    let e = elements.find(e => e.uid === listenerUid);
     if (e !== undefined) {
         let ropts = roomOptions[ currentRoomID ];
         e.x = 0.5 + (p.x / ropts.canvasDimensions.width);
