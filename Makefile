@@ -14,6 +14,8 @@ all:
 	cp assets/*.svg dist/
 	cp assets/*.ico dist/
 	cp example/* dist/
+	mkdir dist/sounds/
+	cp sounds/*.wav dist/sounds/
 	cp dist/transform.js dist/worker-transform.js
 	sed -i 's/export //g' dist/worker-transform.js
 

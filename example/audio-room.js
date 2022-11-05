@@ -84,7 +84,7 @@ function setCharacterPositionFromAudioSpace(p) {
 }
 
 
-let roomOptions = {
+const roomOptions = {
     "room-conf-table": {
         video: false,
         metaData: true,
@@ -99,7 +99,13 @@ let roomOptions = {
             { x: 0.707, y: -0.707, o: degToRad(315) }
         ],
         canvasDimensions: { width: 4, height: 4 },
-        background: "Table_semi-transparent_HF_Logo.svg"
+        background: "Table_semi-transparent_HF_Logo.svg",
+        localAudioSources: [
+            { x: -1.6, y: -1.6, url: "sounds/campfire.wav" },
+            { x: -1.6, y:  1.6, url: "sounds/owl.wav" },
+            { x:  1.6, y:  1.6, url: "sounds/waterfall.wav" },
+            { x:  1.6, y: -1.6, url: "sounds/thunder.wav" }
+        ]
     },
 
     "room-quad-music": {
@@ -107,7 +113,8 @@ let roomOptions = {
         metaData: true,
         positions: [],
         canvasDimensions: { width: 8, height: 8 },
-        background: "Semi-transparent_HF_Logo.svg"
+        background: "Semi-transparent_HF_Logo.svg",
+        localAudioSources: []
     },
 
     "room-bar": {
@@ -115,7 +122,8 @@ let roomOptions = {
         metaData: true,
         positions: [],
         canvasDimensions: { width: 16, height: 16 },
-        background: "Semi-transparent_HF_Logo.svg"
+        background: "Semi-transparent_HF_Logo.svg",
+        localAudioSources: []
     },
 
     "room-video": {
@@ -123,7 +131,8 @@ let roomOptions = {
         metaData: false,
         positions: [],
         canvasDimensions: { width: 8, height: 8 },
-        background: "Semi-transparent_HF_Logo.svg"
+        background: "Semi-transparent_HF_Logo.svg",
+        localAudioSources: []
     }
 }
 
@@ -134,6 +143,8 @@ for (const [key, value] of Object.entries(roomOptions)) {
 }
 let currentRoomID = roomIDs[0];
 let serverCurrentRoomID = roomIDs[0];
+
+let localAudioSourceIDs = [];
 
 
 // assume token server is on same webserver as this app...
@@ -196,12 +207,7 @@ webSocket.onmessage = async function (event) {
 }
 
 webSocket.onopen = async function (event) {
-
     options.channel = await getRoomNamePrefix();
-
-    // for (const rID of roomIDs) {
-    //     roomOptions[ rID ].token = await fetchToken(parseInt(localUid), options.channel + ":" + rID, 1);
-    // }
     getCurrentRoom();
     updateRoomsUI();
 }
@@ -627,6 +633,11 @@ async function joinRoom() {
         canvasControl.draw();
     }
 
+    for (let src of ropts.localAudioSources) {
+        let localSourceUID = await startLocalSound(src.url, src.x, src.y);
+        localAudioSourceIDs.push(localSourceUID);
+    }
+
     updateAudioControlsUI();
     updateRoomsUI();
     sendUsername();
@@ -747,4 +758,51 @@ function setOwnPosition(p) {
         e.o = p.o;
     }
     updatePositions(elements);
+}
+
+
+async function startLocalSound(url, x, y) {
+
+    // load the audio file
+    let response = await fetch(url);
+    let buffer = await response.arrayBuffer();
+
+    let sourceUID = await HiFiAudio.addLocalAudioSource(buffer, true);
+    HiFiAudio.setSourcePosition(sourceUID, x, y);
+
+    // add GUI element
+    let ropts = roomOptions[ currentRoomID ];
+    elements.push({
+        icon: 'soundIcon',
+        x: 0.5 + (x / ropts.canvasDimensions.width),
+        y: 0.5 - (y / ropts.canvasDimensions.height),
+        o: 0.0,
+        radius: 0.02,
+        alpha: 0.5,
+        clickable: true,
+        uid: sourceUID
+    });
+
+    usernames[sourceUID] = url.substring(url.lastIndexOf("/")+1, url.lastIndexOf("."));
+    console.log('Started local sound:', url);
+}
+
+
+async function stopLocalSound(uid) {
+
+    if (uid >= 0) {
+        console.warn("ERROR: Local source uid must be < 0!");
+        return;
+    }
+    let username = usernames[uid];
+
+    hifiSources[uid].disconnect();
+    delete hifiSources[uid];
+    delete usernames[uid];
+
+    // find and remove this uid
+    let i = elements.findIndex(e => e.uid === uid);
+    if (i > -1) elements.splice(i, 1);
+
+    console.log('Stopped local sound:', username);
 }

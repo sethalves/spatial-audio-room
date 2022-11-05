@@ -58,7 +58,7 @@ import { metadata, senderTransform, receiverTransform } from "./transform.js";
 interface AudioWorkletNodeMeta extends AudioWorkletNode {
     _x? : number,
     _y? : number,
-    _o? : number
+    _o? : number,
 }
 
 
@@ -97,12 +97,12 @@ let onUpdateRemotePosition : any;
 let onReceiveBroadcast : any;
 let onUpdateVolumeIndicator : any;
 let onRemoteUserJoined : any;
-let onRemoteUserLeft : any;
+let onSourceDisconnected : any;
 
 let remoteSources : { [uid: string] : Source; } = {};
 let worker : Worker = undefined;
 
-let hifiSources: { [name: string]: AudioWorkletNodeMeta } = {};
+let hifiSources: { [uid: string]: AudioWorkletNodeMeta } = {};
 let hifiNoiseGate  : AudioWorkletNode;  // mic stream connects here
 let hifiListener : AudioWorkletNodeMeta;   // hifiSource connects here
 let hifiLimiter : AudioWorkletNode;    // additional sounds connect here
@@ -110,7 +110,7 @@ let hifiLimiter : AudioWorkletNode;    // additional sounds connect here
 let audioElement : HTMLAudioElement;
 let audioContext : AudioContext;
 
-let hifiPosition = { x: 0.0, y: 0.0, z: 0.0, o: 0.0 };
+let listenerPosition = { x: 0.0, y: 0.0, z: 0.0, o: 0.0 };
 
 let subscribedToAudio : { [uid: string] : boolean; } = {};
 let subscribedToVideo : { [uid: string] : boolean; } = {};
@@ -304,14 +304,14 @@ function angleWrap(angle : number) {
 
 
 function setPositionFromMetadata(hifiSource : AudioWorkletNodeMeta) {
-    let dx = hifiSource._x - hifiPosition.x;
-    let dy = hifiSource._y - hifiPosition.y;
+    let dx = hifiSource._x - listenerPosition.x;
+    let dy = hifiSource._y - listenerPosition.y;
 
     let distanceSquared = dx * dx + dy * dy;
     let distance = Math.sqrt(distanceSquared);
     let angle = (distanceSquared < 1e-30) ? 0.0 : fastAtan2(dx, dy);
 
-    let azimuth = angleWrap(angle - hifiPosition.o);
+    let azimuth = angleWrap(angle - listenerPosition.o);
 
     hifiSource.parameters.get('azimuth').value = azimuth;
     hifiSource.parameters.get('distance').value = distance;
@@ -340,14 +340,15 @@ export function setPolarSourcePosition(uid : string, azimuth : number, distance 
 /**
    Set the absolute position of a Source in the virtual audio space
    @param uid - the ID of a remote source.
-   @param azimuth - An angle in radians from which a remote source's audio will seem to arrive.  Positive values are clockwise from the listener's "straight ahead" direction.
-   @param distance - How far the Source is from the Listener, in meters.
+   @param x - position within virtual audio space, in meters.
+   @param y - position within virtual audio space, in meters.
 */
-export function setSourcePosition(uid : string, x : number, y : number, z : number) : void {
+export function setSourcePosition(uid : string, x : number, y : number) : void {
     let hifiSource = hifiSources[uid];
     if (hifiSource !== undefined) {
         hifiSource._x = x;
         hifiSource._y = y;
+        hifiSource._o = 0.0;
         setPositionFromMetadata(hifiSource);
     }
 }
@@ -359,11 +360,15 @@ export function setSourcePosition(uid : string, x : number, y : number, z : numb
    @param e - The new position for the local source, to be transmitted to remote listeners.
 */
 export function setListenerPosition(e : MetaData) : void {
-    hifiPosition.x = e.x;
-    hifiPosition.y = e.y;
-    hifiPosition.o = e.o;
+    listenerPosition.x = e.x;
+    listenerPosition.y = e.y;
+    listenerPosition.o = e.o;
     if (hifiOptions.enableMetadata) {
-        listenerMetadata(hifiPosition);
+        listenerMetadata(listenerPosition);
+    }
+
+    for (const uid in hifiSources) {
+        setPositionFromMetadata(hifiSources[ uid ]);
     }
 }
 
@@ -387,7 +392,7 @@ export function on(eventName : string, callback : Function) {
     } else if (eventName == "remote-source-connected") {
         onRemoteUserJoined = callback;
     } else if (eventName == "remote-source-disconnected") {
-        onRemoteUserLeft = callback;
+        onSourceDisconnected = callback;
     } else {
         console.log("Error: unknown event-name: " + eventName);
     }
@@ -417,9 +422,9 @@ export async function join(setTransport : TransportManager,
     hifiOptions.uid = uid;
     hifiOptions.channel = channel;
     if (initialPosition) {
-        hifiPosition.x = initialPosition.x;
-        hifiPosition.y = initialPosition.y;
-        hifiPosition.o = initialPosition.o;
+        listenerPosition.x = initialPosition.x;
+        listenerPosition.y = initialPosition.y;
+        listenerPosition.o = initialPosition.o;
     }
     if (!hifiOptions.thresholdSet) {
         hifiOptions.thresholdValue = initialThresholdValue;
@@ -510,7 +515,7 @@ async function joinTransportRoom() : Promise<string> {
 
     if (hifiOptions.enableMetadata) {
         installSenderTransform(transport.getSharedAudioSender());
-        listenerMetadata(hifiPosition);
+        listenerMetadata(listenerPosition);
     }
 
     // handle broadcast from remote user
@@ -531,7 +536,7 @@ async function joinTransportRoom() : Promise<string> {
             console.warn('RECONNECT for local audioTrack:', uid);
             if (hifiOptions.enableMetadata) {
                 installSenderTransform(transport.getSharedAudioSender());
-                listenerMetadata(hifiPosition);
+                listenerMetadata(listenerPosition);
             }
 
         } else {
@@ -603,8 +608,8 @@ export async function leave(willRestart : boolean) {
     transport.reset();
 
     for (var uid in remoteSources) {
-        if (onRemoteUserLeft) {
-            onRemoteUserLeft("" + uid);
+        if (onSourceDisconnected) {
+            onSourceDisconnected("" + uid);
         }
         delete subscribedToAudio[ "" + uid ];
         delete subscribedToVideo[ "" + uid ];
@@ -618,7 +623,7 @@ function handleUserPublished(user : Source, mediaType : string) {
 
     if (hifiOptions.enableMetadata) {
         installSenderTransform(user.getAudioSender());
-        listenerMetadata(hifiPosition);
+        listenerMetadata(listenerPosition);
     }
 
     const id = user.uid;
@@ -632,8 +637,8 @@ function handleUserUnpublished(user : Source, mediaType : string) {
 
     const uid = user.uid;
     delete remoteSources["" + uid];
-    if (onRemoteUserLeft) {
-        onRemoteUserLeft("" + uid);
+    if (onSourceDisconnected) {
+        onSourceDisconnected("" + uid);
     }
     unsubscribe(user);
 }
@@ -813,7 +818,11 @@ function stopSpatialAudio(willRestart : boolean) {
     worker = undefined;
 }
 
-/** @ignore */
+/**
+   Play a non-spatialized sound.
+   @param buffer - audio data for sound
+   @param loop - true if the sound should restart, once the end of `buffer` is reached.
+ */
 export async function playSoundEffect(buffer : ArrayBuffer, loop : boolean) : Promise<AudioBufferSourceNode> {
     console.log("hifi-audio: playSoundEffect()");
 
@@ -827,7 +836,11 @@ export async function playSoundEffect(buffer : ArrayBuffer, loop : boolean) : Pr
 }
 
 
-/** @ignore */
+/**
+   Play a non-spatialized sound.
+   @param url - location from which to load audio data
+   @param loop - true if the sound should restart, once the end of `buffer` is reached.
+*/
 export async function playSoundEffectFromURL(url : string, loop : boolean) : Promise<AudioBufferSourceNode> {
     console.log("hifi-audio: playSoundEffectFromURL()");
 
@@ -840,4 +853,51 @@ export async function playSoundEffectFromURL(url : string, loop : boolean) : Pro
     sourceNode.connect(hifiLimiter);
     sourceNode.start();
     return sourceNode;
+}
+
+
+/**
+   Play a spatialized sound.
+   @param buffer - audio data to play
+   @param loop - true if the sound should restart, once the end of `buffer` is reached.
+*/
+export async function addLocalAudioSource(buffer : ArrayBuffer, loop : boolean) : Promise<string> {
+    let sourceNode = new AudioBufferSourceNode(audioContext);
+    let audioBuffer = await audioContext.decodeAudioData(buffer);
+    sourceNode.buffer = audioBuffer;
+    sourceNode.loop = loop;
+
+    let uid = transport.generateUniqueID();
+
+    let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
+    hifiSources[uid] = hifiSource;
+    sourceNode.connect(hifiSource).connect(hifiListener);
+    sourceNode.start();
+
+    return uid;
+}
+
+
+/**
+   Play a spatialized sound.
+   @param buffer - audio data to play
+   @param loop - true if the sound should restart, once the end of `buffer` is reached.
+*/
+export async function stopAudioSource(uid : string) : Promise<void> {
+    let source = hifiSources[uid];
+    if (!source) {
+        console.log("can't stop local source, unknown ID: " + uid);
+        return;
+    }
+    // if (!source.isLocal) {
+    //     console.log("can't stop source, isn't local: " + uid);
+    //     return;
+    // }
+
+    source.disconnect();
+    delete hifiSources[uid];
+
+    if (onSourceDisconnected) {
+        onSourceDisconnected("" + uid);
+    }
 }

@@ -42,7 +42,9 @@ module.exports = ({ buildEnv }) => {
                     { from: "example/listener.svg", to: "" },
                     { from: "example/sound.wav", to: "" },
                     { from: "example/source.svg", to: "" },
-                    { from: "vendor/*", to: "" }
+                    { from: "example/sound.svg", to: "" },
+                    { from: "vendor/*", to: "" },
+                    { from: "sounds/*", to: "" }
                 ],
             }),
         ],
