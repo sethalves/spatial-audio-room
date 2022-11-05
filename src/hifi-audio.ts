@@ -869,6 +869,18 @@ export async function addLocalAudioSource(buffer : ArrayBuffer, loop : boolean) 
 
     let uid = transport.generateUniqueID();
 
+    remoteSources[ uid ] = {
+        uid : uid,
+        getAudioSender : () => { return null },
+        getAudioReceiver : () => { return null },
+        getAudioTrack : () => { return null },
+        getVideoTrack : () => { return null },
+        hasAudio : true,
+        hasVideo : false,
+        isRemote : false,
+        isLocal : true
+    };
+
     let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
     hifiSources[uid] = hifiSource;
     sourceNode.connect(hifiSource).connect(hifiListener);
@@ -889,10 +901,14 @@ export async function stopAudioSource(uid : string) : Promise<void> {
         console.log("can't stop local source, unknown ID: " + uid);
         return;
     }
-    // if (!source.isLocal) {
-    //     console.log("can't stop source, isn't local: " + uid);
-    //     return;
-    // }
+
+    let audioSource = remoteSources[ uid ];
+    if (!audioSource) {
+        console.log("can't stop local audio source, unknown ID: " + uid);
+    }
+    if (!audioSource.isLocal) {
+        console.log("can't stop audio source, isn't local: " + uid);
+    }
 
     source.disconnect();
     delete hifiSources[uid];
@@ -900,4 +916,6 @@ export async function stopAudioSource(uid : string) : Promise<void> {
     if (onSourceDisconnected) {
         onSourceDisconnected("" + uid);
     }
+    delete subscribedToAudio[ "" + uid ];
+    delete subscribedToVideo[ "" + uid ];
 }
