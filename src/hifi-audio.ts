@@ -867,7 +867,7 @@ export async function addLocalAudioSource(buffer : ArrayBuffer, loop : boolean) 
     sourceNode.buffer = audioBuffer;
     sourceNode.loop = loop;
 
-    let uid = transport.generateUniqueID();
+    let uid = "" + transport.generateUniqueID();
 
     remoteSources[ uid ] = {
         uid : uid,
@@ -886,23 +886,24 @@ export async function addLocalAudioSource(buffer : ArrayBuffer, loop : boolean) 
     sourceNode.connect(hifiSource).connect(hifiListener);
     sourceNode.start();
 
-    return uid;
+    return new Promise<string>((resolve) => {
+        resolve(uid);
+    });
 }
 
 
 /**
-   Play a spatialized sound.
-   @param buffer - audio data to play
-   @param loop - true if the sound should restart, once the end of `buffer` is reached.
+   Stop playing a spatialized sound.
+   @param uid - id of source to stop
 */
-export async function stopAudioSource(uid : string) : Promise<void> {
-    let source = hifiSources[uid];
+export function stopAudioSource(uid : string) : void {
+    let source = hifiSources["" + uid];
     if (!source) {
         console.log("can't stop local source, unknown ID: " + uid);
         return;
     }
 
-    let audioSource = remoteSources[ uid ];
+    let audioSource = remoteSources[ "" + uid ];
     if (!audioSource) {
         console.log("can't stop local audio source, unknown ID: " + uid);
     }
@@ -911,7 +912,7 @@ export async function stopAudioSource(uid : string) : Promise<void> {
     }
 
     source.disconnect();
-    delete hifiSources[uid];
+    delete hifiSources["" + uid];
 
     if (onSourceDisconnected) {
         onSourceDisconnected("" + uid);

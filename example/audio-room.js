@@ -25,6 +25,7 @@ let elements = [];
 let listenerUid;
 let usernames = {};
 let joined = false;
+let localSourcesEnabled = true;
 
 // characterPosition x and y are floats [0.0, 1.0)
 let characterPosition = {
@@ -144,7 +145,7 @@ for (const [key, value] of Object.entries(roomOptions)) {
 let currentRoomID = roomIDs[0];
 let serverCurrentRoomID = roomIDs[0];
 
-let localAudioSourceIDs = [];
+let localAudioSourceIDs = {};
 
 
 // assume token server is on same webserver as this app...
@@ -258,6 +259,20 @@ $("#aec").click(async function(e) {
         await HiFiAudio.playVideo(listenerUid, "local-player");
     }
 })
+
+
+$("#local").click(async function(e) {
+    if (localSourcesEnabled) {
+        await stopLocalSources();
+        localSourcesEnabled = false;
+    } else {
+        await startLocalSources();
+        localSourcesEnabled = true;
+    }
+    updateAudioControlsUI();
+})
+
+
 
 $("#mute").click(function(e) {
     // toggle the state
@@ -465,6 +480,8 @@ function onUserUnpublished(uid) {
         // find and remove this uid
         let i = elements.findIndex(e => e.uid === uid);
         elements.splice(i, 1);
+
+        delete localAudioSourceIDs[ uid ];
     }
 }
 
@@ -640,9 +657,8 @@ async function joinRoom() {
         canvasControl.draw();
     }
 
-    for (let src of ropts.localAudioSources) {
-        let localSourceUID = await startLocalSound(src.url, src.x, src.y);
-        localAudioSourceIDs.push(localSourceUID);
+    if (localSourcesEnabled) {
+        startLocalSources();
     }
 
     updateAudioControlsUI();
@@ -691,6 +707,9 @@ function setUsername(username) {
 function updateAudioControlsUI() {
     $("#aec").css("background-color", HiFiAudio.isAecEnabled() ? "purple" : "");
     $("#aec").prop('checked', HiFiAudio.isAecEnabled());
+
+    $("#local").css("background-color", localSourcesEnabled ? "purple" : "");
+    $("#local").prop('checked', localSourcesEnabled);
 
     $("#mute").css("background-color", HiFiAudio.isMutedEnabled() ? "purple" : "");
     $("#mute").prop('checked', HiFiAudio.isMutedEnabled());
@@ -792,24 +811,24 @@ async function startLocalSound(url, x, y) {
 
     usernames[sourceUID] = url.substring(url.lastIndexOf("/")+1, url.lastIndexOf("."));
     console.log('Started local sound:', url);
+
+    return sourceUID;
 }
 
 
-async function stopLocalSound(uid) {
-
-    if (uid >= 0) {
-        console.warn("ERROR: Local source uid must be < 0!");
-        return;
+async function startLocalSources() {
+    let ropts = roomOptions[ currentRoomID ];
+    for (let src of ropts.localAudioSources) {
+        let localSourceUID = await startLocalSound(src.url, src.x, src.y);
+        console.log("starting local source id=" + localSourceUID + " url=" + src.url);
+        localAudioSourceIDs[ localSourceUID ] = true;
     }
-    let username = usernames[uid];
+}
 
-    hifiSources[uid].disconnect();
-    delete hifiSources[uid];
-    delete usernames[uid];
 
-    // find and remove this uid
-    let i = elements.findIndex(e => e.uid === uid);
-    if (i > -1) elements.splice(i, 1);
-
-    console.log('Stopped local sound:', username);
+async function stopLocalSources() {
+    for (let localSourceUID in localAudioSourceIDs) {
+        console.log("stopping local source id=" + localSourceUID);
+        HiFiAudio.stopAudioSource(localSourceUID);
+    }
 }
