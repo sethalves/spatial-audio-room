@@ -43,7 +43,11 @@ The nodes in this package are compatible with standard WebAudio nodes.  They can
 
 # Installation
 
-use npm somehow
+To include the High Fidelity Core Audio Engine library in your project, use npm:
+
+```sh
+npm install hifi-web-audio@1.0.0-0 --registry https://npm.highfidelity.com/
+```
 
 # Getting Started
 

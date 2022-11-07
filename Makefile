@@ -43,5 +43,8 @@ deps:
 install:
 	rsync -avP --delete dist/ /var/www/html/audio-room/
 
+publish:
+	npm install hifi-web-audio@1.0.0-0 --registry http://localhost:4873
+
 clean:
 	rm -rf dist
