@@ -304,6 +304,10 @@ function angleWrap(angle : number) {
 
 
 function setPositionFromMetadata(hifiSource : AudioWorkletNodeMeta) {
+    if (hifiSource._x === undefined || hifiSource._y == undefined) {
+        return;
+    }
+
     let dx = hifiSource._x - listenerPosition.x;
     let dy = hifiSource._y - listenerPosition.y;
 
@@ -357,12 +361,14 @@ export function setSourcePosition(uid : string, x : number, y : number) : void {
 
 /**
    Set the position of the local audio source.  If `join` was called with `enableMetadata`=`true`, this position will be encoded and sent along with the local source's audio.  Remote listeners will receive the position and can update their world-view.
-   @param e - The new position for the local source, to be transmitted to remote listeners.
+   @param x - x position in virtual audio space
+   @param y - y position in virtual audio space
+   @param o - direction source is facing
 */
-export function setListenerPosition(e : MetaData) : void {
-    listenerPosition.x = e.x;
-    listenerPosition.y = e.y;
-    listenerPosition.o = e.o;
+export function setListenerPosition(x : number, y : number, o : number) : void {
+    listenerPosition.x = x;
+    listenerPosition.y = y;
+    listenerPosition.o = o;
     if (hifiOptions.enableMetadata) {
         listenerMetadata(listenerPosition);
     }

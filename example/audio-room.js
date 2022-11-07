@@ -345,7 +345,8 @@ function updatePositions(elts) {
             setCharacterPositionY(y);
             characterPosition.o = e.o;
             clampCharacterPosition();
-            HiFiAudio.setListenerPosition(getCharacterPositionInAudioSpace());
+            let metaData = getCharacterPositionInAudioSpace();
+            HiFiAudio.setListenerPosition(metaData.x, metaData.y, metaData.o);
         } else if (e.clickable) {
             HiFiAudio.setSourcePosition(e.uid, x, y);
         }
@@ -377,12 +378,16 @@ function updateVideoPositions() {
     order.forEach((uid, i) => {
         let rect = sortable.el.children[i].getClientRects();
         if (rect && rect[0]) {
-            let x = (rect[0].left + rect[0].right) / 2 - xoff;
-            let azimuth = (Math.PI / 2) * (x / xmax);   // linear, not atan(x)
 
-            // update hifiSource
-            HiFiAudio.setPolarSourcePosition(uid, azimuth, 1.0);
-            console.log("Set uid =", uid, "to azimuth =", (azimuth * 180) / Math.PI);
+            let x = (rect[0].left + rect[0].right) / 2 - xoff;
+            let rectWidth = rect[0].right - rect[0].left;
+            let xInAudioSpace = x / rectWidth;
+
+            if (uid == listenerUid || uid == 0) {
+                HiFiAudio.setListenerPosition(xInAudioSpace, 0, 0);
+            } else {
+                HiFiAudio.setSourcePosition(uid, xInAudioSpace, 0);
+            }
         }
     });
 }
