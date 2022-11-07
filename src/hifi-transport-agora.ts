@@ -206,7 +206,7 @@ export class TransportManagerAgora implements TransportManager {
             return track;
         };
         (user as unknown as Source).getVideoTrack = () => {
-            let track = user.audioTrack as unknown as Track;
+            let track = user.videoTrack as unknown as Track;
             track.close = () => { };
             return track;
         };
