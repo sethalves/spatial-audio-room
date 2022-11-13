@@ -9,9 +9,18 @@
 
 'use strict';
 
-import * as HiFiAudio from './hifi-audio.js'
-import { TransportManagerP2P } from "./hifi-transport-p2p.js";
-import { TransportManagerAgora } from "./hifi-transport-agora.js";
+// import * as HiFiAudio from 'hifi-web-audio/dist/hifi-audio.js'
+// import { TransportManagerP2P } from "hifi-web-audio/dist/hifi-transport-p2p.js";
+// import { TransportManagerAgora } from "hifi-web-audio/dist/hifi-transport-agora.js";
+
+// import { addLocalAudioSource, isAecEnabled, isChrome, isMutedEnabled, join, leave, on, playVideo, sendBroadcastMessage,
+//          setAecEnabled, setListenerPosition, setMutedEnabled, setSourcePosition, setThreshold, stopAudioSource
+//        } as HiFiAudio from "hifi-web-audio"
+
+import * as HiFiAudio from "hifi-web-audio"
+import { TransportManagerP2P } from "hifi-web-audio"
+import { TransportManagerAgora } from "hifi-web-audio"
+
 
 import { CanvasControl } from './canvas-control.js'
 

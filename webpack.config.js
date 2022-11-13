@@ -7,12 +7,7 @@ module.exports = ({ buildEnv }) => {
         entry: {
             "Audio": [
                 './example/canvas-control.js',
-                './example/audio-room.js',
-                './src/check-supported.js',
-                './src/patchRTCPeerConnection.js',
-                './src/fast-atan2.js',
-                './src/hifi-audio.ts',
-                './src/hifi-transport-agora.ts'
+                './example/audio-room.js'
             ],
         },
         plugins: [
@@ -21,8 +16,6 @@ module.exports = ({ buildEnv }) => {
             }),
             new CopyPlugin({
                 patterns: [
-                    { from: "assets/hifi.wasm.js", to: "" },
-                    { from: "assets/hifi.wasm.simd.js", to: "" },
                     { from: "assets/Logo-HighFidelity-Line-PrimaryBlue.svg", to: "" },
                     { from: "assets/High-Fidelity_Imagery_Brand_Logo_Left-Lockup_Black_v01.svg", to: "" },
                     { from: "assets/High-Fidelity_Imagery_Brand_Logo_Top-Right-Lockup_Black_v01-01.svg", to: "" },
@@ -31,7 +24,6 @@ module.exports = ({ buildEnv }) => {
                     { from: "assets/favicon.ico", to: "" },
                     { from: "assets/safari-pinned-tab.svg", to: "" },
                     { from: "assets/table.svg", to: "" },
-                    { from: "assets/worker.js", to: "" },
                     { from: "assets/logo-white.svg", to: "" },
                     { from: "assets/controls-bg.jpg", to: "" },
                     { from: "assets/controls-bg-m.jpg", to: "" },
@@ -44,33 +36,17 @@ module.exports = ({ buildEnv }) => {
                     { from: "example/source.svg", to: "" },
                     { from: "example/sound.svg", to: "" },
                     { from: "vendor/*", to: "" },
-                    { from: "sounds/*", to: "" }
+                    { from: "sounds/*", to: "" },
+                    { from: "node_modules/hifi-web-audio/dist/hifi.wasm.js", to: "" },
+                    { from: "node_modules/hifi-web-audio/dist/hifi.wasm.simd.js", to: "" },
+                    { from: "node_modules/hifi-web-audio/dist/worker.js", to: "" },
                 ],
             }),
         ],
         output: {
             filename: `audio-room.js`,
             path: path.resolve(__dirname, 'dist')
-        },
-        module: {
-            rules: [
-                {
-                    use: 'ts-loader',
-                    exclude: /node_modules/,
-                },
-            ],
-        },
-        resolve: {
-            extensions: ['.ts', '.js'],
-            alias: {
-                './hifi-audio.js$': path.resolve(__dirname, 'src/hifi-audio.ts'),
-                './hifi-transport.js$': path.resolve(__dirname, 'src/hifi-transport.ts'),
-                './hifi-transport-agora.js$': path.resolve(__dirname, 'src/hifi-transport-agora.ts'),
-                './hifi-transport-p2p.js$': path.resolve(__dirname, 'src/hifi-transport-p2p.ts'),
-                './transform.js$': path.resolve(__dirname, 'src/transform.ts'),
-                './fast-atan2.js$': path.resolve(__dirname, 'src/fast-atan2.js')
-            },
-        },
+        }
     };
 
     if (buildEnv !== "prod") {
