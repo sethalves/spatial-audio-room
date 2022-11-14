@@ -111,10 +111,10 @@ const roomOptions = {
         canvasDimensions: { width: 4, height: 4 },
         background: "Table_semi-transparent_HF_Logo.svg",
         localAudioSources: [
-            { x: -1.6, y: -1.6, url: "sounds/campfire.wav" },
-            { x: -1.6, y:  1.6, url: "sounds/owl.wav" },
-            { x:  1.6, y:  1.6, url: "sounds/waterfall.wav" },
-            { x:  1.6, y: -1.6, url: "sounds/thunder.wav" }
+            { x: -1.6, y: -1.6, o: 0.0, url: "sounds/campfire.wav" },
+            { x: -1.6, y:  1.6, o: 0.0, url: "sounds/owl.wav" },
+            { x:  1.6, y:  1.6, o: 0.0, url: "sounds/waterfall.wav" },
+            { x:  1.6, y: -1.6, o: 0.0, url: "sounds/thunder.wav" }
         ]
     },
 
@@ -801,42 +801,66 @@ function setOwnPosition(p) {
 }
 
 
-async function startLocalSound(url, x, y) {
+async function startLocalSounds(soundSpecs) {
 
-    // load the audio file
-    let response = await fetch(url);
-    let buffer = await response.arrayBuffer();
+    // load the audio files
+    let loaders = [];
+    for (let spec of soundSpecs) {
+        loaders.push(new Promise((resolve, reject) => {
+            fetch(spec.url).then((response) => {
+                return resolve(response.arrayBuffer());
+            });
+        }));
+    }
+    let buffers = await Promise.all(loaders); // buffers is an array of ArrayBuffer
 
-    let sourceUID = await HiFiAudio.addLocalAudioSource(buffer, true);
-    HiFiAudio.setSourcePosition(sourceUID, x, y);
+    let finishedCount = 0;
+    let stopped = false;
 
-    // add GUI element
-    let ropts = roomOptions[ currentRoomID ];
-    elements.push({
-        icon: 'soundIcon',
-        x: 0.5 + (x / ropts.canvasDimensions.width),
-        y: 0.5 - (y / ropts.canvasDimensions.height),
-        o: 0.0,
-        radius: 0.02,
-        alpha: 0.5,
-        clickable: true,
-        uid: sourceUID
-    });
+    let startSynchronizedSounds = async () => {
+        for (let i = 0; i < soundSpecs.length; i++) {
+            let url = soundSpecs[ i ].url;
+            let buffer = buffers[ i ].slice(0); // slice to keep original buffer from being detached
+            let sourceUID = await HiFiAudio.addLocalAudioSource(buffer, false, async (uid, event) => {
+                console.log("ENDED: " + uid);
+                finishedCount++;
+                if (!localAudioSourceIDs[ uid ]) {
+                    // if something else removed a source, stop looping
+                    stopped = true;
+                }
+                if (!stopped && finishedCount == buffers.length) {
+                    // once all the sources have triggered the "ended" event, restart them (at the same time)
+                    finishedCount = 0;
+                    await startSynchronizedSounds();
+                }
+            });
+            HiFiAudio.setSourcePosition(sourceUID, soundSpecs[ i ].x, soundSpecs[ i ].y);
 
-    usernames[sourceUID] = url.substring(url.lastIndexOf("/")+1, url.lastIndexOf("."));
-    console.log('Started local sound:', url);
+            usernames[sourceUID] = url.substring(url.lastIndexOf("/")+1, url.lastIndexOf("."));
+            localAudioSourceIDs[ sourceUID ] = true;
 
-    return sourceUID;
+            // add GUI element
+            let ropts = roomOptions[ currentRoomID ];
+            elements.push({
+                icon: 'soundIcon',
+                x: 0.5 + (soundSpecs[ i ].x / ropts.canvasDimensions.width),
+                y: 0.5 - (soundSpecs[ i ].y / ropts.canvasDimensions.height),
+                o: soundSpecs[ i ].o,
+                radius: 0.02,
+                alpha: 0.5,
+                clickable: true,
+                uid: sourceUID
+            });
+        }
+    };
+
+    await startSynchronizedSounds();
 }
 
 
 async function startLocalSources() {
     let ropts = roomOptions[ currentRoomID ];
-    for (let src of ropts.localAudioSources) {
-        let localSourceUID = await startLocalSound(src.url, src.x, src.y);
-        console.log("starting local source id=" + localSourceUID + " url=" + src.url);
-        localAudioSourceIDs[ localSourceUID ] = true;
-    }
+    await startLocalSounds(ropts.localAudioSources);
 }
 
 
