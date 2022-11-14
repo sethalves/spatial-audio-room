@@ -110,11 +110,37 @@ const roomOptions = {
         ],
         canvasDimensions: { width: 4, height: 4 },
         background: "Table_semi-transparent_HF_Logo.svg",
+        // localAudioSources: [
+        //     [{ x: -1.6, y: -1.6, o: 0.0, url: "sounds/campfire.wav" },
+        //      { x: -1.6, y:  1.6, o: 0.0, url: "sounds/owl.wav" },
+        //      { x:  1.6, y:  1.6, o: 0.0, url: "sounds/waterfall.wav" },
+        //      { x:  1.6, y: -1.6, o: 0.0, url: "sounds/thunder.wav" }
+        //      ]
+        // ]
+
+        // HernanCattaneoWhiteOceanBurningMan2015.mp3 7 -7 315
+
         localAudioSources: [
-            { x: -1.6, y: -1.6, o: 0.0, url: "sounds/campfire.wav" },
-            { x: -1.6, y:  1.6, o: 0.0, url: "sounds/owl.wav" },
-            { x:  1.6, y:  1.6, o: 0.0, url: "sounds/waterfall.wav" },
-            { x:  1.6, y: -1.6, o: 0.0, url: "sounds/thunder.wav" }
+            // [{ x: -6, y: 6, o: 135, url: "sounds/ryan.mp3" },
+            //  { x: -4, y: 6, o: 225, url: "sounds/Jessica_Nunn.mp3" },
+            //  { x: -5, y: 4.4, o: 0, url: "sounds/jazmin_cano.mp3" }],
+
+            // [{ x: 5, y: 6, o: 135, url: "sounds/Sam.mp3" },
+            //  { x: 6, y: 5, o: 315, url: "sounds/Claire.mp3" }],
+
+            // [{ x: -5, y: -5, o: 225, url: "sounds/bridie2.mp3" },
+            //  { x: -5.8, y: -5.8, o: 45, url: "sounds/alan2.mp3" }]
+
+
+            [{ x: -1.5, y: 1.5, o: 135, url: "sounds/ryan.mp3" },
+             { x: -1, y: 1.5, o: 225, url: "sounds/Jessica_Nunn.mp3" },
+             { x: -1.2, y: 1.1, o: 0, url: "sounds/jazmin_cano.mp3" }],
+
+            [{ x: 1.2, y: 1.5, o: 135, url: "sounds/Sam.mp3" },
+             { x: 1.5, y: 1.2, o: 315, url: "sounds/Claire.mp3" }],
+
+            [{ x: -1.2, y: -1.2, o: 225, url: "sounds/bridie2.mp3" },
+             { x: -1.4, y: -1.2, o: 45, url: "sounds/alan2.mp3" }]
         ]
     },
 
@@ -860,7 +886,9 @@ async function startLocalSounds(soundSpecs) {
 
 async function startLocalSources() {
     let ropts = roomOptions[ currentRoomID ];
-    await startLocalSounds(ropts.localAudioSources);
+    for (let audioSourceGroup of ropts.localAudioSources) {
+        await startLocalSounds(audioSourceGroup);
+    }
 }
 
 
