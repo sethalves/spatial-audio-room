@@ -180,7 +180,7 @@ for (const [key, value] of Object.entries(roomOptions)) {
 let currentRoomID = roomIDs[0];
 let serverCurrentRoomID = roomIDs[0];
 
-let localAudioSourceIDs = {};
+let localAudioSources = {};
 
 
 // assume token server is on same webserver as this app...
@@ -521,7 +521,7 @@ function onUserUnpublished(uid) {
         let i = elements.findIndex(e => e.uid === uid);
         elements.splice(i, 1);
 
-        delete localAudioSourceIDs[ uid ];
+        delete localAudioSources[ uid ];
     }
 }
 
@@ -829,74 +829,70 @@ function setOwnPosition(p) {
 
 async function startLocalSounds(soundSpecs) {
 
-    // load the audio files
-    let loaders = [];
-    for (let spec of soundSpecs) {
-        loaders.push(new Promise((resolve, reject) => {
-            fetch(spec.url).then((response) => {
-                return resolve(response.arrayBuffer());
-            });
-        }));
-    }
-    let buffers = await Promise.all(loaders); // buffers is an array of ArrayBuffer
-
+    let thisGroupIDs = [];
+    let audioBuffers = [];
     let finishedCount = 0;
     let stopped = false;
 
-    let startSynchronizedSounds = async () => {
-
-        let slicedBuffers = [];
-        for (let i = 0; i < soundSpecs.length; i++) {
-            slicedBuffers.push(buffers[ i ].slice(0));  // slice to keep original buffer from being detached
+    let checkForRestart = async (uid, event) => {
+        console.log("ENDED: " + uid);
+        finishedCount++;
+        if (!localAudioSources[ uid ]) {
+            // if something else removed one of these sources, stop looping
+            stopped = true;
         }
-
-        let starters = [];
-        for (let i = 0; i < soundSpecs.length; i++) {
-            starters.push(new Promise((resolve, reject) => {
-                let url = soundSpecs[ i ].url;
-                let buffer = slicedBuffers[ i ];
-
-                let checkForRestart = async (uid, event) => {
-                    console.log("ENDED: " + uid);
-                    finishedCount++;
-                    if (!localAudioSourceIDs[ uid ]) {
-                        // if something else removed one of these sources, stop looping
-                        stopped = true;
-                    }
-                    if (!stopped && finishedCount == buffers.length) {
-                        // once all the sources have triggered the "ended" event, restart them (at the same time)
-                        finishedCount = 0;
-                        startSynchronizedSounds();
-                    }
-                };
-
-                HiFiAudio.addLocalAudioSource(buffer, false, checkForRestart).then((sourceUID) => {
-                    console.log("started sound " + url);
-
-                    HiFiAudio.setSourcePosition(sourceUID, soundSpecs[ i ].x, soundSpecs[ i ].y);
-
-                    usernames[sourceUID] = url.substring(url.lastIndexOf("/")+1, url.lastIndexOf("."));
-                    localAudioSourceIDs[ sourceUID ] = true;
-
-                    // add GUI element
-                    let ropts = roomOptions[ currentRoomID ];
-                    elements.push({
-                        icon: 'soundIcon',
-                        x: 0.5 + (soundSpecs[ i ].x / ropts.canvasDimensions.width),
-                        y: 0.5 - (soundSpecs[ i ].y / ropts.canvasDimensions.height),
-                        o: soundSpecs[ i ].o,
-                        radius: 0.02,
-                        alpha: 0.5,
-                        clickable: true,
-                        uid: sourceUID
-                    });
-
-                    resolve();
-                });
-            }));
+        if (!stopped && finishedCount == soundSpecs.length) {
+            // once all the sources have triggered the "ended" event, restart them (at the same time)
+            finishedCount = 0;
+            startSynchronizedSounds();
         }
-        await Promise.all(starters);
     };
+
+    let startSynchronizedSounds = async () => {
+        for (let i = 0; i < soundSpecs.length; i++) {
+            let source = localAudioSources[ thisGroupIDs[ i ] ];
+
+            let sourceNode = new AudioBufferSourceNode(HiFiAudio.audioContext);
+            sourceNode.buffer = audioBuffers[ i ];
+            sourceNode.loop = false;
+            sourceNode.connect(source.node);
+            sourceNode.addEventListener("ended", (event) => { checkForRestart(source.uid, event); });
+
+            sourceNode.start();
+            console.log("started sound " + soundSpecs[ i ].url);
+        }
+    };
+
+
+    for (let i = 0; i < soundSpecs.length; i++) {
+
+        // load the audio files
+        let url = soundSpecs[ i ].url;
+        let response = await fetch(url);
+        let buffer = await response.arrayBuffer();
+        // convert audio file data to AudioBuffers.  buffer becomes detached and can't be used again...
+        audioBuffers.push(await HiFiAudio.audioContext.decodeAudioData(buffer));
+
+        let source = HiFiAudio.addLocalAudioSource();
+        HiFiAudio.setSourcePosition(source.uid, soundSpecs[ i ].x, soundSpecs[ i ].y);
+        usernames[source.uid] = url.substring(url.lastIndexOf("/")+1, url.lastIndexOf("."));
+
+        thisGroupIDs.push(source.uid);
+        localAudioSources[ source.uid ] = source;
+
+        // add GUI element
+        let ropts = roomOptions[ currentRoomID ];
+        elements.push({
+            icon: 'soundIcon',
+            x: 0.5 + (soundSpecs[ i ].x / ropts.canvasDimensions.width),
+            y: 0.5 - (soundSpecs[ i ].y / ropts.canvasDimensions.height),
+            o: soundSpecs[ i ].o,
+            radius: 0.02,
+            alpha: 0.5,
+            clickable: true,
+            uid: source.uid
+        });
+    }
 
     await startSynchronizedSounds();
 }
@@ -911,7 +907,7 @@ async function startLocalSources() {
 
 
 async function stopLocalSources() {
-    for (let localSourceUID in localAudioSourceIDs) {
+    for (let localSourceUID in localAudioSources) {
         console.log("stopping local source id=" + localSourceUID);
         HiFiAudio.stopAudioSource(localSourceUID);
     }
