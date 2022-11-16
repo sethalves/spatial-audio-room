@@ -20,6 +20,7 @@ function degToRad(d) {
     return Math.PI * d / 180.0;
 }
 
+
 let options = {};
 let canvasControl;
 let elements = [];
@@ -35,6 +36,22 @@ let characterPosition = {
     o: 0.0
 };
 let characterPositionSet = false;
+
+
+let actionQueue = [];
+let queueRunning = false;
+async function runQueue() {
+    if (queueRunning) {
+        return;
+    }
+    queueRunning = true;
+    while (actionQueue.length > 0) {
+        let action = actionQueue.shift();
+        await action();
+    }
+    queueRunning = false;
+}
+
 
 
 function getCharacterPositionX() {
@@ -252,59 +269,76 @@ $(()=>{
 }
 )
 
-$("#username").change(function (e) {
-    options.username = $("#username").val();
-    $("#local-player-name").text(options.username);
-
-    // if already connected, update my name
-    setUsername(options.username)
+$("#username").change(async function (e) {
+    actionQueue.push(async () => {
+        options.username = $("#username").val();
+        $("#local-player-name").text(options.username);
+        // if already connected, update my name
+        setUsername(options.username);
+    });
+    runQueue();
 })
 
 $("#join-form").submit(async function(e) {
-    $("#leave").attr("disabled", true);
-    $("#join").attr("disabled", true);
-    e.preventDefault();
-    await joinRoom();
+    actionQueue.push(async () => {
+        $("#leave").attr("disabled", true);
+        $("#join").attr("disabled", true);
+        e.preventDefault();
+        await joinRoom();
+    });
+    runQueue();
 })
 
 $("#leave").click(async function(e) {
-    $("#leave").attr("disabled", true);
-    $("#join").attr("disabled", true);
-    await leaveRoom(false);
+    actionQueue.push(async () => {
+        $("#leave").attr("disabled", true);
+        $("#join").attr("disabled", true);
+        await leaveRoom(false);
+    });
+    runQueue();
 })
 
 
 $("#aec").click(async function(e) {
-    // toggle the state
-    await HiFiAudio.setAecEnabled(!HiFiAudio.isAecEnabled());
-    updateAudioControlsUI();
-    let ropts = roomOptions[ currentRoomID ];
-    if (ropts.video) {
-        await HiFiAudio.playVideo(listenerUid, "local-player");
-    }
+    // toggle the AEC state
+    actionQueue.push(async () => {
+        await HiFiAudio.setAecEnabled(!HiFiAudio.isAecEnabled());
+        updateAudioControlsUI();
+        let ropts = roomOptions[ currentRoomID ];
+        if (ropts.video) {
+            await HiFiAudio.playVideo(listenerUid, "local-player");
+        }
+    });
+    runQueue();
 })
 
 
 $("#local").click(async function(e) {
-    if (localSourcesEnabled) {
-        await stopLocalSources();
-        localSourcesEnabled = false;
-    } else {
-        await startLocalSources();
-        localSourcesEnabled = true;
-    }
-    updateAudioControlsUI();
+    actionQueue.push(async () => {
+        if (localSourcesEnabled) {
+            await stopLocalSources();
+            localSourcesEnabled = false;
+        } else {
+            await startLocalSources();
+            localSourcesEnabled = true;
+        }
+        updateAudioControlsUI();
+    });
+    runQueue();
 })
 
 
-
-$("#mute").click(function(e) {
-    // toggle the state
-    HiFiAudio.setMutedEnabled(!HiFiAudio.isMutedEnabled());
-    updateAudioControlsUI();
-    // if muted, set gate threshold to 0dB, else follow slider
-    HiFiAudio.setThreshold(HiFiAudio.isMutedEnabled() ? 0.0 : threshold.value);
+$("#mute").click(async function(e) {
+    actionQueue.push(async () => {
+        // toggle the state
+        HiFiAudio.setMutedEnabled(!HiFiAudio.isMutedEnabled());
+        updateAudioControlsUI();
+        // if muted, set gate threshold to 0dB, else follow slider
+        HiFiAudio.setThreshold(HiFiAudio.isMutedEnabled() ? 0.0 : threshold.value);
+    });
+    runQueue();
 })
+
 
 // $("#sound").click(async function(e) {
 //     let audioData = await fetch('https://raw.githubusercontent.com/kencooke/spatial-audio-room/master/sound.wav');
@@ -316,12 +350,15 @@ $("#mute").click(function(e) {
 
 for (const rID of roomIDs) {
     $("#" + rID).click(async function(e) {
-        if (joined) {
-            await leaveRoom(true);
-            currentRoomID = serverCurrentRoomID;
-        }
-        currentRoomID = rID;
-        await joinRoom();
+        actionQueue.push(async () => {
+            if (joined) {
+                await leaveRoom(true);
+                currentRoomID = serverCurrentRoomID;
+            }
+            currentRoomID = rID;
+            await joinRoom();
+        });
+        runQueue();
     })
 }
 
@@ -680,7 +717,7 @@ async function joinRoom() {
     }
 
     if (localSourcesEnabled) {
-        startLocalSources();
+        await startLocalSources();
     }
 
     updateAudioControlsUI();
