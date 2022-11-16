@@ -9,14 +9,6 @@
 
 'use strict';
 
-// import * as HiFiAudio from 'hifi-web-audio/dist/hifi-audio.js'
-// import { TransportManagerP2P } from "hifi-web-audio/dist/hifi-transport-p2p.js";
-// import { TransportManagerAgora } from "hifi-web-audio/dist/hifi-transport-agora.js";
-
-// import { addLocalAudioSource, isAecEnabled, isChrome, isMutedEnabled, join, leave, on, playVideo, sendBroadcastMessage,
-//          setAecEnabled, setListenerPosition, setMutedEnabled, setSourcePosition, setThreshold, stopAudioSource
-//        } as HiFiAudio from "hifi-web-audio"
-
 import * as HiFiAudio from "hifi-web-audio"
 import { TransportManagerP2P } from "hifi-web-audio"
 import { TransportManagerAgora } from "hifi-web-audio"
@@ -117,30 +109,14 @@ const roomOptions = {
         //      { x:  1.6, y: -1.6, o: 0.0, url: "sounds/thunder.wav" }
         //      ]
         // ]
-
-        // HernanCattaneoWhiteOceanBurningMan2015.mp3 7 -7 315
-
         localAudioSources: [
-            // [{ x: -6, y: 6, o: 135, url: "sounds/ryan.mp3" },
-            //  { x: -4, y: 6, o: 225, url: "sounds/Jessica_Nunn.mp3" },
-            //  { x: -5, y: 4.4, o: 0, url: "sounds/jazmin_cano.mp3" }],
-
-            // [{ x: 5, y: 6, o: 135, url: "sounds/Sam.mp3" },
-            //  { x: 6, y: 5, o: 315, url: "sounds/Claire.mp3" }],
-
-            // [{ x: -5, y: -5, o: 225, url: "sounds/bridie2.mp3" },
-            //  { x: -5.8, y: -5.8, o: 45, url: "sounds/alan2.mp3" }]
-
-
-            [{ x: -1.5, y: 1.5, o: 135, url: "sounds/ryan.mp3" },
-             { x: -1, y: 1.5, o: 225, url: "sounds/Jessica_Nunn.mp3" },
-             { x: -1.2, y: 1.1, o: 0, url: "sounds/jazmin_cano.mp3" }],
-
-            [{ x: 1.2, y: 1.5, o: 135, url: "sounds/Sam.mp3" },
-             { x: 1.5, y: 1.2, o: 315, url: "sounds/Claire.mp3" }],
-
-            [{ x: -1.2, y: -1.2, o: 225, url: "sounds/bridie2.mp3" },
-             { x: -1.4, y: -1.2, o: 45, url: "sounds/alan2.mp3" }]
+            // [{ x: -1.5, y: 1.5, o: 135, url: "sounds/ryan.mp3" },
+            //  { x: -1, y: 1.5, o: 225, url: "sounds/Jessica_Nunn.mp3" },
+            //  { x: -1.2, y: 1.1, o: 0, url: "sounds/jazmin_cano.mp3" }],
+            // [{ x: 1.2, y: 1.5, o: 135, url: "sounds/Sam.mp3" },
+            //  { x: 1.5, y: 1.2, o: 315, url: "sounds/Claire.mp3" }],
+            // [{ x: -1.2, y: -1.2, o: 225, url: "sounds/bridie2.mp3" },
+            //  { x: -1.4, y: -1.2, o: 45, url: "sounds/alan2.mp3" }]
         ]
     },
 
@@ -153,13 +129,26 @@ const roomOptions = {
         localAudioSources: []
     },
 
-    "room-bar": {
+    "room-bar-local": {
         video: false,
         metaData: true,
         positions: [],
         canvasDimensions: { width: 16, height: 16 },
         background: "Semi-transparent_HF_Logo.svg",
-        localAudioSources: []
+
+        localAudioSources: [
+            [{ x: -6, y: 6, o: 135, url: "sounds/ryan.mp3" },
+             { x: -4, y: 6, o: 225, url: "sounds/Jessica_Nunn.mp3" },
+             { x: -5, y: 4.4, o: 0, url: "sounds/jazmin_cano.mp3" }],
+
+            [{ x: 5, y: 6, o: 135, url: "sounds/Sam.mp3" },
+             { x: 6, y: 5, o: 315, url: "sounds/Claire.mp3" }],
+
+            [{ x: -5, y: -5, o: 225, url: "sounds/bridie2.mp3" },
+             { x: -5.8, y: -5.8, o: 45, url: "sounds/alan2.mp3" }]
+
+            // HernanCattaneoWhiteOceanBurningMan2015.mp3 7 -7 315
+        ]
     },
 
     "room-video": {
@@ -327,17 +316,10 @@ $("#mute").click(function(e) {
 
 for (const rID of roomIDs) {
     $("#" + rID).click(async function(e) {
-        // if (HiFiAudio.isChrome()) {
-            if (joined) {
-                await leaveRoom(true);
-                currentRoomID = serverCurrentRoomID;
-            }
-        // } else {
-        //     if (joined) {
-        //         return;
-        //     }
-        // }
-
+        if (joined) {
+            await leaveRoom(true);
+            currentRoomID = serverCurrentRoomID;
+        }
         currentRoomID = rID;
         await joinRoom();
     })
@@ -787,11 +769,7 @@ function updateRoomsUI() {
     }
 
     if (webSocket.readyState === WebSocket.OPEN) {
-        // if (HiFiAudio.isChrome()) {
-            setRoomButtonsEnabled(true);
-        // } else {
-        //     setRoomButtonsEnabled(!joined);
-        // }
+        setRoomButtonsEnabled(true);
         if (joined) {
             $("#join").attr("disabled", true);
         } else {
@@ -835,7 +813,6 @@ async function startLocalSounds(soundSpecs) {
     let stopped = false;
 
     let checkForRestart = async (uid, event) => {
-        console.log("ENDED: " + uid);
         finishedCount++;
         if (!localAudioSources[ uid ]) {
             // if something else removed one of these sources, stop looping
@@ -851,6 +828,7 @@ async function startLocalSounds(soundSpecs) {
     let startSynchronizedSounds = async () => {
         for (let i = 0; i < soundSpecs.length; i++) {
             let source = localAudioSources[ thisGroupIDs[ i ] ];
+            if (!source) break;
 
             let sourceNode = new AudioBufferSourceNode(HiFiAudio.audioContext);
             sourceNode.buffer = audioBuffers[ i ];
@@ -863,9 +841,7 @@ async function startLocalSounds(soundSpecs) {
         }
     };
 
-
     for (let i = 0; i < soundSpecs.length; i++) {
-
         // load the audio files
         let url = soundSpecs[ i ].url;
         let response = await fetch(url);

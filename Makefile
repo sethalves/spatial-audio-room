@@ -24,7 +24,7 @@ webpack:
 	${WEBPACK} --env buildEnv=prod
 
 deps:
-	npm uninstall webpack webpack-cli copy-webpack-plugin ts-loader hifi-web-audio agora-rtc-sdk-ng typedoc
+	npm uninstall webpack webpack-cli copy-webpack-plugin ts-loader hifi-web-audio agora-rtc-sdk-ng async-mutex typedoc
 	rm -rf node_modules
 	npm cache clean --force
 	npm install webpack webpack-cli copy-webpack-plugin ts-loader --save-dev
