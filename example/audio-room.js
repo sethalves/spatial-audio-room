@@ -777,17 +777,27 @@ function updateRoomsUI() {
         }
     }
 
-    let canvasContainer = document.getElementById("canvas-container");
-    let videoroomContainer = document.getElementById("playerlist");
-
     if (currentRoomID) {
         let ropts = roomOptions[ currentRoomID ];
+
+        let canvasContainer = document.getElementById("canvas-container");
+        let videoroomContainer = document.getElementById("playerlist");
         if (ropts.video) {
             canvasContainer.style.display = "none";
             videoroomContainer.style.display = "block";
         } else {
             canvasContainer.style.display = "block";
             videoroomContainer.style.display = "none";
+        }
+
+        let localSoundSwitchLabel = document.getElementById("local-source-switch-label");
+        let localSoundSwitchP = document.getElementById("local-source-switch-p");
+        if (ropts.localAudioSources.length > 0) {
+            localSoundSwitchLabel.style.display = "block";
+            localSoundSwitchP.style.display = "block";
+        } else {
+            localSoundSwitchLabel.style.display = "none";
+            localSoundSwitchP.style.display = "none";
         }
     }
 
