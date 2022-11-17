@@ -126,15 +126,7 @@ const roomOptions = {
         //      { x:  1.6, y: -1.6, o: 0.0, url: "sounds/thunder.wav" }
         //      ]
         // ]
-        localAudioSources: [
-            // [{ x: -1.5, y: 1.5, o: 135, url: "sounds/ryan.mp3" },
-            //  { x: -1, y: 1.5, o: 225, url: "sounds/Jessica_Nunn.mp3" },
-            //  { x: -1.2, y: 1.1, o: 0, url: "sounds/jazmin_cano.mp3" }],
-            // [{ x: 1.2, y: 1.5, o: 135, url: "sounds/Sam.mp3" },
-            //  { x: 1.5, y: 1.2, o: 315, url: "sounds/Claire.mp3" }],
-            // [{ x: -1.2, y: -1.2, o: 225, url: "sounds/bridie2.mp3" },
-            //  { x: -1.4, y: -1.2, o: 45, url: "sounds/alan2.mp3" }]
-        ]
+        localAudioSources: []
     },
 
     "room-quad-music": {
@@ -154,15 +146,15 @@ const roomOptions = {
         background: "Semi-transparent_HF_Logo.svg",
 
         localAudioSources: [
-            [{ x: -6, y: 6, o: 135, url: "sounds/ryan.mp3" },
-             { x: -4, y: 6, o: 225, url: "sounds/Jessica_Nunn.mp3" },
-             { x: -5, y: 4.4, o: 0, url: "sounds/jazmin_cano.mp3" }],
+            [{ x: -6, y: 6, o: 135, url: "sounds/ryan.mp3", name: "Ryan" },
+             { x: -4, y: 6, o: 225, url: "sounds/Jessica_Nunn.mp3", name: "Jessica" },
+             { x: -5, y: 4.4, o: 0, url: "sounds/jazmin_cano.mp3", name: "Jazmin" }],
 
-            [{ x: 5, y: 6, o: 135, url: "sounds/Sam.mp3" },
-             { x: 6, y: 5, o: 315, url: "sounds/Claire.mp3" }],
+            [{ x: 5, y: 6, o: 135, url: "sounds/Sam.mp3", name: "Sam" },
+             { x: 6, y: 5, o: 315, url: "sounds/Claire.mp3", name: "Claire" }],
 
-            [{ x: -5, y: -5, o: 225, url: "sounds/bridie2.mp3" },
-             { x: -5.8, y: -5.8, o: 45, url: "sounds/alan2.mp3" }]
+            [{ x: -5, y: -5, o: 225, url: "sounds/bridie2.mp3", name: "Bridie" },
+             { x: -5.8, y: -5.8, o: 45, url: "sounds/alan2.mp3", name: "Alan" }]
 
             // HernanCattaneoWhiteOceanBurningMan2015.mp3 7 -7 315
         ]
@@ -878,17 +870,27 @@ async function startLocalSounds(soundSpecs) {
         }
     };
 
+    // load and decode the audio files in parallel
+    let loaders = [];
     for (let i = 0; i < soundSpecs.length; i++) {
-        // load the audio files
-        let url = soundSpecs[ i ].url;
-        let response = await fetch(url);
-        let buffer = await response.arrayBuffer();
-        // convert audio file data to AudioBuffers.  buffer becomes detached and can't be used again...
-        audioBuffers.push(await HiFiAudio.audioContext.decodeAudioData(buffer));
+        loaders.push(new Promise((resolve, reject) => {
+            fetch(soundSpecs[ i ].url).then((response) => {
+                response.arrayBuffer().then((buffer) => {
+                    // convert audio file data to AudioBuffers.  buffer becomes detached and can't be used again...
+                    HiFiAudio.audioContext.decodeAudioData(buffer).then(resolve);
+                });
+            });
+        }));
+    }
+    audioBuffers = await Promise.all(loaders);
 
+    // set up source nodes and add GUI elements
+    for (let i = 0; i < soundSpecs.length; i++) {
+        let url = soundSpecs[ i ].url;
+        let name = soundSpecs[ i ].name;
         let source = HiFiAudio.addLocalAudioSource();
         HiFiAudio.setSourcePosition(source.uid, soundSpecs[ i ].x, soundSpecs[ i ].y);
-        usernames[source.uid] = url.substring(url.lastIndexOf("/")+1, url.lastIndexOf("."));
+        usernames[ source.uid ] = name;
 
         thisGroupIDs.push(source.uid);
         localAudioSources[ source.uid ] = source;
@@ -913,9 +915,11 @@ async function startLocalSounds(soundSpecs) {
 
 async function startLocalSources() {
     let ropts = roomOptions[ currentRoomID ];
+    let starters = [];
     for (let audioSourceGroup of ropts.localAudioSources) {
-        await startLocalSounds(audioSourceGroup);
+        starters.push(new Promise((resolve, reject) => { startLocalSounds(audioSourceGroup).then(resolve); }));
     }
+    await Promise.all(starters);
 }
 
 
