@@ -9,19 +9,6 @@
 
 'use strict';
 
-const simdBlob = Uint8Array.from([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]);
-const simdSupported = WebAssembly.validate(simdBlob);
-console.log('WebAssembly SIMD is ' + (simdSupported ? 'supported' : 'not supported') + ' by this browser.');
-
-const encodedTransformSupported = !!window.RTCRtpScriptTransform;
-console.log('WebRTC Encoded Transform is ' + (encodedTransformSupported ? 'supported' : 'not supported') + ' by this browser.');
-
-// patch RTCPeerConnection to enable insertable streams
-let _RTCPeerConnection = RTCPeerConnection;
-RTCPeerConnection = function(...config) {
-    if (config.length) config[0].encodedInsertableStreams = true;
-    return new _RTCPeerConnection(...config);
-}
 
 // create Agora client
 let client = AgoraRTC.createClient({
@@ -99,7 +86,7 @@ $("#leave").click(function(e) {
     $("#success-alert").css("display", "none");
 })
 
-let isAecEnabled = !window.chrome;
+let isAecEnabled = false; // !window.chrome;
 $("#aec").css("background-color", isAecEnabled ? "purple" : "");
 $("#aec").click(async function(e) {
     // toggle the state
@@ -154,36 +141,11 @@ let hifiSources = {};
 let hifiAudioLevels = {};
 let hifiAudioLevelsTimer = undefined;
 let hifiNoiseGate = undefined;  // mic stream connects here
-let hifiListener = undefined;   // hifiSource connects here
-let hifiLimiter = undefined;    // additional sounds connect here
 let hifiPosition = {
     x: 2.0 * Math.random() - 1.0,
     y: 2.0 * Math.random() - 1.0,
     o: 0.0
 };
-
-let worker = undefined;
-
-function listenerMetadata(position) {
-    let data = new DataView(new ArrayBuffer(5));
-
-    let qx = Math.round(position.x * 256.0);    // x in Q7.8
-    let qy = Math.round(position.y * 256.0);    // y in Q7.8
-    let qo = Math.round(position.o * (128.0 / Math.PI));    // brad in Q7
-
-    data.setInt16(0, qx);
-    data.setInt16(2, qy);
-    data.setInt8(4, qo);
-
-    if (encodedTransformSupported) {
-        worker.postMessage({
-            operation: 'metadata',
-            metadata: data.buffer
-        }, [data.buffer]);
-    } else {
-        metadata = data.buffer;
-    }
-}
 
 function sourceMetadata(buffer, uid) {
     let data = new DataView(buffer);
@@ -212,7 +174,7 @@ function sourceMetadata(buffer, uid) {
 
 function setThreshold(value) {
     if (hifiNoiseGate !== undefined) {
-        hifiNoiseGate.parameters.get('threshold').value = value;
+        hifiNoiseGate.setThreshold(value);
         console.log('set noisegate threshold to', value, 'dB');
     }
 }
@@ -279,8 +241,7 @@ function setPosition(hifiSource) {
 
     let azimuth = angleWrap(angle - hifiPosition.o);
 
-    hifiSource.parameters.get('azimuth').value = azimuth;
-    hifiSource.parameters.get('distance').value = distance;
+    hifiSource.setPosition(azimuth, distance);
 }
 
 function updatePositions(elements) {
@@ -370,17 +331,7 @@ function installSenderTransform() {
     let senders = client._p2pChannel.connection.peerConnection.getSenders();
     let sender = senders.find(e => e.track?.kind === 'audio');
 
-    if (encodedTransformSupported) {
-        // Encoded Transform
-        sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
-
-    } else {
-        // Insertable Streams
-        const senderStreams = sender.createEncodedStreams();
-        const readableStream = senderStreams.readable;
-        const writableStream = senderStreams.writable;
-        senderTransform(readableStream, writableStream);
-    }
+    setupSenderMetadata(sender);
 }
 
 function installReceiverTransform(trackId, uid) {
@@ -388,17 +339,7 @@ function installReceiverTransform(trackId, uid) {
     let receivers = client._p2pChannel.connection.peerConnection.getReceivers();
     let receiver = receivers.find(e => e.track?.id === trackId && e.track?.kind === 'audio');
 
-    if (encodedTransformSupported) {
-        // Encoded Transform
-        receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });
-
-    } else {
-        // Insertable Streams
-        const receiverStreams = receiver.createEncodedStreams();
-        const readableStream = receiverStreams.readable;
-        const writableStream = receiverStreams.writable;
-        receiverTransform(readableStream, writableStream, uid);
-    }
+    setupReceiverMetadata(receiver, uid, sourceMetadata);
 }
 
 async function join() {
@@ -488,7 +429,7 @@ async function join() {
     let sourceNode = audioContext.createMediaStreamSource(mediaStream);
     let destinationNode = audioContext.createMediaStreamDestination();
 
-    hifiNoiseGate = new AudioWorkletNode(audioContext, 'wasm-noise-gate', { channelCountMode: "explicit", channelCount: 1 });
+    hifiNoiseGate = new NoiseGate(audioContext);
     setThreshold(isMuteEnabled ? 0.0 : threshold.value);
 
     sourceNode.connect(hifiNoiseGate).connect(destinationNode);
@@ -587,9 +528,9 @@ async function subscribe(user, mediaType) {
         let sourceNode = audioContext.createMediaStreamSource(mediaStream);
 
         // connect to new hifiSource
-        let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input', { channelCountMode: "explicit", channelCount: 1 });
+        let hifiSource = new HRTFInput(audioContext);
         hifiSources[uid] = hifiSource;
-        sourceNode.connect(hifiSource).connect(hifiListener);
+        sourceNode.connect(hifiSource);
 
         // compute audio level for this source
         hifiAudioLevels[uid] = new AudioLevel(sourceNode);
@@ -631,45 +572,45 @@ async function unsubscribe(user) {
 // This should be removed when Chrome implements browser-wide echo cancellation.
 // https://bugs.chromium.org/p/chromium/issues/detail?id=687574#c60
 //
-let loopback = undefined;
-async function startEchoCancellation(element, context) {
+// let loopback = undefined;
+// async function startEchoCancellation(element, context) {
 
-    loopback = [new _RTCPeerConnection, new _RTCPeerConnection];
+//     loopback = [new _RTCPeerConnection, new _RTCPeerConnection];
 
-    // connect Web Audio to destination
-    let destination = context.createMediaStreamDestination();
-    hifiLimiter.connect(destination);
+//     // connect Web Audio to destination
+//     let destination = context.createMediaStreamDestination();
+//     hifiLimiter.connect(destination);
 
-    // connect through loopback peer connections
-    loopback[0].addTrack(destination.stream.getAudioTracks()[0]);
-    loopback[1].ontrack = e => element.srcObject = new MediaStream([e.track]);
+//     // connect through loopback peer connections
+//     loopback[0].addTrack(destination.stream.getAudioTracks()[0]);
+//     loopback[1].ontrack = e => element.srcObject = new MediaStream([e.track]);
 
-    async function iceGatheringComplete(pc) {
-        return pc.iceGatheringState === 'complete' ? pc.localDescription :
-            new Promise(resolve => {
-                pc.onicegatheringstatechange = e => { pc.iceGatheringState === 'complete' && resolve(pc.localDescription); };
-            });
-    }
+//     async function iceGatheringComplete(pc) {
+//         return pc.iceGatheringState === 'complete' ? pc.localDescription :
+//             new Promise(resolve => {
+//                 pc.onicegatheringstatechange = e => { pc.iceGatheringState === 'complete' && resolve(pc.localDescription); };
+//             });
+//     }
 
-    // start loopback peer connections
-    let offer = await loopback[0].createOffer();
-    offer.sdp = offer.sdp.replace('useinbandfec=1', 'useinbandfec=1; stereo=1; sprop-stereo=1; maxaveragebitrate=256000');
-    await loopback[0].setLocalDescription(offer);
-    await loopback[1].setRemoteDescription(await iceGatheringComplete(loopback[0]));
+//     // start loopback peer connections
+//     let offer = await loopback[0].createOffer();
+//     offer.sdp = offer.sdp.replace('useinbandfec=1', 'useinbandfec=1; stereo=1; sprop-stereo=1; maxaveragebitrate=256000');
+//     await loopback[0].setLocalDescription(offer);
+//     await loopback[1].setRemoteDescription(await iceGatheringComplete(loopback[0]));
 
-    let answer = await loopback[1].createAnswer();
-    answer.sdp = answer.sdp.replace('useinbandfec=1', 'useinbandfec=1; stereo=1; sprop-stereo=1; maxaveragebitrate=256000');
-    await loopback[1].setLocalDescription(answer);
-    await loopback[0].setRemoteDescription(await iceGatheringComplete(loopback[1]));
+//     let answer = await loopback[1].createAnswer();
+//     answer.sdp = answer.sdp.replace('useinbandfec=1', 'useinbandfec=1; stereo=1; sprop-stereo=1; maxaveragebitrate=256000');
+//     await loopback[1].setLocalDescription(answer);
+//     await loopback[0].setRemoteDescription(await iceGatheringComplete(loopback[1]));
 
-    console.log('Started AEC using loopback peer connections.')
-}
+//     console.log('Started AEC using loopback peer connections.')
+// }
 
-function stopEchoCancellation() {
-    loopback && loopback.forEach(pc => pc.close());
-    loopback = null;
-    console.log('Stopped AEC.')
-}
+// function stopEchoCancellation() {
+//     loopback && loopback.forEach(pc => pc.close());
+//     loopback = null;
+//     console.log('Stopped AEC.')
+// }
 
 async function startSpatialAudio() {
 
@@ -686,6 +627,7 @@ async function startSpatialAudio() {
     }
     console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
 
+<<<<<<< HEAD
     if (encodedTransformSupported) {
         worker = new Worker('worker.js');
         worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
@@ -701,11 +643,14 @@ async function startSpatialAudio() {
     hifiListener = new AudioWorkletNode(audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
     hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter', {outputChannelCount : [2]});
     hifiListener.connect(hifiLimiter);
+=======
+    let dst = await setupHRTFOutput(audioContext, sourceMetadata);
+>>>>>>> 7ab8a64... re-hook up metadata
 
     if (isAecEnabled && !!window.chrome) {
-        startEchoCancellation(audioElement, audioContext);
+        // startEchoCancellation(audioElement, audioContext);
     } else {
-        hifiLimiter.connect(audioContext.destination);
+        // dst.connect(audioContext.destination);
     }
 
     $("#sound").attr("hidden", false);
@@ -719,9 +664,9 @@ function stopSpatialAudio() {
     hifiSources = {};
     hifiAudioLevels = {};
 
-    stopEchoCancellation();
+    // stopEchoCancellation();
+    shutdownHRTFOutput(audioContext);
     audioContext.close();
-    worker && worker.terminate();
 }
 
 async function startLocalSound(uid, url, x, y, o) {
@@ -742,9 +687,8 @@ async function startLocalSound(uid, url, x, y, o) {
     sourceNode.loop = true;
 
     // connect to new hifiSource
-    let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input', { channelCountMode: "explicit", channelCount: 1 });
+    let hifiSource = new HRTFInput(audioContext);
     hifiSources[uid] = hifiSource;
-    sourceNode.connect(hifiSource).connect(hifiListener);
 
     // compute audio level for this source
     hifiAudioLevels[uid] = new AudioLevel(sourceNode);
