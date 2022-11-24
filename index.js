@@ -614,8 +614,8 @@ async function startSpatialAudio() {
 
     await audioContext.audioWorklet.addModule(simdSupported ? 'hifi.wasm.simd.js' : 'hifi.wasm.js');
 
-    // temporary license token that expires 1/1/2023
-    const token = 'aGlmaQAAAAHLuJ9igD2xY0xxPKza+Rcw9gQGOo8T5k+/HJpF/UR1k99pVS6n6QfyWTz1PTHkpt62tta3jn0Ntbdx73ah/LBv14T1HjJULQE=';
+    // temporary license token that expires 4/1/2023
+    const token = 'aGlmaQAAAAEYz35jcNYnZI0LwfP1YNks43UjAVUbXpOK0gujFdSvElI1sM4jzCAkKXnkZlP65MoopYehBewn2aZI01ja6ej1edr+MRmFYwc=';
     let hifiLicense = new AudioWorkletNode(audioContext, 'wasm-license');
     hifiLicense.port.postMessage(token);
 
