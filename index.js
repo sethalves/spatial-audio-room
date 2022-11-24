@@ -407,7 +407,7 @@ async function join() {
     let sourceNode = audioContext.createMediaStreamSource(mediaStream);
     let destinationNode = audioContext.createMediaStreamDestination();
 
-    hifiNoiseGate = new AudioWorkletNode(audioContext, 'wasm-noise-gate');
+    hifiNoiseGate = new AudioWorkletNode(audioContext, 'wasm-noise-gate', { channelCountMode: "explicit", channelCount: 1 });
     setThreshold(isMuteEnabled ? 0.0 : threshold.value);
 
     sourceNode.connect(hifiNoiseGate).connect(destinationNode);
@@ -512,7 +512,7 @@ async function subscribe(user, mediaType) {
         let sourceNode = audioContext.createMediaStreamSource(mediaStream);
 
         // connect to new hifiSource
-        let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
+        let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input', { channelCountMode: "explicit", channelCount: 1 });
         hifiSources[uid] = hifiSource;
         sourceNode.connect(hifiSource).connect(hifiListener);
 
@@ -662,7 +662,7 @@ async function startLocalSound(uid, url, x, y, o) {
     sourceNode.loop = true;
 
     // connect to new hifiSource
-    let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input');
+    let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input', { channelCountMode: "explicit", channelCount: 1 });
     hifiSources[uid] = hifiSource;
     sourceNode.connect(hifiSource).connect(hifiListener);
 
