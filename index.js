@@ -151,6 +151,8 @@ let audioElement = undefined;
 let audioContext = undefined;
 
 let hifiSources = {};
+let hifiAudioLevels = {};
+let hifiAudioLevelsTimer = undefined;
 let hifiNoiseGate = undefined;  // mic stream connects here
 let hifiListener = undefined;   // hifiSource connects here
 let hifiLimiter = undefined;    // additional sounds connect here
@@ -213,6 +215,29 @@ function setThreshold(value) {
         hifiNoiseGate.parameters.get('threshold').value = value;
         console.log('set noisegate threshold to', value, 'dB');
     }
+}
+
+const floatView = new Float64Array(1);
+const int32View = new Int32Array(floatView.buffer);
+
+// Fast approximation of Math.log2(x)
+// for x  > 0.0, returns log2(x)
+// for x <= 0.0, returns large negative value
+// abs |error| < 2e-4, smooth (exact for x=2^N)
+function fastLog2(x) {
+
+    floatView[0] = x;
+    let bits = int32View[1];
+
+    // split into mantissa-1.0 and exponent
+    let m = (bits & 0xfffff) * (1 / 1048576.0);
+    let e = (bits >> 20) - 1023;
+
+    // polynomial for log2(1+x) over x=[0,1]
+    let y = (((-0.0821307180 * m + 0.321188984) * m - 0.677784014) * m + 1.43872575) * m;
+
+    // reconstruct result
+    return y + e;
 }
 
 // Fast approximation of Math.atan2(y, x)
@@ -284,6 +309,50 @@ function updatePositions(elements) {
                 setPosition(hifiSource);
             }
         }
+    });
+}
+
+class AudioLevel {
+
+    constructor(sourceNode) {
+        this.sourceNode = sourceNode;
+        this.analyserNode = sourceNode.context.createAnalyser({ fftSize: 1024 });
+        this.buffer = new Float32Array(this.analyserNode.fftSize);
+        this.level = 0.0;
+
+        sourceNode.connect(this.analyserNode);
+    }
+
+    getLevel() {
+        if (!this.sourceNode) return 0.0;
+
+        // compute RMS level
+        this.analyserNode.getFloatTimeDomainData(this.buffer);
+        let sumSquared = this.buffer.reduce((sum, x) => sum + x * x, 0.0);
+        let level = Math.sqrt(sumSquared / this.buffer.length);
+
+        // apply release
+        const TC_RELEASE = 0.78;    // -50dB/s @ 48khz/1024
+        this.level = Math.max(level, this.level * TC_RELEASE);
+        this.level = (this.level > 1e-10) ? this.level : 0.0;
+
+        return this.level;
+    }
+}
+
+function updateAudioLevel(level, uid) {
+
+    let e = elements.find(e => e.uid === uid);
+    if (e !== undefined) {
+
+        let leveldB = 6.02059991 * fastLog2(level);
+        e.radius = 0.02 + 0.04 * Math.max(0.0, leveldB + 48) * (1 / 48.0);  // [0.02, 0.06] at [-48dBFS, 0dBFS]
+    }
+}
+
+function updateAudioLevels() {
+    Object.keys(hifiAudioLevels).forEach(uid => {
+        updateAudioLevel(hifiAudioLevels[uid].getLevel(), Number(uid));
     });
 }
 
@@ -412,6 +481,9 @@ async function join() {
 
     sourceNode.connect(hifiNoiseGate).connect(destinationNode);
 
+    // compute audio level for this source
+    hifiAudioLevels[options.uid] = new AudioLevel(hifiNoiseGate);
+
     let destinationTrack = destinationNode.stream.getAudioTracks()[0];
     await localTracks.audioTrack._updateOriginMediaStreamTrack(destinationTrack, false);
 
@@ -421,25 +493,14 @@ async function join() {
 
     installSenderTransform();
 
-    //
-    // HACK! set user radius based on volume level
-    // TODO: reimplement in a performant way...
-    //
-    AgoraRTC.setParameter("AUDIO_VOLUME_INDICATION_INTERVAL", 20);
-    client.enableAudioVolumeIndicator();
-    client.on("volume-indicator", volumes => {
-        volumes.forEach((volume, index) => {
-            let e = elements.find(e => e.uid === volume.uid);
-            if (e !== undefined)
-                e.radius = 0.02 + 0.04 * volume.level/100;
-        });
-    })
-
     // on broadcast from remote user, set corresponding username
     client.on("stream-message", (uid, data) => {
         usernames[uid] = (new TextDecoder).decode(data);
         console.log('%creceived stream-message from:', 'color:cyan', usernames[uid]);
     });
+
+    // update GUI with audio levels
+    hifiAudioLevelsTimer = setInterval(updateAudioLevels, (1024 / 48000) * 1000);
 }
 
 async function leave() {
@@ -467,6 +528,8 @@ async function leave() {
     elements.length = 0;
 
     stopSpatialAudio();
+
+    clearInterval(hifiAudioLevelsTimer);
 
     console.log("client leaves channel success");
 }
@@ -516,6 +579,9 @@ async function subscribe(user, mediaType) {
         hifiSources[uid] = hifiSource;
         sourceNode.connect(hifiSource).connect(hifiListener);
 
+        // compute audio level for this source
+        hifiAudioLevels[uid] = new AudioLevel(sourceNode);
+
         installReceiverTransform(mediaStreamTrack.id, uid);
 
         elements.push({
@@ -537,6 +603,7 @@ async function unsubscribe(user) {
 
     hifiSources[uid].disconnect();
     delete hifiSources[uid];
+    delete hifiAudioLevels[uid];
     delete usernames[uid];
 
     // find and remove this uid
@@ -638,6 +705,7 @@ function stopSpatialAudio() {
 
     Object.values(hifiSources).forEach((hifiSource) => hifiSource.disconnect());
     hifiSources = {};
+    hifiAudioLevels = {};
 
     stopEchoCancellation();
     audioContext.close();
@@ -665,6 +733,9 @@ async function startLocalSound(uid, url, x, y, o) {
     let hifiSource = new AudioWorkletNode(audioContext, 'wasm-hrtf-input', { channelCountMode: "explicit", channelCount: 1 });
     hifiSources[uid] = hifiSource;
     sourceNode.connect(hifiSource).connect(hifiListener);
+
+    // compute audio level for this source
+    hifiAudioLevels[uid] = new AudioLevel(sourceNode);
 
     // set hifiSource position
     hifiSource._x = x;
@@ -700,6 +771,7 @@ async function stopLocalSound(uid) {
 
     hifiSources[uid].disconnect();
     delete hifiSources[uid];
+    delete hifiAudioLevels[uid];
     delete usernames[uid];
 
     // find and remove this uid
