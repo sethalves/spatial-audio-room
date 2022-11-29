@@ -315,16 +315,25 @@ function updatePositions(elements) {
 class AudioLevel {
 
     constructor(sourceNode) {
-        this.sourceNode = sourceNode;
         this.analyserNode = sourceNode.context.createAnalyser({ fftSize: 1024 });
         this.buffer = new Float32Array(this.analyserNode.fftSize);
         this.level = 0.0;
 
-        sourceNode.connect(this.analyserNode);
+        this.sourceNode = sourceNode;
+        this.sourceNode.connect(this.analyserNode);
+    }
+
+    setSource(sourceNode) {
+        this.sourceNode?.disconnect(this.analyserNode);
+
+        this.sourceNode = sourceNode;
+        this.sourceNode?.connect(this.analyserNode);
     }
 
     getLevel() {
-        if (!this.sourceNode) return 0.0;
+        if (!this.sourceNode || this.sourceNode.context.state !== 'running') {
+            return this.level = 0.0;
+        }
 
         // compute RMS level
         this.analyserNode.getFloatTimeDomainData(this.buffer);
@@ -332,7 +341,7 @@ class AudioLevel {
         let level = Math.sqrt(sumSquared / this.buffer.length);
 
         // apply release
-        const TC_RELEASE = 0.78;    // -50dB/s @ 48khz/1024
+        const TC_RELEASE = 0.61;    // -100dB/s @ 48khz/1024
         this.level = Math.max(level, this.level * TC_RELEASE);
         this.level = (this.level > 1e-10) ? this.level : 0.0;
 
@@ -424,6 +433,9 @@ async function join() {
 
                 // connect to existing hifiSource
                 sourceNode.connect(hifiSources[uid]);
+
+                // connect to existing hifiAudioLevel
+                hifiAudioLevels[uid]?.setSource(sourceNode);
 
                 installReceiverTransform(mediaStreamTrack.id, uid);
             }
