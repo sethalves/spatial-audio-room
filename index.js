@@ -315,7 +315,7 @@ function updatePositions(elements) {
 class AudioLevel {
 
     constructor(sourceNode) {
-        this.analyserNode = sourceNode.context.createAnalyser({ fftSize: 1024 });
+        this.analyserNode = new AnalyserNode(sourceNode.context, { fftSize: 1024 });
         this.buffer = new Float32Array(this.analyserNode.fftSize);
         this.level = 0.0;
 
