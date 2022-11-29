@@ -658,6 +658,14 @@ async function fetchToken(uid /*: string */, channelName /*: string */, tokenRol
 
 
 async function joinRoom() {
+    if (joined) {
+        updateAudioControlsUI();
+        updateRoomsUI();
+        sendUsername();
+        return;
+    }
+    joined = true;
+
     options.appid = $("#appid").val();
     options.token = $("#token").val();
     options.username = $("#username").val();
@@ -709,7 +717,6 @@ async function joinRoom() {
                          ropts.video,
                          ropts.metaData);
 
-    joined = true;
     usernames[ listenerUid ] = options.username;
 
     if (ropts.video) {
@@ -840,8 +847,10 @@ function updateRoomsUI() {
 
     if (joined) {
         $("#leave").attr("disabled", false);
+        $("#join").attr("disabled", true);
     } else {
         $("#leave").attr("disabled", true);
+        $("#join").attr("disabled", false);
     }
 
     if (webSocket.readyState === WebSocket.OPEN) {
