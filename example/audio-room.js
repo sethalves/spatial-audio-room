@@ -294,9 +294,15 @@ $("#leave").click(async function(e) {
 $("#aec").click(async function(e) {
     // toggle the AEC state
     actionQueue.push(async () => {
+        if (localSourcesEnabled) {
+            await stopLocalSources();
+        }
         await HiFiAudio.setAecEnabled(!HiFiAudio.isAecEnabled());
         updateAudioControlsUI();
         let ropts = roomOptions[ currentRoomID ];
+        if (localSourcesEnabled) {
+            await startLocalSources();
+        }
         if (ropts.video) {
             await HiFiAudio.playVideo(listenerUid, "local-player");
         }
