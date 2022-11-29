@@ -5,7 +5,9 @@
 
 WEBPACK=node_modules/.bin/webpack
 
-all:
+all: clean deps webpack install
+
+sans-webpack:
 	rm -rf dist/
 	mkdir -p dist/
 	cp -r vendor dist/vendor
@@ -28,8 +30,8 @@ deps:
 	rm -rf node_modules
 	npm cache clean --force
 	npm install webpack webpack-cli copy-webpack-plugin ts-loader --save-dev
-	npm install hifi-web-audio@latest --registry https://npm.highfidelity.com/ --save-dev
 	npm install agora-rtc-sdk-ng
+	npm install hifi-web-audio@latest --registry https://npm.highfidelity.com/ --save-dev
 
 install:
 	rsync -avP --delete dist/ /var/www/html/audio-room/

@@ -40,6 +40,7 @@ module.exports = ({ buildEnv }) => {
                     { from: "node_modules/hifi-web-audio/dist/hifi.wasm.js", to: "" },
                     { from: "node_modules/hifi-web-audio/dist/hifi.wasm.simd.js", to: "" },
                     { from: "node_modules/hifi-web-audio/dist/worker.js", to: "" },
+                    { from: "node_modules/hifi-web-audio/dist/worker-transform.js", to: "" },
                 ],
             }),
         ],
