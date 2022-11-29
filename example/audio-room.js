@@ -195,6 +195,30 @@ if (pathParts.length > 1) {
 }
 
 
+const floatView = new Float64Array(1);
+const int32View = new Int32Array(floatView.buffer);
+
+// Fast approximation of Math.log2(x)
+// for x  > 0.0, returns log2(x)
+// for x <= 0.0, returns large negative value
+// abs |error| < 2e-4, smooth (exact for x=2^N)
+function fastLog2(x) {
+
+    floatView[0] = x;
+    let bits = int32View[1];
+
+    // split into mantissa-1.0 and exponent
+    let m = (bits & 0xfffff) * (1 / 1048576.0);
+    let e = (bits >> 20) - 1023;
+
+    // polynomial for log2(1+x) over x=[0,1]
+    let y = (((-0.0821307180 * m + 0.321188984) * m - 0.677784014) * m + 1.43872575) * m;
+
+    // reconstruct result
+    return y + e;
+}
+
+
 //
 // Sortable layout of video elements
 //
@@ -459,8 +483,10 @@ function updateRemotePosition(uid, x, y, o) {
 
 function updateVolumeIndicator(uid, level) {
     let e = elements.find(e => e.uid === uid);
-    if (e !== undefined)
-        e.radius = 0.02 + 0.04 * level/100;
+    if (e !== undefined) {
+        let leveldB = 6.02059991 * fastLog2(level);
+        e.radius = 0.02 + 0.04 * Math.max(0.0, leveldB + 48) * (1 / 48.0);  // [0.02, 0.06] at [-48dBFS, 0dBFS]
+    }
 }
 
 
