@@ -665,6 +665,7 @@ async function joinRoom() {
         return;
     }
     joined = true;
+    updateRoomsUI();
 
     options.appid = $("#appid").val();
     options.token = $("#token").val();
@@ -814,10 +815,13 @@ function updateAudioControlsUI() {
 function updateRoomsUI() {
     for (const rID of roomIDs) {
         let roomButton = document.getElementById(rID);
+        let roomButtonCircle = document.getElementById(rID + "-circle");
         if (rID == currentRoomID && joined) {
             roomButton.style.background="#007bff";
+            roomButtonCircle.style.fill="#7fbfff";
         } else {
             roomButton.style.background="#D9E8EF";
+            roomButtonCircle.style.fill="";
         }
     }
 
