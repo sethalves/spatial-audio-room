@@ -146,15 +146,15 @@ const roomOptions = {
         background: "Semi-transparent_HF_Logo.svg",
 
         localAudioSources: [
-            [{ x: -6, y: 6, o: 135, url: "sounds/ryan.mp3", name: "Ryan" },
-             { x: -4, y: 6, o: 225, url: "sounds/Jessica_Nunn.mp3", name: "Jessica" },
-             { x: -5, y: 4.4, o: 0, url: "sounds/jazmin_cano.mp3", name: "Jazmin" }],
+            [{ x: -6, y: 6, url: "sounds/ryan.mp3", name: "Ryan" }, // o: 135
+             { x: -4, y: 6, url: "sounds/Jessica_Nunn.mp3", name: "Jessica" }, // o: 225
+             { x: -5, y: 4.4, url: "sounds/jazmin_cano.mp3", name: "Jazmin" }], // o: 0
 
-            [{ x: 5, y: 6, o: 135, url: "sounds/Sam.mp3", name: "Sam" },
-             { x: 6, y: 5, o: 315, url: "sounds/Claire.mp3", name: "Claire" }],
+            [{ x: 5, y: 6, url: "sounds/Sam.mp3", name: "Sam" }, // o: 135
+             { x: 6, y: 5, url: "sounds/Claire.mp3", name: "Claire" }], // o: 315
 
-            [{ x: -5, y: -5, o: 225, url: "sounds/bridie2.mp3", name: "Bridie" },
-             { x: -5.8, y: -5.8, o: 45, url: "sounds/alan2.mp3", name: "Alan" }]
+            [{ x: -5, y: -5, url: "sounds/bridie2.mp3", name: "Bridie" }, // o: 225
+             { x: -5.8, y: -5.8, url: "sounds/alan2.mp3", name: "Alan" }] // o: 45
 
             // HernanCattaneoWhiteOceanBurningMan2015.mp3 7 -7 315
         ]
@@ -687,6 +687,11 @@ async function joinRoom() {
     let transport;
     if (true) {
         transport = new TransportManagerAgora(options.appid, fetchToken) /* as TransportManager */;
+
+        $("#rc").click(function(e) {
+            transport.testReconnect();
+        });
+
     } else {
         let signalingURL = new URL(window.location.href)
         signalingURL.pathname = "/token-server";
