@@ -9,7 +9,7 @@
 
 'use strict';
 
-self.importScripts('transform.js');
+self.importScripts('worker-transform.js');
 
 function sourceMetadata(buffer, uid) {
     self.postMessage({
