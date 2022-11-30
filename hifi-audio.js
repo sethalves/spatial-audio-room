@@ -26,21 +26,25 @@ let _RTCPeerConnectionWithoutMetadata = _RTCPeerConnection;
 let listener;
 let limiter;
 let destination;
-let setupHRTFOutputDone = false;
+let setupHRTFtDone = false;
 let worker = undefined;
-async function setupHRTFOutput(audioContext, sourceMetadataCallback) {
-    if (setupHRTFOutputDone)
+let sourceMetadataCallback = undefined;
+async function setupHRTF(audioContext, setSourceMetadataCallback) {
+    if (setupHRTFtDone) {
+        console.error("don't call setupHRTF twice without shutdownHRTF in between.");
         return destination;
+    }
+    sourceMetadataCallback = setSourceMetadataCallback;
     if (audioContext.sampleRate != 48000) {
-        console.error("setupHRTFOutput requires an AudioContext sampleRate of 48000.");
+        console.error("setupHRTF requires an AudioContext sampleRate of 48000.");
     }
     if (encodedTransformSupported) {
         worker = new Worker('worker.js');
         worker.onmessage = event => sourceMetadataCallback(event.data.metadata, event.data.uid);
     }
     await audioContext.audioWorklet.addModule(isSimdSupported() ? 'hifi.wasm.simd.js' : 'hifi.wasm.js');
-    // temporary license token that expires 1/1/2023
-    const token = 'aGlmaQAAAAHLuJ9igD2xY0xxPKza+Rcw9gQGOo8T5k+/HJpF/UR1k99pVS6n6QfyWTz1PTHkpt62tta3jn0Ntbdx73ah/LBv14T1HjJULQE=';
+    // temporary license token that expires 4/1/2023
+    const token = 'aGlmaQAAAAEYz35jcNYnZI0LwfP1YNks43UjAVUbXpOK0gujFdSvElI1sM4jzCAkKXnkZlP65MoopYehBewn2aZI01ja6ej1edr+MRmFYwc=';
     let hifiLicense = new AudioWorkletNode(audioContext, 'wasm-license');
     hifiLicense.port.postMessage(token);
     // Set up a series of webaudio worklets.  New sources will connect to the listener, the first in this chain.
@@ -50,30 +54,33 @@ async function setupHRTFOutput(audioContext, sourceMetadataCallback) {
     destination = audioContext.createMediaStreamDestination();
     listener.connect(limiter);
     limiter.connect(destination);
-    setupHRTFOutputDone = true;
+    setupHRTFtDone = true;
     return destination;
 }
-function shutdownHRTFOutput(audioContext) {
-    if (!setupHRTFOutputDone)
+function shutdownHRTF() {
+    if (!setupHRTFtDone) {
+        console.error("shutdownHRTF called before setupHRTF");
         return;
+    }
     listener = null;
     limiter = null;
     destination = null;
     worker && worker.terminate();
-    setupHRTFOutputDone = false;
+    sourceMetadataCallback = undefined;
+    setupHRTFtDone = false;
 }
 function getHRTFOutput() {
-    if (!setupHRTFOutputDone) {
-        console.error("call setupHRTFOutput before using getHRTFOutput.");
+    if (!setupHRTFtDone) {
+        console.error("call setupHRTF before using getHRTFOutput.");
     }
     return destination;
 }
 class NoiseGate extends AudioWorkletNode {
     constructor(audioContext) {
-        if (!setupHRTFOutputDone) {
-            console.error("call setupHRTFOutput before creating NoiseGate nodes.");
+        if (!setupHRTFtDone) {
+            console.error("call setupHRTF before creating NoiseGate nodes.");
         }
-        super(audioContext, 'wasm-noise-gate');
+        super(audioContext, 'wasm-noise-gate', { channelCountMode: "explicit", channelCount: 1 });
     }
     setThreshold(value) {
         this.parameters.get('threshold').value = value;
@@ -81,9 +88,9 @@ class NoiseGate extends AudioWorkletNode {
 }
 class HRTFInput extends AudioWorkletNode {
     constructor(audioContext) {
-        if (!setupHRTFOutputDone)
-            console.error("call setupHRTFOutput before creating HRTFInput nodes.");
-        super(audioContext, 'wasm-hrtf-input');
+        if (!setupHRTFtDone)
+            console.error("call setupHRTF before creating HRTFInput nodes.");
+        super(audioContext, 'wasm-hrtf-input', { channelCountMode: "explicit", channelCount: 1 });
         this.connect(listener);
     }
     disconnect() {
@@ -117,6 +124,14 @@ function listenerMetadata(position) {
     }
 }
 function setupSenderMetadata(sender) {
+    if (!setupHRTFtDone) {
+        console.error("call setupHRTF before using setupReceiverMetadata");
+        return;
+    }
+    if (!sourceMetadataCallback) {
+        console.error("setupSenderMetadata can't be used with null sourceMetadataCallback");
+        return;
+    }
     if (encodedTransformSupported) {
         // Encoded Transform
         sender.transform = new RTCRtpScriptTransform(worker, { operation: 'sender' });
@@ -129,7 +144,15 @@ function setupSenderMetadata(sender) {
         senderTransform(readableStream, writableStream);
     }
 }
-function setupReceiverMetadata(receiver, uid, sourceMetadataCallback) {
+function setupReceiverMetadata(receiver, uid) {
+    if (!setupHRTFtDone) {
+        console.error("call setupHRTF before using setupReceiverMetadata");
+        return;
+    }
+    if (!sourceMetadataCallback) {
+        console.error("setupReceiverMetadata can't be used with null sourceMetadataCallback");
+        return;
+    }
     if (encodedTransformSupported) {
         // Encoded Transform
         receiver.transform = new RTCRtpScriptTransform(worker, { operation: 'receiver', uid });

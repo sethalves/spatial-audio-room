@@ -339,7 +339,7 @@ function installReceiverTransform(trackId, uid) {
     let receivers = client._p2pChannel.connection.peerConnection.getReceivers();
     let receiver = receivers.find(e => e.track?.id === trackId && e.track?.kind === 'audio');
 
-    setupReceiverMetadata(receiver, uid, sourceMetadata);
+    setupReceiverMetadata(receiver, uid);
 }
 
 async function join() {
@@ -627,7 +627,7 @@ async function startSpatialAudio() {
     }
     console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
 
-    let dst = await setupHRTFOutput(audioContext, sourceMetadata);
+    let dst = await setupHRTF(audioContext, sourceMetadata);
 
     if (isAecEnabled && !!window.chrome) {
         // startEchoCancellation(audioElement, audioContext);
@@ -648,7 +648,7 @@ function stopSpatialAudio() {
     hifiAudioLevels = {};
 
     // stopEchoCancellation();
-    shutdownHRTFOutput(audioContext);
+    shutdownHRTF(audioContext);
     audioContext.close();
 }
 

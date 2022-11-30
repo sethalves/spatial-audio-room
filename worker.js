@@ -22,7 +22,7 @@ function sourceMetadata(buffer, uid) {
 self.onmessage = function (event) {
     switch (event.data.operation) {
         case 'metadata':
-            metadata = event.data.metadata;
+            metadata.data = event.data.metadata;
             break;
         case 'sender':
             // when using Insertable Streams
@@ -44,7 +44,7 @@ self.onrtctransform = function (event) {
             break;
         case 'receiver':
             // when using Encoded Transform
-            receiverTransform(transformer.readable, transformer.writable, transformer.options.uid);
+            receiverTransform(transformer.readable, transformer.writable, transformer.options.uid, sourceMetadata);
             break;
     }
 }
