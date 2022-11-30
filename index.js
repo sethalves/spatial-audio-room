@@ -627,30 +627,13 @@ async function startSpatialAudio() {
     }
     console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
 
-<<<<<<< HEAD
-    if (encodedTransformSupported) {
-        worker = new Worker('worker.js');
-        worker.onmessage = event => sourceMetadata(event.data.metadata, event.data.uid);
-    }
-
-    await audioContext.audioWorklet.addModule(simdSupported ? 'hifi.wasm.simd.js' : 'hifi.wasm.js');
-
-    // temporary license token that expires 4/1/2023
-    const token = 'aGlmaQAAAAEYz35jcNYnZI0LwfP1YNks43UjAVUbXpOK0gujFdSvElI1sM4jzCAkKXnkZlP65MoopYehBewn2aZI01ja6ej1edr+MRmFYwc=';
-    let hifiLicense = new AudioWorkletNode(audioContext, 'wasm-license');
-    hifiLicense.port.postMessage(token);
-
-    hifiListener = new AudioWorkletNode(audioContext, 'wasm-hrtf-output', {outputChannelCount : [2]});
-    hifiLimiter = new AudioWorkletNode(audioContext, 'wasm-limiter', {outputChannelCount : [2]});
-    hifiListener.connect(hifiLimiter);
-=======
     let dst = await setupHRTFOutput(audioContext, sourceMetadata);
->>>>>>> 7ab8a64... re-hook up metadata
 
     if (isAecEnabled && !!window.chrome) {
         // startEchoCancellation(audioElement, audioContext);
     } else {
         // dst.connect(audioContext.destination);
+        audioElement.srcObject = dst.stream;
     }
 
     $("#sound").attr("hidden", false);
