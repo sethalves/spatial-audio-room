@@ -672,6 +672,7 @@ async function startLocalSound(uid, url, x, y, o) {
     // connect to new hifiSource
     let hifiSource = new HRTFInput(audioContext);
     hifiSources[uid] = hifiSource;
+    sourceNode.connect(hifiSource);
 
     // compute audio level for this source
     hifiAudioLevels[uid] = new AudioLevel(sourceNode);
