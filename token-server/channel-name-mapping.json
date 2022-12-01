@@ -1,6 +1,7 @@
 {
-    "hopin-spatial-audio": "hifi-1",
+    "vel": "hifi-1",
     "sharechat-spatial-audio": "hifi-2",
+    "sharechat-audio-room": "hifi-2",
     "snap": "hifi-3",
     "crackle": "hifi-4",
     "pop": "hifi-5"
