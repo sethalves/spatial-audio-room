@@ -697,9 +697,9 @@ async function joinRoom() {
     if (true) {
         transport = new TransportManagerAgora(options.appid, fetchToken) /* as TransportManager */;
 
-        $("#rc").click(function(e) {
-            transport.testReconnect();
-        });
+        // $("#rc").click(function(e) {
+        //     transport.testReconnect();
+        // });
 
     } else {
         let signalingURL = new URL(window.location.href)
