@@ -6,20 +6,17 @@
 //  used, disclosed to third parties, copied or duplicated in any form, in whole
 //  or in part, without the prior written consent of High Fidelity, Inc.
 //
-
 'use strict';
-
-self.importScripts('worker-transform.js');
-
+const worker = self;
+worker.importScripts(new URL('./transform.js', import.meta.url).toString());
 function sourceMetadata(buffer, uid) {
-    self.postMessage({
+    worker.postMessage({
         operation: 'metadata',
         uid,
         metadata: buffer,
     }, [buffer]);
 }
-
-self.onmessage = function (event) {
+worker.onmessage = function (event) {
     switch (event.data.operation) {
         case 'metadata':
             metadata.data = event.data.metadata;
@@ -33,9 +30,8 @@ self.onmessage = function (event) {
             //receiverTransform(event.data.readableStream, event.data.writableStream, event.data.uid);
             break;
     }
-}
-
-self.onrtctransform = function (event) {
+};
+worker.onrtctransform = function (event) {
     const transformer = event.transformer;
     switch (transformer.options.operation) {
         case 'sender':
@@ -47,4 +43,6 @@ self.onrtctransform = function (event) {
             receiverTransform(transformer.readable, transformer.writable, transformer.options.uid, sourceMetadata);
             break;
     }
-}
+};
+export {};
+//# sourceMappingURL=worker.js.map

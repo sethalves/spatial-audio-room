@@ -9,6 +9,8 @@
 
 'use strict';
 
+let HiFiAudioNodes = require("./hifi-autio.js");
+
 
 // create Agora client
 let client = AgoraRTC.createClient({
@@ -146,13 +148,10 @@ let hifiPosition = {
     y: 2.0 * Math.random() - 1.0,
     o: 0.0
 };
+let listener;
+let limiter;
 
-function sourceMetadata(buffer, uid) {
-    let data = new DataView(buffer);
-
-    let x = data.getInt16(0) * (1/256.0);
-    let y = data.getInt16(2) * (1/256.0);
-    let o = data.getInt8(4) * (Math.PI / 128.0);
+function remoteSourceMoved(uid, x, y, o) {
 
     // update hifiSource position
     let hifiSource = hifiSources[uid];
@@ -254,7 +253,7 @@ function updatePositions(elements) {
         hifiPosition.x = (e.x - 0.5) * canvasDimensions.width;
         hifiPosition.y = -(e.y - 0.5) * canvasDimensions.height;
         hifiPosition.o = e.o;
-        listenerMetadata(hifiPosition);
+        listener.setPosition(hifiPosition);
     }
 
     // update the local sources
@@ -331,7 +330,7 @@ function installSenderTransform() {
     let senders = client._p2pChannel.connection.peerConnection.getSenders();
     let sender = senders.find(e => e.track?.kind === 'audio');
 
-    setupSenderMetadata(sender);
+    HiFiAudioNodes.setupSenderMetadata(sender);
 }
 
 function installReceiverTransform(trackId, uid) {
@@ -339,7 +338,7 @@ function installReceiverTransform(trackId, uid) {
     let receivers = client._p2pChannel.connection.peerConnection.getReceivers();
     let receiver = receivers.find(e => e.track?.id === trackId && e.track?.kind === 'audio');
 
-    setupReceiverMetadata(receiver, uid);
+    HiFiAudioNodes.setupReceiverMetadata(receiver, uid);
 }
 
 async function join() {
@@ -429,7 +428,7 @@ async function join() {
     let sourceNode = audioContext.createMediaStreamSource(mediaStream);
     let destinationNode = audioContext.createMediaStreamDestination();
 
-    hifiNoiseGate = new NoiseGate(audioContext);
+    hifiNoiseGate = new HiFiAudioNodes.NoiseGate(audioContext);
     setThreshold(isMuteEnabled ? 0.0 : threshold.value);
 
     sourceNode.connect(hifiNoiseGate).connect(destinationNode);
@@ -528,9 +527,9 @@ async function subscribe(user, mediaType) {
         let sourceNode = audioContext.createMediaStreamSource(mediaStream);
 
         // connect to new hifiSource
-        let hifiSource = new HRTFInput(audioContext);
+        let hifiSource = new HiFiAudioNodes.HRTFInput(audioContext);
         hifiSources[uid] = hifiSource;
-        sourceNode.connect(hifiSource);
+        sourceNode.connect(hifiSource).connect(listener);
 
         // compute audio level for this source
         hifiAudioLevels[uid] = new AudioLevel(sourceNode);
@@ -627,7 +626,14 @@ async function startSpatialAudio() {
     }
     console.log("Audio callback latency (samples):", audioContext.sampleRate * audioContext.baseLatency);
 
-    let dst = await setupHRTF(audioContext, sourceMetadata);
+    await HiFiAudioNodes.setupHRTF(audioContext, remoteSourceMoved);
+
+    // Set up a series of webaudio worklets.  New sources will connect to the listener, the first in this chain.
+    // HRTFInput(s) --> listener --> limiter --> destination
+    listener = new HiFiAudioNodes.HRTFOutput(audioContext);
+    limiter = new HiFiAudioNodes.Limiter(audioContext);
+    let dst = audioContext.createMediaStreamDestination();
+    listener.connect(limiter).connect(dst);
 
     if (isAecEnabled && !!window.chrome) {
         // startEchoCancellation(audioElement, audioContext);
@@ -646,9 +652,11 @@ function stopSpatialAudio() {
     Object.values(hifiSources).forEach((hifiSource) => hifiSource.disconnect());
     hifiSources = {};
     hifiAudioLevels = {};
+    listener = null;
+    limiter = null;
 
     // stopEchoCancellation();
-    shutdownHRTF(audioContext);
+    HiFiAudioNodes.shutdownHRTF(audioContext);
     audioContext.close();
 }
 
@@ -670,9 +678,9 @@ async function startLocalSound(uid, url, x, y, o) {
     sourceNode.loop = true;
 
     // connect to new hifiSource
-    let hifiSource = new HRTFInput(audioContext);
+    let hifiSource = new HiFiAudioNodes.HRTFInput(audioContext);
     hifiSources[uid] = hifiSource;
-    sourceNode.connect(hifiSource);
+    sourceNode.connect(hifiSource).connect(listener);
 
     // compute audio level for this source
     hifiAudioLevels[uid] = new AudioLevel(sourceNode);
