@@ -118,9 +118,15 @@ func handleTokenRequest(dat map[string]interface{}) map[string]interface{} {
 
 	var int_uid uint32 = 0
 	if _, ok := dat["uid"]; ok {
-		id, err := strconv.Atoi(dat["uid"].(string));
-		checkError(err);
-		int_uid = uint32(id);
+
+		num_uid, ok := dat["uid"].(float64);
+		if ok {
+			int_uid = uint32(num_uid);
+		} else {
+			id, err := strconv.Atoi(dat["uid"].(string));
+			checkError(err);
+			int_uid = uint32(id);
+		}
 	}
 
 	var expireTimeInSeconds uint32 = 86400
