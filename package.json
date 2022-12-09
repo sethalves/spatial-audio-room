@@ -9,12 +9,12 @@
     "private": false,
     "devDependencies": {
         "copy-webpack-plugin": "^11.0.0",
-        "hifi-web-audio": "^1.0.1-0",
+        "hifi-web-audio": "file:../hifi-web-audio-large",
         "ts-loader": "^9.4.2",
         "webpack": "^5.75.0",
-        "webpack-cli": "^5.0.0"
+        "webpack-cli": "^5.0.1"
     },
     "dependencies": {
-        "agora-rtc-sdk-ng": "^4.15.0"
+        "agora-rtc-sdk-ng": "^4.15.1"
     }
 }
