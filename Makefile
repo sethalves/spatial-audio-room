@@ -20,6 +20,11 @@ sans-webpack:
 
 webpack-dev:
 	${WEBPACK} --env buildEnv=dev
+	cp node_modules/hifi-web-audio/node_modules/hifi-audio-nodes/dist/hifi.wasm.js.map dist/
+	cp node_modules/hifi-web-audio/node_modules/hifi-audio-nodes/dist/hifi-audio-nodes.js.map dist/
+	cp node_modules/hifi-web-audio/node_modules/hifi-audio-nodes/dist/worker.js.map dist/
+	cp node_modules/hifi-web-audio/node_modules/hifi-audio-nodes/dist/hifi.wasm.simd.js.map dist/
+	cp node_modules/hifi-web-audio/dist/hifi-audio.js.map dist/
 
 webpack:
 	${WEBPACK} --env buildEnv=prod
