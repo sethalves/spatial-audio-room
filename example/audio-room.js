@@ -12,6 +12,7 @@
 import * as HiFiAudio from "hifi-web-audio"
 import { TransportManagerP2P } from "hifi-web-audio"
 import { TransportManagerAgora } from "hifi-web-audio"
+import { TransportManagerDaily } from "hifi-web-audio"
 
 
 import { CanvasControl } from './canvas-control.js'
@@ -693,19 +694,22 @@ async function joinRoom() {
 
     clampCharacterPosition();
 
-    let transport;
-    if (true) {
-        transport = new TransportManagerAgora(options.appid, fetchToken) /* as TransportManager */;
 
-        // $("#rc").click(function(e) {
-        //     transport.testReconnect();
-        // });
+    let transport /* : TransportManager */;
 
-    } else {
-        let signalingURL = new URL(window.location.href)
-        signalingURL.pathname = "/token-server";
-        signalingURL.protocol = "wss";
-        transport = new TransportManagerP2P(signalingURL) /* as TransportManager */;
+    {
+        // transport = new TransportManagerAgora(options.appid, fetchToken);
+        // // $("#rc").click(function(e) {
+        // //     transport.testReconnect();
+        // // });
+
+        // let signalingURL = new URL(window.location.href)
+        // signalingURL.pathname = "/token-server";
+        // signalingURL.protocol = "wss";
+        // transport = new TransportManagerP2P(signalingURL);
+
+        let roomURL = "https://sethalves.daily.co/okokok";
+        transport = new TransportManagerDaily(roomURL);
     }
 
     listenerUid = transport.generateUniqueID();
