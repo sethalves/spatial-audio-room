@@ -34,10 +34,9 @@ deps:
 	rm -rf node_modules package-lock.json
 	npm cache clean --force
 	npm install webpack webpack-cli copy-webpack-plugin ts-loader --save-dev
-	npm install agora-rtc-sdk-ng --save-dev
-	npm --save install ../hifi-web-audio-large --save-dev
+	npm install hifi-web-audio@latest --registry https://npm.highfidelity.com/ --save-dev
 
-#	npm install hifi-web-audio@latest --registry https://npm.highfidelity.com/ --save-dev
+#	npm --save install ../hifi-web-audio-api --save-dev
 
 install:
 	rsync -avP --delete dist/ /var/www/html/audio-room/
