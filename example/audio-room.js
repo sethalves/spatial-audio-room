@@ -130,14 +130,14 @@ const roomOptions = {
         localAudioSources: []
     },
 
-    "room-quad-music": {
-        video: false,
-        metaData: true,
-        positions: [],
-        canvasDimensions: { width: 8, height: 8 },
-        background: "Semi-transparent_HF_Logo.svg",
-        localAudioSources: []
-    },
+    // "room-quad-music": {
+    //     video: false,
+    //     metaData: true,
+    //     positions: [],
+    //     canvasDimensions: { width: 8, height: 8 },
+    //     background: "Semi-transparent_HF_Logo.svg",
+    //     localAudioSources: []
+    // },
 
     "room-bar-local": {
         video: false,
@@ -570,6 +570,12 @@ function onUserUnpublished(uid) {
 }
 
 
+function onError(errMessage) {
+    console.log("error: " + errMessage);
+    leaveRoom(false);
+}
+
+
 async function getRoomNamePrefix() {
     var resolve, reject;
 
@@ -677,6 +683,7 @@ async function joinRoom() {
     HiFiAudio.on("remote-volume-updated", updateVolumeIndicator);
     HiFiAudio.on("remote-source-connected", onUserPublished);
     HiFiAudio.on("remote-source-disconnected", onUserUnpublished);
+    HiFiAudio.on("error", onError);
 
     if (!HiFiAudio.isChrome()) {
         HiFiAudio.setAecEnabled(true);
@@ -708,7 +715,8 @@ async function joinRoom() {
         // signalingURL.protocol = "wss";
         // transport = new TransportManagerP2P(signalingURL);
 
-        let roomURL = "https://sethalves.daily.co/okokok";
+        let roomURL = "https://sethalves.daily.co/" + currentRoomID;
+        console.log("joining daily.co room: " + roomURL);
         transport = new TransportManagerDaily(roomURL);
     }
 
