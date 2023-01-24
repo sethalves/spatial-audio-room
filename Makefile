@@ -20,10 +20,6 @@ sans-webpack:
 
 webpack-dev:
 	${WEBPACK} --env buildEnv=dev
-	cp node_modules/hifi-web-audio/node_modules/hifi-audio-nodes/dist/hifi.wasm.js.map dist/
-	cp node_modules/hifi-web-audio/node_modules/hifi-audio-nodes/dist/hifi-audio-nodes.js.map dist/
-	cp node_modules/hifi-web-audio/node_modules/hifi-audio-nodes/dist/worker.js.map dist/
-	cp node_modules/hifi-web-audio/node_modules/hifi-audio-nodes/dist/hifi.wasm.simd.js.map dist/
 	cp node_modules/hifi-web-audio/dist/hifi-audio.js.map dist/
 
 webpack:
@@ -36,9 +32,10 @@ deps:
 	npm install webpack webpack-cli copy-webpack-plugin ts-loader --save-dev
 	npm install @daily-co/daily-js
 	npm install agora-rtc-sdk-ng --save-dev
-	npm install hifi-web-audio@latest --registry https://npm.highfidelity.com/ --save-dev
+	npm --save install ../hifi-web-audio-api --save-dev
 
-#	npm --save install ../hifi-web-audio-api --save-dev
+#	npm install hifi-web-audio@latest --registry https://npm.highfidelity.com/ --save-dev
+
 
 install:
 	rsync -avP --delete dist/ /var/www/html/audio-room/
