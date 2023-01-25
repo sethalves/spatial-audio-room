@@ -1,7 +1,103 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" width="43.33" height="7.61" viewBox="0 0 43.33 7.61">
-  <defs>
-    <style>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="3779"
+   zoomAndPan="magnify"
+   viewBox="0 0 2835 2834.999876"
+   height="3779"
+   preserveAspectRatio="xMidYMid meet"
+   version="1.0"
+   id="svg432"
+   sodipodi:docname="webrtcaudio.svg"
+   inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview434"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     showgrid="false"
+     inkscape:zoom="0.63169952"
+     inkscape:cx="2000.9513"
+     inkscape:cy="1927.3404"
+     inkscape:window-width="1846"
+     inkscape:window-height="1016"
+     inkscape:window-x="74"
+     inkscape:window-y="27"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg432" />
+  <defs
+     id="defs384">
+    <filter
+       x="0"
+       y="0"
+       width="1"
+       height="1"
+       id="911efb71f5">
+      <feColorMatrix
+         values="0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0"
+         color-interpolation-filters="sRGB"
+         id="feColorMatrix361" />
+    </filter>
+    <clipPath
+       id="18f1657bff">
+      <path
+         d="M 884.515625 884.515625 L 1949.28125 884.515625 L 1949.28125 1949.277344 L 884.515625 1949.277344 Z M 884.515625 884.515625 "
+         clip-rule="nonzero"
+         id="path364" />
+    </clipPath>
+    <clipPath
+       id="37994f90f4">
+      <path
+         d="M 896.355469 896.355469 L 1938.421875 896.355469 L 1938.421875 1938.421875 L 896.355469 1938.421875 Z M 896.355469 896.355469 "
+         clip-rule="nonzero"
+         id="path367" />
+    </clipPath>
+    <mask
+       id="b58ddefede">
+      <g
+         filter="url(#911efb71f5)"
+         id="g372">
+        <rect
+           x="0"
+           width="4000"
+           fill="#000000"
+           y="0"
+           height="4000"
+           fill-opacity="0.498"
+           id="rect370" />
+      </g>
+    </mask>
+    <clipPath
+       id="8c306f7af3">
+      <path
+         d="M 68 88 L 110 88 L 110 143.140625 L 68 143.140625 Z M 68 88 "
+         clip-rule="nonzero"
+         id="path375" />
+    </clipPath>
+    <clipPath
+       id="57e80f5773">
+      <path
+         d="M 354 0.476562 L 426 0.476562 L 426 72 L 354 72 Z M 354 0.476562 "
+         clip-rule="nonzero"
+         id="path378" />
+    </clipPath>
+    <clipPath
+       id="2f78c6b377">
+      <rect
+         x="0"
+         width="427"
+         y="0"
+         height="144"
+         id="rect381" />
+    </clipPath>
+    <style
+       id="style491">
       .cls-1 {
         font-family: MyriadPro-Regular, 'Myriad Pro';
         font-size: 7px;
@@ -28,5 +124,35 @@
       }
     </style>
   </defs>
-  <text class="cls-1" transform="translate(0 5.86)"><tspan class="cls-5" x="0" y="0">W</tspan><tspan x="5.69" y="0">eb</tspan><tspan class="cls-4" x="13.18" y="0">R</tspan><tspan class="cls-3" x="17.01" y="0">T</tspan><tspan x="20.3" y="0">C </tspan><tspan class="cls-2" x="25.84" y="0">A</tspan><tspan class="cls-6" x="30.04" y="0">udio</tspan></text>
+  <g
+     clip-path="url(#18f1657bff)"
+     id="g388">
+    <path
+       fill="#000000"
+       d="M 1416.898438 1949.277344 C 1274.757812 1949.277344 1140.917969 1893.957031 1040.484375 1793.308594 C 939.839844 1692.875 884.515625 1559.035156 884.515625 1416.898438 C 884.515625 1274.757812 939.839844 1140.917969 1040.484375 1040.484375 C 1140.917969 939.835938 1274.757812 884.515625 1416.898438 884.515625 C 1559.035156 884.515625 1692.875 939.835938 1793.308594 1040.484375 C 1893.957031 1141.128906 1949.277344 1274.757812 1949.277344 1416.898438 C 1949.277344 1559.035156 1893.957031 1692.875 1793.308594 1793.308594 C 1692.875 1893.957031 1559.035156 1949.277344 1416.898438 1949.277344 Z M 1416.898438 916.433594 C 1283.269531 916.433594 1157.515625 968.5625 1063.039062 1063.039062 C 968.5625 1157.515625 916.433594 1283.269531 916.433594 1416.898438 C 916.433594 1550.523438 968.5625 1676.277344 1063.039062 1770.753906 C 1157.515625 1865.230469 1283.269531 1917.363281 1416.898438 1917.363281 C 1550.523438 1917.363281 1676.277344 1865.230469 1770.753906 1770.753906 C 1865.230469 1676.277344 1917.363281 1550.523438 1917.363281 1416.898438 C 1917.363281 1283.269531 1865.230469 1157.515625 1770.753906 1063.039062 C 1676.277344 968.5625 1550.523438 916.433594 1416.898438 916.433594 Z M 1416.898438 916.433594 "
+       fill-opacity="1"
+       fill-rule="nonzero"
+       id="path386" />
+  </g>
+  <g
+     clip-path="url(#37994f90f4)"
+     id="g392">
+    <path
+       fill="#ffffff"
+       d="M 1417.386719 896.355469 C 1129.628906 896.355469 896.355469 1129.628906 896.355469 1417.386719 C 896.355469 1705.148438 1129.628906 1938.421875 1417.386719 1938.421875 C 1705.148438 1938.421875 1938.421875 1705.148438 1938.421875 1417.386719 C 1938.421875 1129.628906 1705.148438 896.355469 1417.386719 896.355469 "
+       fill-opacity="1"
+       fill-rule="nonzero"
+       id="path390" />
+  </g>
+  <text
+     xml:space="preserve"
+     style="font-size:64.0169px;line-height:2.6;fill:#000000;stroke-width:0.750198"
+     x="1187.8063"
+     y="1449.5693"
+     id="text13695"><tspan
+       sodipodi:role="line"
+       id="tspan13693"
+       style="font-size:64.0169px;stroke-width:0.750198"
+       x="1187.8063"
+       y="1449.5693">WebRTC Audio</tspan></text>
 </svg>
