@@ -361,7 +361,7 @@ $("#mute").click(async function(e) {
         HiFiAudio.setMutedEnabled(!HiFiAudio.isMutedEnabled());
         updateAudioControlsUI();
         // if muted, set gate threshold to 0dB, else follow slider
-        HiFiAudio.setThreshold(HiFiAudio.isMutedEnabled() ? 0.0 : threshold.value);
+        // HiFiAudio.setThreshold(HiFiAudio.isMutedEnabled() ? 0.0 : threshold.value);
     });
     runQueue();
 })
