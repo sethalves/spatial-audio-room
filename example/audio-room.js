@@ -139,36 +139,36 @@ const roomOptions = {
     //     localAudioSources: []
     // },
 
-    // "room-bar-local": {
-    //     video: false,
-    //     metaData: true,
-    //     positions: [],
-    //     canvasDimensions: { width: 16, height: 16 },
-    //     background: "Semi-transparent_HF_Logo.svg",
+    "room-bar-local": {
+        video: false,
+        metaData: true,
+        positions: [],
+        canvasDimensions: { width: 16, height: 16 },
+        background: "Semi-transparent_HF_Logo.svg",
 
-    //     localAudioSources: [
-    //         [{ x: -6, y: 6, url: "sounds/ryan.mp3", name: "Ryan" }, // o: 135
-    //          { x: -4, y: 6, url: "sounds/Jessica_Nunn.mp3", name: "Jessica" }, // o: 225
-    //          { x: -5, y: 4.4, url: "sounds/jazmin_cano.mp3", name: "Jazmin" }], // o: 0
+        localAudioSources: [
+            [{ x: -6, y: 6, url: "sounds/ryan.mp3", name: "Ryan" }, // o: 135
+             { x: -4, y: 6, url: "sounds/Jessica_Nunn.mp3", name: "Jessica" }, // o: 225
+             { x: -5, y: 4.4, url: "sounds/jazmin_cano.mp3", name: "Jazmin" }], // o: 0
 
-    //         [{ x: 5, y: 6, url: "sounds/Sam.mp3", name: "Sam" }, // o: 135
-    //          { x: 6, y: 5, url: "sounds/Claire.mp3", name: "Claire" }], // o: 315
+            [{ x: 5, y: 6, url: "sounds/Sam.mp3", name: "Sam" }, // o: 135
+             { x: 6, y: 5, url: "sounds/Claire.mp3", name: "Claire" }], // o: 315
 
-    //         [{ x: -5, y: -5, url: "sounds/bridie2.mp3", name: "Bridie" }, // o: 225
-    //          { x: -5.8, y: -5.8, url: "sounds/alan2.mp3", name: "Alan" }] // o: 45
+            [{ x: -5, y: -5, url: "sounds/bridie2.mp3", name: "Bridie" }, // o: 225
+             { x: -5.8, y: -5.8, url: "sounds/alan2.mp3", name: "Alan" }] // o: 45
 
-    //         // HernanCattaneoWhiteOceanBurningMan2015.mp3 7 -7 315
-    //     ]
-    // },
+            // HernanCattaneoWhiteOceanBurningMan2015.mp3 7 -7 315
+        ]
+    },
 
-    // "room-video": {
-    //     video: true,
-    //     metaData: false,
-    //     positions: [],
-    //     canvasDimensions: { width: 8, height: 8 },
-    //     background: "Semi-transparent_HF_Logo.svg",
-    //     localAudioSources: []
-    // }
+    "room-video": {
+        video: true,
+        metaData: false,
+        positions: [],
+        canvasDimensions: { width: 8, height: 8 },
+        background: "Semi-transparent_HF_Logo.svg",
+        localAudioSources: []
+    }
 }
 
 
@@ -198,9 +198,6 @@ if (pathParts.length > 1) {
 
 const floatView = new Float64Array(1);
 const int32View = new Int32Array(floatView.buffer);
-
-let positionIntervalID;
-
 
 // Fast approximation of Math.log2(x)
 // for x  > 0.0, returns log2(x)
@@ -708,19 +705,19 @@ async function joinRoom() {
     let transport /* : TransportManager */;
 
     {
-        transport = new TransportManagerAgora(options.appid, fetchToken);
-        $("#rc").click(function(e) {
-            transport.testReconnect();
-        });
+        // transport = new TransportManagerAgora(options.appid, fetchToken);
+        // // $("#rc").click(function(e) {
+        // //     transport.testReconnect();
+        // // });
 
         // let signalingURL = new URL(window.location.href)
         // signalingURL.pathname = "/token-server";
         // signalingURL.protocol = "wss";
         // transport = new TransportManagerP2P(signalingURL);
 
-        // let roomURL = "https://sethalves.daily.co/" + currentRoomID;
-        // console.log("joining daily.co room: " + roomURL);
-        // transport = new TransportManagerDaily(roomURL);
+        let roomURL = "https://sethalves.daily.co/" + currentRoomID;
+        console.log("joining daily.co room: " + roomURL);
+        transport = new TransportManagerDaily(roomURL);
     }
 
     listenerUid = transport.generateUniqueID();
@@ -775,31 +772,10 @@ async function joinRoom() {
     updateAudioControlsUI();
     updateRoomsUI();
     sendUsername();
-
-    if (!positionIntervalID) {
-        // update everyone about our name and position every 3 seconds, in case a race caused someone to miss something
-        positionIntervalID = setInterval(() => {
-            // send position
-            let metaData = getCharacterPositionInAudioSpace();
-            HiFiAudio.setListenerPosition(metaData.x, metaData.y, metaData.o);
-            // send name
-            let msg = {
-                type: "username",
-                username: usernames[listenerUid]
-            };
-            HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(JSON.stringify(msg)));
-        }, 3000);
-    }
 }
 
 
 async function leaveRoom(willRestart) {
-
-    if (positionIntervalID) {
-        clearInterval(positionIntervalID)
-        positionIntervalID = null;
-    }
-
     await HiFiAudio.leave(willRestart);
 
     // remove remote users and player views
