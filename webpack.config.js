@@ -24,6 +24,7 @@ module.exports = ({ buildEnv }) => {
                     { from: "assets/favicon.ico", to: "" },
                     { from: "assets/safari-pinned-tab.svg", to: "" },
                     { from: "assets/table.svg", to: "" },
+                    { from: "assets/webrtcaudio.svg", to: "" },
                     { from: "assets/logo-white.svg", to: "" },
                     { from: "assets/controls-bg.jpg", to: "" },
                     { from: "assets/controls-bg-m.jpg", to: "" },

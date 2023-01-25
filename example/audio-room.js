@@ -119,7 +119,8 @@ const roomOptions = {
             { x: 0.707, y: -0.707, o: degToRad(315) }
         ],
         canvasDimensions: { width: 4, height: 4 },
-        background: "Table_semi-transparent_HF_Logo.svg",
+        background: "webrtcaudio.svg",
+        // background: "Table_semi-transparent_HF_Logo.svg",
         // localAudioSources: [
         //     [{ x: -1.6, y: -1.6, o: 0.0, url: "sounds/campfire.wav" },
         //      { x: -1.6, y:  1.6, o: 0.0, url: "sounds/owl.wav" },
@@ -139,36 +140,36 @@ const roomOptions = {
     //     localAudioSources: []
     // },
 
-    // "room-bar-local": {
-    //     video: false,
-    //     metaData: true,
-    //     positions: [],
-    //     canvasDimensions: { width: 16, height: 16 },
-    //     background: "Semi-transparent_HF_Logo.svg",
+    "room-bar-local": {
+        video: false,
+        metaData: true,
+        positions: [],
+        canvasDimensions: { width: 16, height: 16 },
+        background: "Semi-transparent_HF_Logo.svg",
 
-    //     localAudioSources: [
-    //         [{ x: -6, y: 6, url: "sounds/ryan.mp3", name: "Ryan" }, // o: 135
-    //          { x: -4, y: 6, url: "sounds/Jessica_Nunn.mp3", name: "Jessica" }, // o: 225
-    //          { x: -5, y: 4.4, url: "sounds/jazmin_cano.mp3", name: "Jazmin" }], // o: 0
+        localAudioSources: [
+            [{ x: -6, y: 6, url: "sounds/ryan.mp3", name: "Ryan" }, // o: 135
+             { x: -4, y: 6, url: "sounds/Jessica_Nunn.mp3", name: "Jessica" }, // o: 225
+             { x: -5, y: 4.4, url: "sounds/jazmin_cano.mp3", name: "Jazmin" }], // o: 0
 
-    //         [{ x: 5, y: 6, url: "sounds/Sam.mp3", name: "Sam" }, // o: 135
-    //          { x: 6, y: 5, url: "sounds/Claire.mp3", name: "Claire" }], // o: 315
+            [{ x: 5, y: 6, url: "sounds/Sam.mp3", name: "Sam" }, // o: 135
+             { x: 6, y: 5, url: "sounds/Claire.mp3", name: "Claire" }], // o: 315
 
-    //         [{ x: -5, y: -5, url: "sounds/bridie2.mp3", name: "Bridie" }, // o: 225
-    //          { x: -5.8, y: -5.8, url: "sounds/alan2.mp3", name: "Alan" }] // o: 45
+            [{ x: -5, y: -5, url: "sounds/bridie2.mp3", name: "Bridie" }, // o: 225
+             { x: -5.8, y: -5.8, url: "sounds/alan2.mp3", name: "Alan" }] // o: 45
 
-    //         // HernanCattaneoWhiteOceanBurningMan2015.mp3 7 -7 315
-    //     ]
-    // },
+            // HernanCattaneoWhiteOceanBurningMan2015.mp3 7 -7 315
+        ]
+    },
 
-    // "room-video": {
-    //     video: true,
-    //     metaData: false,
-    //     positions: [],
-    //     canvasDimensions: { width: 8, height: 8 },
-    //     background: "Semi-transparent_HF_Logo.svg",
-    //     localAudioSources: []
-    // }
+    "room-video": {
+        video: true,
+        metaData: false,
+        positions: [],
+        canvasDimensions: { width: 8, height: 8 },
+        background: "Semi-transparent_HF_Logo.svg",
+        localAudioSources: []
+    }
 }
 
 
@@ -390,10 +391,10 @@ for (const rID of roomIDs) {
 
 
 // threshold slider
-threshold.oninput = () => {
-    HiFiAudio.setThreshold(threshold.value);
-    document.getElementById("threshold-value").value = threshold.value;
-}
+// threshold.oninput = () => {
+//     HiFiAudio.setThreshold(threshold.value);
+//     document.getElementById("threshold-value").value = threshold.value;
+// }
 
 function clampCharacterPosition() {
     let ropts = roomOptions[ currentRoomID ];
@@ -709,9 +710,9 @@ async function joinRoom() {
 
     {
         transport = new TransportManagerAgora(options.appid, fetchToken);
-        $("#rc").click(function(e) {
-            transport.testReconnect();
-        });
+        // $("#rc").click(function(e) {
+        //     transport.testReconnect();
+        // });
 
         // let signalingURL = new URL(window.location.href)
         // signalingURL.pathname = "/token-server";
@@ -729,7 +730,7 @@ async function joinRoom() {
                          listenerUid,
                          options.channel + ":" + currentRoomID,
                          getCharacterPositionInAudioSpace(),
-                         threshold.value,
+                         0.0, // threshold.value,
                          ropts.video,
                          ropts.metaData);
 
@@ -951,6 +952,7 @@ async function startLocalSounds(soundSpecs) {
     };
 
     let startSynchronizedSounds = async () => {
+        // TODO -- use AudioScheduledSourceNode
         for (let i = 0; i < soundSpecs.length; i++) {
             let source = localAudioSources[ thisGroupIDs[ i ] ];
             if (!source) break;
