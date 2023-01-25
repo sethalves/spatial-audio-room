@@ -22,15 +22,19 @@
      inkscape:pageopacity="0.0"
      inkscape:pagecheckerboard="0"
      showgrid="false"
-     inkscape:zoom="0.63169952"
-     inkscape:cx="2000.9513"
-     inkscape:cy="1927.3404"
+     inkscape:zoom="0.44667902"
+     inkscape:cx="1964.4979"
+     inkscape:cy="1879.4257"
      inkscape:window-width="1846"
      inkscape:window-height="1016"
      inkscape:window-x="74"
      inkscape:window-y="27"
      inkscape:window-maximized="1"
-     inkscape:current-layer="svg432" />
+     inkscape:current-layer="svg432"
+     inkscape:snap-object-midpoints="true"
+     inkscape:snap-midpoints="true"
+     inkscape:snap-nodes="true"
+     inkscape:snap-to-guides="true" />
   <defs
      id="defs384">
     <filter
@@ -146,13 +150,13 @@
   </g>
   <text
      xml:space="preserve"
-     style="font-size:64.0169px;line-height:2.6;fill:#000000;stroke-width:0.750198"
-     x="1187.8063"
-     y="1449.5693"
+     style="font-size:64.0169px;line-height:2.6;fill:#000000;fill-opacity:0.5;stroke-width:0.750198"
+     x="1187.2679"
+     y="1430.8627"
      id="text13695"><tspan
        sodipodi:role="line"
        id="tspan13693"
-       style="font-size:64.0169px;stroke-width:0.750198"
-       x="1187.8063"
-       y="1449.5693">WebRTC Audio</tspan></text>
+       style="font-size:64.0169px;fill:#000000;fill-opacity:0.5;stroke-width:0.750198"
+       x="1187.2679"
+       y="1430.8627">WebRTC Audio</tspan></text>
 </svg>
