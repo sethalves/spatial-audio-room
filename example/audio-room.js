@@ -48,7 +48,12 @@ async function runQueue() {
     queueRunning = true;
     while (actionQueue.length > 0) {
         let action = actionQueue.shift();
-        await action();
+
+        try {
+            await action();
+        } catch (exceptionVar) {
+            console.log("Error: " + exceptionVar);
+        }
     }
     queueRunning = false;
 }
