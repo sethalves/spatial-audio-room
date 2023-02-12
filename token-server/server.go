@@ -146,6 +146,7 @@ func handleTokenRequest(dat map[string]interface{}) map[string]interface{} {
 
 
 var websockets map[*websocket.Conn]uint32 = make(map[*websocket.Conn]uint32)
+var websocketsMutex sync.Mutex
 var currentRoomID string
 var nthConnect uint32
 
@@ -160,7 +161,10 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 	keepAlive(c, 30 * time.Second)
 	defer c.Close()
 
+	websocketsMutex.Lock()
 	websockets[c] = nthConnect
+	websocketsMutex.Unlock()
+
 	nthConnect++;
 	nthConnect = nthConnect % 8;
 
@@ -224,11 +228,13 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 			var response map[string]interface{} = make(map[string]interface{})
 			response["message-type"] = "join-room"
 			response["room"] = currentRoomID
+			websocketsMutex.Lock()
 			response["nth"] = websockets[c]
 			data, _ := json.Marshal(response)
 			for ws, _ := range websockets {
 				ws.WriteMessage(websocket.TextMessage, data)
 			}
+			websocketsMutex.Unlock()
 		}
 
 
@@ -315,7 +321,9 @@ func wsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	websocketsMutex.Lock()
 	delete(websockets, c)
+	websocketsMutex.Unlock()
 
 	for uid, p2pClient := range p2pClients {
 		if (p2pClient.websocketConnection == c) {
