@@ -9,7 +9,7 @@
 
 'use strict';
 
-import * as HiFiAudio from "hifi-web-audio"
+import { HiFiAudio } from "hifi-web-audio"
 import { TransportManagerP2P } from "hifi-web-audio"
 import { TransportManagerAgora } from "hifi-web-audio"
 import { TransportManagerDaily } from "hifi-web-audio"
@@ -21,6 +21,7 @@ function degToRad(d) {
     return Math.PI * d / 180.0;
 }
 
+let hiFiAudio = new HiFiAudio();
 
 let options = {};
 let canvasControl;
@@ -327,14 +328,14 @@ $("#aec").click(async function(e) {
         if (localSourcesEnabled) {
             await stopLocalSources();
         }
-        await HiFiAudio.setAecEnabled(!HiFiAudio.isAecEnabled());
+        await hiFiAudio.setAecEnabled(!hiFiAudio.isAecEnabled());
         updateAudioControlsUI();
         let ropts = roomOptions[ currentRoomID ];
         if (localSourcesEnabled) {
             await startLocalSources();
         }
         if (ropts.video) {
-            await HiFiAudio.playVideo(listenerUid, "local-player");
+            await hiFiAudio.playVideo(listenerUid, "local-player");
         }
     });
     runQueue();
@@ -359,10 +360,10 @@ $("#local").click(async function(e) {
 $("#mute").click(async function(e) {
     actionQueue.push(async () => {
         // toggle the state
-        HiFiAudio.setMutedEnabled(!HiFiAudio.isMutedEnabled());
+        hiFiAudio.setMutedEnabled(!hiFiAudio.isMutedEnabled());
         updateAudioControlsUI();
         // if muted, set gate threshold to 0dB, else follow slider
-        HiFiAudio.setThreshold(HiFiAudio.isMutedEnabled() ? 0.0 : threshold.value);
+        hiFiAudio.setThreshold(hiFiAudio.isMutedEnabled() ? 0.0 : threshold.value);
     });
     runQueue();
 })
@@ -371,7 +372,7 @@ $("#mute").click(async function(e) {
 // $("#sound").click(async function(e) {
 //     let audioData = await fetch('https://raw.githubusercontent.com/kencooke/spatial-audio-room/master/sound.wav');
 //     let audioBuffer = await audioData.arrayBuffer();
-//     HiFiAudio.playSoundEffect(audioBuffer, false);
+//     hiFiAudio.playSoundEffect(audioBuffer, false);
 // })
 
 
@@ -393,7 +394,7 @@ for (const rID of roomIDs) {
 
 // threshold slider
 threshold.oninput = () => {
-    HiFiAudio.setThreshold(threshold.value);
+    hiFiAudio.setThreshold(threshold.value);
     document.getElementById("threshold-value").value = threshold.value;
 }
 
@@ -428,9 +429,9 @@ function updatePositions(elts) {
             characterPosition.o = e.o;
             clampCharacterPosition();
             let metaData = getCharacterPositionInAudioSpace();
-            HiFiAudio.setListenerPosition(metaData.x, metaData.y, metaData.o);
+            hiFiAudio.setListenerPosition(metaData.x, metaData.y, metaData.o);
         } else if (e.clickable) {
-            HiFiAudio.setSourcePosition(e.uid, x, y);
+            hiFiAudio.setSourcePosition(e.uid, x, y);
         }
     }
 }
@@ -466,9 +467,9 @@ function updateVideoPositions() {
             let xInAudioSpace = x / rectWidth;
 
             if (uid == listenerUid || uid == 0) {
-                HiFiAudio.setListenerPosition(xInAudioSpace, 0, 0);
+                hiFiAudio.setListenerPosition(xInAudioSpace, 0, 0);
             } else {
-                HiFiAudio.setSourcePosition(uid, xInAudioSpace, 0);
+                hiFiAudio.setSourcePosition(uid, xInAudioSpace, 0);
             }
         }
     });
@@ -540,7 +541,7 @@ function onUserPublished(uid) {
         } else {
             $(`#player-name-${uid}`).text(usernames[uid]);
         }
-        HiFiAudio.playVideo(uid, `player-${uid}`);
+        hiFiAudio.playVideo(uid, `player-${uid}`);
         updateVideoPositions();
     } else {
         elements.push({
@@ -683,15 +684,15 @@ async function joinRoom() {
     options.token = $("#token").val();
     options.username = $("#username").val();
 
-    HiFiAudio.on("remote-position-updated", updateRemotePosition);
-    HiFiAudio.on("broadcast-received", receiveBroadcast);
-    HiFiAudio.on("remote-volume-updated", updateVolumeIndicator);
-    HiFiAudio.on("remote-source-connected", onUserPublished);
-    HiFiAudio.on("remote-source-disconnected", onUserUnpublished);
-    HiFiAudio.on("error", onError);
+    hiFiAudio.on("remote-position-updated", updateRemotePosition);
+    hiFiAudio.on("broadcast-received", receiveBroadcast);
+    hiFiAudio.on("remote-volume-updated", updateVolumeIndicator);
+    hiFiAudio.on("remote-source-connected", onUserPublished);
+    hiFiAudio.on("remote-source-disconnected", onUserUnpublished);
+    hiFiAudio.on("error", onError);
 
-    if (!HiFiAudio.isChrome()) {
-        HiFiAudio.setAecEnabled(true);
+    if (!hiFiAudio.isChrome()) {
+        hiFiAudio.setAecEnabled(true);
     }
 
     if (!serverCurrentRoomID) {
@@ -710,24 +711,24 @@ async function joinRoom() {
     let transport /* : TransportManager */;
 
     {
-        // transport = new TransportManagerAgora(options.appid, fetchToken);
-        // // $("#rc").click(function(e) {
-        // //     transport.testReconnect();
-        // // });
+        transport = new TransportManagerAgora(options.appid, fetchToken);
+        // $("#rc").click(function(e) {
+        //     transport.testReconnect();
+        // });
 
         // let signalingURL = new URL(window.location.href)
         // signalingURL.pathname = "/token-server";
         // signalingURL.protocol = "wss";
         // transport = new TransportManagerP2P(signalingURL);
 
-        let roomURL = "https://sethalves.daily.co/" + currentRoomID;
-        console.log("joining daily.co room: " + roomURL);
-        transport = new TransportManagerDaily(roomURL);
+        // let roomURL = "https://sethalves.daily.co/" + currentRoomID;
+        // console.log("joining daily.co room: " + roomURL);
+        // transport = new TransportManagerDaily(roomURL);
     }
 
     listenerUid = transport.generateUniqueID();
 
-    await HiFiAudio.join(transport,
+    await hiFiAudio.join(transport,
                          listenerUid,
                          options.channel + ":" + currentRoomID,
                          getCharacterPositionInAudioSpace(),
@@ -745,7 +746,7 @@ async function joinRoom() {
         }
         readyVideoSortable();
         // Play the local video track
-        HiFiAudio.playVideo(listenerUid, "local-player");
+        hiFiAudio.playVideo(listenerUid, "local-player");
     } else {
         sortable = null;
         resizeObserver = null;
@@ -781,7 +782,7 @@ async function joinRoom() {
 
 
 async function leaveRoom(willRestart) {
-    await HiFiAudio.leave(willRestart);
+    await hiFiAudio.leave(willRestart);
 
     // remove remote users and player views
     $("#remote-playerlist").html("");
@@ -805,7 +806,7 @@ function sendUsername() {
         type: "username",
         username: usernames[listenerUid]
     };
-    HiFiAudio.sendBroadcastMessage((new TextEncoder).encode(JSON.stringify(msg)));
+    hiFiAudio.sendBroadcastMessage((new TextEncoder).encode(JSON.stringify(msg)));
 }
 
 
@@ -818,14 +819,14 @@ function setUsername(username) {
 
 
 function updateAudioControlsUI() {
-    $("#aec").css("background-color", HiFiAudio.isAecEnabled() ? "purple" : "");
-    $("#aec").prop('checked', HiFiAudio.isAecEnabled());
+    $("#aec").css("background-color", hiFiAudio.isAecEnabled() ? "purple" : "");
+    $("#aec").prop('checked', hiFiAudio.isAecEnabled());
 
     $("#local").css("background-color", localSourcesEnabled ? "purple" : "");
     $("#local").prop('checked', localSourcesEnabled);
 
-    $("#mute").css("background-color", HiFiAudio.isMutedEnabled() ? "purple" : "");
-    $("#mute").prop('checked', HiFiAudio.isMutedEnabled());
+    $("#mute").css("background-color", hiFiAudio.isMutedEnabled() ? "purple" : "");
+    $("#mute").prop('checked', hiFiAudio.isMutedEnabled());
 }
 
 
@@ -936,7 +937,7 @@ async function startLocalSounds(soundSpecs) {
             let source = localAudioSources[ thisGroupIDs[ i ] ];
             if (!source) break;
 
-            let sourceNode = new AudioBufferSourceNode(HiFiAudio.audioContext);
+            let sourceNode = new AudioBufferSourceNode(hiFiAudio.audioContext);
             sourceNode.buffer = audioBuffers[ i ];
             sourceNode.loop = false;
             sourceNode.connect(source.node);
@@ -954,7 +955,7 @@ async function startLocalSounds(soundSpecs) {
             fetch(soundSpecs[ i ].url).then((response) => {
                 response.arrayBuffer().then((buffer) => {
                     // convert audio file data to AudioBuffers.  buffer becomes detached and can't be used again...
-                    HiFiAudio.audioContext.decodeAudioData(buffer).then(resolve);
+                    hiFiAudio.audioContext.decodeAudioData(buffer).then(resolve);
                 });
             });
         }));
@@ -965,8 +966,8 @@ async function startLocalSounds(soundSpecs) {
     for (let i = 0; i < soundSpecs.length; i++) {
         let url = soundSpecs[ i ].url;
         let name = soundSpecs[ i ].name;
-        let source = HiFiAudio.addLocalAudioSource();
-        HiFiAudio.setSourcePosition(source.uid, soundSpecs[ i ].x, soundSpecs[ i ].y);
+        let source = hiFiAudio.addLocalAudioSource();
+        hiFiAudio.setSourcePosition(source.uid, soundSpecs[ i ].x, soundSpecs[ i ].y);
         usernames[ source.uid ] = name;
 
         thisGroupIDs.push(source.uid);
@@ -1003,6 +1004,6 @@ async function startLocalSources() {
 async function stopLocalSources() {
     for (let localSourceUID in localAudioSources) {
         console.log("stopping local source id=" + localSourceUID);
-        HiFiAudio.stopAudioSource(localSourceUID);
+        hiFiAudio.stopAudioSource(localSourceUID);
     }
 }
