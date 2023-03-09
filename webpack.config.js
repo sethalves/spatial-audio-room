@@ -1,8 +1,8 @@
 const path = require('path');
 const webpack = require('webpack');
-const CopyPlugin = require("copy-webpack-plugin");
+const CopyPlugin = require('copy-webpack-plugin');
 
-module.exports = ({ buildEnv }) => {
+module.exports = (env, argv) => {
     let config = {
         entry: {
             "Audio": [
@@ -41,18 +41,18 @@ module.exports = ({ buildEnv }) => {
             }),
         ],
         output: {
-            filename: `audio-room.js`,
+            filename: 'audio-room.js',
             path: path.resolve(__dirname, 'dist')
         }
     };
 
-    if (buildEnv !== "prod") {
-        config["mode"] = "development";
-        config["devtool"] = 'inline-source-map';
+    if (argv.mode === 'development') {
+        config.mode = 'development';
+        config.devtool = 'inline-source-map';
     } else {
-        config["mode"] = "production";
-        config["optimization"] = {
-            "minimize": true,
+        config.mode = 'production';
+        config.optimization = {
+            minimize: true
         };
     }
     return config;

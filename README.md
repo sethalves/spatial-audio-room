@@ -24,20 +24,34 @@ git clone https://github.com/highfidelity/spatial-audio-room-demo.git
 
 ### Install the dependencies
 
+If developing using the published HiFi Web Audio API:
 ```
 npm install
 npm run install-audio-api
 ```
 
-If developing using a local copy of the HiFi Web Audio API, build it alongside the demo source, and instead do:
+If developing using a local copy of the HiFi Web Audio API, build it alongside the demo source, then:
 ```
 npm install
-npm run install-audio-api-local
+npm run install-local-audio-api
 ```
 
-### Build the app
+### Build the demo app
 
+
+For production:
 ```
-npm run app
+npm run build-app
 ```
+
+For local development, with hot rebuild:
+```
+npm run watch-app
+```
+
+### Run the demo app when developing
+
+Host the `/dist` directory on a Web server - e.g., add this directory as a virtual directory on localhost.
+
+Load the demo app in a browser.
 
