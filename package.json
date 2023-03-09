@@ -7,13 +7,18 @@
         "dist"
     ],
     "private": false,
+    "scripts": {
+        "install-audio-api": "npm install hifi-web-audio@latest --registry https://npm.highfidelity.com/ --no-save",
+        "install-audio-api-local": "npm install file:../hifi-web-audio-api --no-save",
+        "app": "rimraf ./dist && webpack --env buildEnv=prod"
+    },
     "dependencies": {
         "@daily-co/daily-js": "^0.36.1",
-        "agora-rtc-sdk-ng": "^4.16.0",
-        "hifi-web-audio": "^1.0.2-0"
+        "agora-rtc-sdk-ng": "^4.16.0"
     },
     "devDependencies": {
         "copy-webpack-plugin": "^11.0.0",
+        "rimraf": "^4.4.0",
         "ts-loader": "^9.4.2",
         "webpack": "^5.75.0",
         "webpack-cli": "^5.0.1"
