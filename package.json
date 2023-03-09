@@ -8,12 +8,12 @@
     ],
     "private": false,
     "dependencies": {
-        "@daily-co/daily-js": "^0.36.1"
+        "@daily-co/daily-js": "^0.36.1",
+        "agora-rtc-sdk-ng": "^4.16.0",
+        "hifi-web-audio": "^1.0.2-0"
     },
     "devDependencies": {
-        "agora-rtc-sdk-ng": "^4.16.0",
         "copy-webpack-plugin": "^11.0.0",
-        "hifi-web-audio": "^1.0.2-0",
         "ts-loader": "^9.4.2",
         "webpack": "^5.75.0",
         "webpack-cli": "^5.0.1"
