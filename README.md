@@ -49,9 +49,23 @@ For local development, with hot rebuild:
 npm run watch-app
 ```
 
-### Run the demo app when developing
+### Run the demo app locally
 
 Host the `/dist` directory on a Web server - e.g., add this directory as a virtual directory on localhost.
 
 Load the demo app in a browser.
 
+### Run the demo app and token server locally
+
+Build the app using `npm run watch-app`.
+
+Host the `/dist` directory on a Web server and make it run as one of the following URLs:
+```
+http://localhost/snap
+http://localhost/crackle
+http://localhost/pop
+```
+
+Run a local copy of the *HiFi Agora Token Server*.
+
+Load the demo app in a browser.
