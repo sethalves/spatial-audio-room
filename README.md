@@ -41,12 +41,12 @@ npm run install-local-audio-api
 
 For production:
 ```
-npm run build-app
+npm run build
 ```
 
 For local development, with hot rebuild:
 ```
-npm run watch-app
+npm run watch
 ```
 
 ### Run the demo app locally
