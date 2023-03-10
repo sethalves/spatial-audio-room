@@ -11,7 +11,7 @@
         "install-audio-api": "npm install hifi-web-audio@latest --registry https://npm.highfidelity.com/ --no-save",
         "install-local-audio-api": "npm install file:../hifi-web-audio-api --no-save",
         "build-app": "rimraf ./dist && webpack --mode production",
-        "watch-app": "rimraf ./dist && webpack --mode development --watch --progress",
+        "watch-app": "rimraf ./dist && webpack --mode development --watch --progress"
     },
     "dependencies": {
         "@daily-co/daily-js": "^0.36.1",
