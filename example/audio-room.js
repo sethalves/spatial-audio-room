@@ -136,14 +136,14 @@ const roomOptions = {
         localAudioSources: []
     },
 
-    "room-quad-music": {
-        video: false,
-        metaData: true,
-        positions: [],
-        canvasDimensions: { width: 8, height: 8 },
-        background: "Semi-transparent_HF_Logo.svg",
-        localAudioSources: []
-    },
+    //"room-quad-music": {
+    //    video: false,
+    //    metaData: true,
+    //    positions: [],
+    //    canvasDimensions: { width: 8, height: 8 },
+    //    background: "Semi-transparent_HF_Logo.svg",
+    //    localAudioSources: []
+    //},
 
     "room-bar-local": {
         video: false,
