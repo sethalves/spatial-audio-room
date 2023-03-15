@@ -717,7 +717,7 @@ async function joinRoom() {
     let transport /* : TransportManager */;
 
     {
-        transport = new TransportManagerAgora(options.appid, fetchToken);
+        // transport = new TransportManagerAgora(options.appid, fetchToken);
         // $("#rc").click(function(e) {
         //     transport.testReconnect();
         // });
@@ -727,9 +727,9 @@ async function joinRoom() {
         // signalingURL.protocol = "wss";
         // transport = new TransportManagerP2P(signalingURL);
 
-        // let roomURL = "https://sethalves.daily.co/" + currentRoomID;
-        // console.log("joining daily.co room: " + roomURL);
-        // transport = new TransportManagerDaily(roomURL);
+        let roomURL = "https://sethalves.daily.co/" + currentRoomID;
+        console.log("joining daily.co room: " + roomURL);
+        transport = new TransportManagerDaily(roomURL);
     }
 
     listenerUid = transport.generateUniqueID();
