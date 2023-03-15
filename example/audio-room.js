@@ -16,6 +16,7 @@ import { TransportManagerDaily } from "hifi-web-audio"
 
 
 import { CanvasControl } from './canvas-control.js'
+import Config from './config.json' assert { type: 'json' }
 
 function degToRad(d) {
     return Math.PI * d / 180.0;
@@ -727,7 +728,7 @@ async function joinRoom() {
         // signalingURL.protocol = "wss";
         // transport = new TransportManagerP2P(signalingURL);
 
-        let roomURL = "https://sethalves.daily.co/" + currentRoomID;
+        let roomURL = Config["DAILY_URL"] + currentRoomID;
         console.log("joining daily.co room: " + roomURL);
         transport = new TransportManagerDaily(roomURL);
     }

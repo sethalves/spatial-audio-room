@@ -36,6 +36,15 @@ npm install
 npm run install-local-audio-api
 ```
 
+### Configure the demo app
+
+Make a copy of `/example/config.template.json` as `/example/config.json`.
+
+Edit this `config.json` file:
+
+- If using Daily as the transport, set `DAILY_URL` to be your Daily account URL.
+
+
 ### Build the demo app
 
 
