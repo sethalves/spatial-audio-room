@@ -10,9 +10,9 @@
 'use strict';
 
 import { HiFiAudio } from "hifi-web-audio"
-import { TransportManagerP2P } from "hifi-web-audio"
 import { TransportManagerAgora } from "hifi-web-audio"
 import { TransportManagerDaily } from "hifi-web-audio"
+import { TransportManagerP2P } from "hifi-web-audio"
 
 
 import { CanvasControl } from './canvas-control.js'
@@ -720,20 +720,25 @@ async function joinRoom() {
 
     let transport /* : TransportManager */;
 
-    {
-        // transport = new TransportManagerAgora(options.appid, fetchToken);
-        // $("#rc").click(function(e) {
-        //     transport.testReconnect();
-        // });
-
-        // let signalingURL = new URL(window.location.href)
-        // signalingURL.pathname = "/token-server";
-        // signalingURL.protocol = "wss";
-        // transport = new TransportManagerP2P(signalingURL);
-
-        let roomURL = Config.DAILY_URL + currentRoomID;
-        console.log("joining daily.co room: " + roomURL);
-        transport = new TransportManagerDaily(roomURL);
+    switch (Config.TRANSPORT) {
+        case "agora":
+            transport = new TransportManagerAgora(options.appid, fetchToken);
+            $("#rc").click(function(e) {
+                transport.testReconnect();
+            });
+            break;
+        case "daily":
+            let roomURL = Config.DAILY_URL + currentRoomID;
+            console.log("joining daily.co room: " + roomURL);
+            transport = new TransportManagerDaily(roomURL);
+            break;
+        case "p2p":
+        default:
+            if (Config.TRANSPORT !== "p2p") {
+                console.error("Transport not specified. Defaulting to P2P.");
+            }
+            transport = new TransportManagerP2P(tokenURL);
+            break;
     }
 
     listenerUid = transport.generateUniqueID();
