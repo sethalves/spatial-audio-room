@@ -16,7 +16,7 @@ import { TransportManagerDaily } from "hifi-web-audio"
 
 
 import { CanvasControl } from './canvas-control.js'
-import Config from './config.json' assert { type: 'json' }
+import { Config } from './config.js'
 
 function degToRad(d) {
     return Math.PI * d / 180.0;
@@ -189,16 +189,19 @@ let serverCurrentRoomID = roomIDs[0];
 let localAudioSources = {};
 
 
-// assume token server is on same webserver as this app...
-let tokenURL = new URL(window.location.href)
+// Assume token server is on same webserver as the app if not configured.
+let tokenURL = new URL(Config.TOKEN_SERVER ?? window.location.href)
 let pathParts = tokenURL.pathname.split("/");
-if (process.env.NODE_ENV !== "development") {
-    tokenURL.pathname = "/token-server";
-    tokenURL.protocol = "wss";
-} else {
-    tokenURL.port = "4440";
-    tokenURL.pathname = "";
-    tokenURL.protocol = "ws";
+if (Config.TOKEN_SERVER === undefined) {
+    console.debug("$$$$... NOT");
+    if (process.env.NODE_ENV !== "development") {
+        tokenURL.pathname = "/token-server";
+        tokenURL.protocol = "wss";
+    } else {
+        tokenURL.port = "4440";
+        tokenURL.pathname = "";
+        tokenURL.protocol = "ws";
+    }
 }
 
 let demoGroupName = null;
@@ -728,7 +731,7 @@ async function joinRoom() {
         // signalingURL.protocol = "wss";
         // transport = new TransportManagerP2P(signalingURL);
 
-        let roomURL = Config["DAILY_URL"] + currentRoomID;
+        let roomURL = Config.DAILY_URL + currentRoomID;
         console.log("joining daily.co room: " + roomURL);
         transport = new TransportManagerDaily(roomURL);
     }
