@@ -190,17 +190,17 @@ let localAudioSources = {};
 
 
 // Assume token server is on same webserver as the app if not configured.
-let tokenURL = new URL(Config.TOKEN_SERVER ?? window.location.href)
-let pathParts = tokenURL.pathname.split("/");
+let tokenServerURL = new URL(Config.TOKEN_SERVER ?? window.location.href)
+let pathParts = tokenServerURL.pathname.split("/");
 if (Config.TOKEN_SERVER === undefined) {
     console.debug("$$$$... NOT");
     if (process.env.NODE_ENV !== "development") {
-        tokenURL.pathname = "/token-server";
-        tokenURL.protocol = "wss";
+        tokenServerURL.pathname = "/token-server";
+        tokenServerURL.protocol = "wss";
     } else {
-        tokenURL.port = "4440";
-        tokenURL.pathname = "";
-        tokenURL.protocol = "ws";
+        tokenServerURL.port = "4440";
+        tokenServerURL.pathname = "";
+        tokenServerURL.protocol = "ws";
     }
 }
 
@@ -258,7 +258,7 @@ function readyVideoSortable() {
 }
 
 
-let webSocket = new WebSocket(tokenURL.href);
+let webSocket = new WebSocket(tokenServerURL.href);
 webSocket.onmessage = async function (event) {
     // console.log("got websocket message: ", event.data);
     let msg = JSON.parse(event.data);
@@ -737,7 +737,7 @@ async function joinRoom() {
             if (Config.TRANSPORT !== "p2p") {
                 console.error("Transport not specified. Defaulting to P2P.");
             }
-            transport = new TransportManagerP2P(tokenURL);
+            transport = new TransportManagerP2P(tokenServerURL);
             break;
     }
 
