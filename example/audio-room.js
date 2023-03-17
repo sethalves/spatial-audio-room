@@ -690,7 +690,6 @@ async function joinRoom() {
     joined = true;
     updateRoomsUI();
 
-    options.appid = $("#appid").val();
     options.token = $("#token").val();
     options.username = $("#username").val();
 
@@ -722,7 +721,7 @@ async function joinRoom() {
 
     switch (Config.TRANSPORT) {
         case "agora":
-            transport = new TransportManagerAgora(options.appid, fetchToken);
+            transport = new TransportManagerAgora(fetchToken);
             $("#rc").click(function(e) {
                 transport.testReconnect();
             });
