@@ -195,9 +195,7 @@ let localAudioSources = {};
 
 // Assume token server is on same webserver as the app if not configured.
 let tokenServerURL = new URL(Config.TOKEN_SERVER ?? window.location.href)
-let pathParts = tokenServerURL.pathname.split("/");
 if (Config.TOKEN_SERVER === undefined) {
-    console.debug("$$$$... NOT");
     if (process.env.NODE_ENV !== "development") {
         tokenServerURL.pathname = "/token-server";
         tokenServerURL.protocol = "wss";
@@ -209,6 +207,7 @@ if (Config.TOKEN_SERVER === undefined) {
 }
 
 let demoGroupName = null;
+let pathParts = window.location.pathname.split("/");
 if (pathParts.length > 1) {
     demoGroupName = pathParts[ 1 ];
 } else {
