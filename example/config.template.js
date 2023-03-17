@@ -11,4 +11,7 @@ export const Config = {
     // If using a token server at a non-default address, the address of that server.
     // TOKEN_SERVER: "wss://***.********.***/token-server",
 
+    // Enable the "Music" room? Default is disabled.
+    // MUSIC_ROOM: true,
+
 };
