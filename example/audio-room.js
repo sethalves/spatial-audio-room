@@ -10,12 +10,13 @@
 'use strict';
 
 import { HiFiAudio } from "hifi-web-audio"
-import { TransportManagerP2P } from "hifi-web-audio"
 import { TransportManagerAgora } from "hifi-web-audio"
 import { TransportManagerDaily } from "hifi-web-audio"
+import { TransportManagerP2P } from "hifi-web-audio"
 
 
 import { CanvasControl } from './canvas-control.js'
+import { Config } from './config.js'
 
 function degToRad(d) {
     return Math.PI * d / 180.0;
@@ -110,6 +111,10 @@ function setCharacterPositionFromAudioSpace(p) {
 }
 
 
+if (Config.MUSIC_ROOM === true) {
+    $("#room-quad-music").attr("hidden", false);
+}
+
 const roomOptions = {
     "room-conf-table": {
         video: false,
@@ -188,23 +193,29 @@ let serverCurrentRoomID = roomIDs[0];
 let localAudioSources = {};
 
 
-// assume token server is on same webserver as this app...
-let tokenURL = new URL(window.location.href)
-let pathParts = tokenURL.pathname.split("/");
-if (process.env.NODE_ENV !== "development") {
-    tokenURL.pathname = "/token-server";
-    tokenURL.protocol = "wss";
-} else {
-    tokenURL.port = "4440";
-    tokenURL.pathname = "";
-    tokenURL.protocol = "ws";
+// Assume token server is on same webserver as the app if not configured.
+let tokenServerURL = new URL(Config.TOKEN_SERVER ?? window.location.href)
+if (Config.TOKEN_SERVER === undefined) {
+    if (process.env.NODE_ENV !== "development") {
+        tokenServerURL.pathname = "/token-server";
+        tokenServerURL.protocol = "wss";
+    } else {
+        tokenServerURL.port = "4440";
+        tokenServerURL.pathname = "";
+        tokenServerURL.protocol = "ws";
+    }
 }
 
 let demoGroupName = null;
-if (pathParts.length > 1) {
-    demoGroupName = pathParts[ 1 ];
+if (Config.CHANNEL_PREFIX) {
+    demoGroupName = Config.CHANNEL_PREFIX;
 } else {
-    demoGroupName = "hifi-demo";
+    let pathParts = window.location.pathname.split("/");
+    if (pathParts.length > 1) {
+        demoGroupName = pathParts[1];
+    } else {
+        demoGroupName = "hifi-demo";
+    }
 }
 
 
@@ -254,7 +265,7 @@ function readyVideoSortable() {
 }
 
 
-let webSocket = new WebSocket(tokenURL.href);
+let webSocket = new WebSocket(tokenServerURL.href);
 webSocket.onmessage = async function (event) {
     // console.log("got websocket message: ", event.data);
     let msg = JSON.parse(event.data);
@@ -278,7 +289,11 @@ webSocket.onmessage = async function (event) {
 }
 
 webSocket.onopen = async function (event) {
-    options.channel = await getRoomNamePrefix();
+    if (Config.CHANNEL_PREFIX) {
+        options.channel = Config.CHANNEL_PREFIX;
+    } else {
+        options.channel = await getRoomNamePrefix();
+    }
     getCurrentRoom();
     updateRoomsUI();
 }
@@ -686,7 +701,6 @@ async function joinRoom() {
     joined = true;
     updateRoomsUI();
 
-    options.appid = $("#appid").val();
     options.token = $("#token").val();
     options.username = $("#username").val();
 
@@ -716,20 +730,25 @@ async function joinRoom() {
 
     let transport /* : TransportManager */;
 
-    {
-        transport = new TransportManagerAgora(options.appid, fetchToken);
-        // $("#rc").click(function(e) {
-        //     transport.testReconnect();
-        // });
-
-        // let signalingURL = new URL(window.location.href)
-        // signalingURL.pathname = "/token-server";
-        // signalingURL.protocol = "wss";
-        // transport = new TransportManagerP2P(signalingURL);
-
-        // let roomURL = "https://sethalves.daily.co/" + currentRoomID;
-        // console.log("joining daily.co room: " + roomURL);
-        // transport = new TransportManagerDaily(roomURL);
+    switch (Config.TRANSPORT) {
+        case "agora":
+            transport = new TransportManagerAgora(fetchToken);
+            $("#rc").click(function(e) {
+                transport.testReconnect();
+            });
+            break;
+        case "daily":
+            let roomURL = Config.DAILY_URL + currentRoomID;
+            console.log("joining daily.co room: " + roomURL);
+            transport = new TransportManagerDaily(roomURL);
+            break;
+        case "p2p":
+        default:
+            if (Config.TRANSPORT !== "p2p") {
+                console.error("Transport not specified. Defaulting to P2P.");
+            }
+            transport = new TransportManagerP2P(tokenServerURL);
+            break;
     }
 
     listenerUid = transport.generateUniqueID();
