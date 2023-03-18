@@ -207,11 +207,15 @@ if (Config.TOKEN_SERVER === undefined) {
 }
 
 let demoGroupName = null;
-let pathParts = window.location.pathname.split("/");
-if (pathParts.length > 1) {
-    demoGroupName = pathParts[ 1 ];
+if (Config.CHANNEL_PREFIX) {
+    demoGroupName = Config.CHANNEL_PREFIX;
 } else {
-    demoGroupName = "hifi-demo";
+    let pathParts = window.location.pathname.split("/");
+    if (pathParts.length > 1) {
+        demoGroupName = pathParts[1];
+    } else {
+        demoGroupName = "hifi-demo";
+    }
 }
 
 
@@ -285,7 +289,11 @@ webSocket.onmessage = async function (event) {
 }
 
 webSocket.onopen = async function (event) {
-    options.channel = await getRoomNamePrefix();
+    if (Config.CHANNEL_PREFIX) {
+        options.channel = Config.CHANNEL_PREFIX;
+    } else {
+        options.channel = await getRoomNamePrefix();
+    }
     getCurrentRoom();
     updateRoomsUI();
 }

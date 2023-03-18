@@ -5,6 +5,10 @@ export const Config = {
     // TRANSPORT: "daily",
     // TRANSPORT: "p2p",
 
+    // The channel prefix to use.
+    // Default is to use that returned by the token server: a value that depends on the URL path, with fall-back to "hifi-demo".
+    // CHANNEL_PREFIX: "********",
+
     // If using the Daily transport, the account URL to use.
     // DAILY_URL: "https://********.daily.co/",
 
