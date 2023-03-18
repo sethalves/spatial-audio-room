@@ -13,7 +13,9 @@ export const Config = {
     // DAILY_URL: "https://********.daily.co/",
 
     // If using a token server at a non-default address, the address of that server.
+    // Default is: wss://<app-domain>/token-server
     // TOKEN_SERVER: "wss://***.********.***/token-server",
+    // TOKEN_SERVER: "ws://localhost:4440/token-server",
 
     // Enable the "Music" room? Default is disabled.
     // MUSIC_ROOM: true,

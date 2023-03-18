@@ -19,6 +19,11 @@ Make a local copy of the HiFi Spatial Audio Room repo:
 git clone https://github.com/highfidelity/spatial-audio-room-demo.git
 ```
 
+### Token server
+
+A *HiFi Agora Token Server* - either the URL of an existing one or set up and run a copy for the demo app to use.
+
+
 
 ## Development
 
@@ -45,6 +50,7 @@ Edit this `config.js` file:
 `hifi-demo:room-conf-table`).
 - If using Daily as the transport, set `DAILY_URL` to be your Daily account URL.
 - If using a non-default token server, set the `TOKEN_SERVER` address.
+- Enable the "Music" room if wanted.
 
 
 ### Build the demo app
@@ -59,23 +65,17 @@ For local development, with hot rebuild:
 npm run watch
 ```
 
-### Run the demo app locally
+### Run the demo app
 
-Host the `/dist` directory on a Web server - e.g., add this directory as a virtual directory on localhost.
+Host the `/dist` directory on a Web server - either public or localhost.
 
-Load the demo app in a browser.
-
-### Run the demo app and token server locally
-
-Build the app using `npm run watch-app`.
-
-Host the `/dist` directory on a Web server and make it run as one of the following URLs:
+If the `CHANNEL_PREFIX` hasn't been configured, it is recommended that you host the app at one of the following paths:
 ```
-http://localhost/snap
-http://localhost/crackle
-http://localhost/pop
+http://<domain>/snap
+http://<domain>/crackle
+http://<domain>/pop
 ```
 
-Run a local copy of the *HiFi Agora Token Server*.
+If you've configured a token server, ensure that it's running.
 
 Load the demo app in a browser.
