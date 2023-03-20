@@ -67,6 +67,17 @@ npm run watch
 
 ### Run the demo app
 
+#### Using a dev server
+
+For local development, with hot reload:
+```
+npm run serve
+```
+This runs the app at `http://localhost:8080` and loads it in your Web browser.
+
+
+#### Using a Web server
+
 Host the `/dist` directory on a Web server - either public or localhost.
 
 If the `CHANNEL_PREFIX` hasn't been configured, it is recommended that you host the app at one of the following paths:

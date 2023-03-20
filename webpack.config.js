@@ -43,6 +43,14 @@ module.exports = (env, argv) => {
         output: {
             filename: 'audio-room.js',
             path: path.resolve(__dirname, 'dist')
+        },
+        devServer: {
+            static: {
+                directory: './dist'
+            },
+            devMiddleware: {
+                writeToDisk: true
+            },
         }
     };
 
