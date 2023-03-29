@@ -475,22 +475,25 @@ function updateVideoPositions() {
 
     // center the horizontal axis at zero
     let xoff = (xmin + xmax) / 2;
-    xmin -= xoff;
     xmax -= xoff;
 
-    // compute azimuth from center of video element
+    // listener is always at the origin, looking forward
+    hiFiAudio.setListenerPosition(0.0, 0.0, 0.0);
+
+    // for each source, compute azimuth from center of video element
     order.forEach((uid, i) => {
         let rect = sortable.el.children[i].getClientRects();
         if (rect && rect[0]) {
 
             let x = (rect[0].left + rect[0].right) / 2 - xoff;
-            let rectWidth = rect[0].right - rect[0].left;
-            let xInAudioSpace = x / rectWidth;
+            let azimuth = (Math.PI / 2) * (x / xmax);   // linear, not atan(x)
+            let distance = 1.0;
 
-            if (uid == listenerUid || uid == 0) {
-                hiFiAudio.setListenerPosition(xInAudioSpace, 0, 0);
-            } else {
-                hiFiAudio.setSourcePosition(uid, xInAudioSpace, 0);
+            if (uid != listenerUid && uid != 0) {
+                let px = distance * Math.sin(azimuth);
+                let py = distance * Math.cos(azimuth);
+                hiFiAudio.setSourcePosition(uid, px, py);
+                console.log("Set uid =", uid, "to azimuth =", (azimuth * 180) / Math.PI, "pos =", px, py);
             }
         }
     });
